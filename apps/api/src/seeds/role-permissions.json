@@ -1,0 +1,387 @@
+{
+  "$schema": "Source: docs/01-information-architecture.md § 10.2 (permission catalog) + § 10.3 (role matrix). Edit there first.",
+  "permissions": [
+    {
+      "key": "dashboard.view",
+      "resource": "dashboard",
+      "action": "view",
+      "description": "View an admin dashboard."
+    },
+    {
+      "key": "org.setup",
+      "resource": "org",
+      "action": "setup",
+      "description": "Run the first-time onboarding wizard."
+    },
+    {
+      "key": "org.settings.read",
+      "resource": "org",
+      "action": "settings.read",
+      "description": "Read organization settings."
+    },
+    {
+      "key": "org.settings.write",
+      "resource": "org",
+      "action": "settings.write",
+      "description": "Modify organization settings."
+    },
+    {
+      "key": "org.structure.read",
+      "resource": "org",
+      "action": "structure.read",
+      "description": "Read departments, designations, locations."
+    },
+    {
+      "key": "org.structure.write",
+      "resource": "org",
+      "action": "structure.write",
+      "description": "Modify departments, designations, locations."
+    },
+    {
+      "key": "rbac.read",
+      "resource": "rbac",
+      "action": "read",
+      "description": "Read roles and permissions."
+    },
+    {
+      "key": "rbac.write",
+      "resource": "rbac",
+      "action": "write",
+      "description": "Modify roles and permissions."
+    },
+    {
+      "key": "employee.read",
+      "resource": "employee",
+      "action": "read",
+      "description": "Read employees."
+    },
+    {
+      "key": "employee.create",
+      "resource": "employee",
+      "action": "create",
+      "description": "Create an employee."
+    },
+    {
+      "key": "employee.update",
+      "resource": "employee",
+      "action": "update",
+      "description": "Update an employee."
+    },
+    {
+      "key": "employee.delete",
+      "resource": "employee",
+      "action": "delete",
+      "description": "Deactivate or soft-delete an employee."
+    },
+    {
+      "key": "employee.invite",
+      "resource": "employee",
+      "action": "invite",
+      "description": "Send or resend an employee invitation."
+    },
+    {
+      "key": "employee.import",
+      "resource": "employee",
+      "action": "import",
+      "description": "Bulk-import employees from CSV."
+    },
+    {
+      "key": "employee.export",
+      "resource": "employee",
+      "action": "export",
+      "description": "Export employees as CSV."
+    },
+    {
+      "key": "employee.documents.read",
+      "resource": "employee_documents",
+      "action": "read",
+      "description": "Read documents for an employee."
+    },
+    {
+      "key": "employee.documents.write",
+      "resource": "employee_documents",
+      "action": "write",
+      "description": "Issue documents to an employee."
+    },
+    {
+      "key": "attendance.read",
+      "resource": "attendance",
+      "action": "read",
+      "description": "Read attendance records (scoped by role)."
+    },
+    {
+      "key": "attendance.write",
+      "resource": "attendance",
+      "action": "write",
+      "description": "Check in / out or submit regularization."
+    },
+    {
+      "key": "attendance.approve",
+      "resource": "attendance",
+      "action": "approve",
+      "description": "Approve attendance regularizations."
+    },
+    {
+      "key": "attendance.policy.read",
+      "resource": "attendance_policy",
+      "action": "read",
+      "description": "Read attendance policies."
+    },
+    {
+      "key": "attendance.policy.write",
+      "resource": "attendance_policy",
+      "action": "write",
+      "description": "Modify attendance policies."
+    },
+    {
+      "key": "attendance.export",
+      "resource": "attendance",
+      "action": "export",
+      "description": "Export attendance data."
+    },
+    {
+      "key": "leave.read",
+      "resource": "leave",
+      "action": "read",
+      "description": "Read leave requests and balances."
+    },
+    {
+      "key": "leave.create",
+      "resource": "leave",
+      "action": "create",
+      "description": "Apply for leave."
+    },
+    {
+      "key": "leave.update",
+      "resource": "leave",
+      "action": "update",
+      "description": "Edit pending leave request."
+    },
+    {
+      "key": "leave.cancel",
+      "resource": "leave",
+      "action": "cancel",
+      "description": "Cancel a pending leave or withdraw an approved one."
+    },
+    {
+      "key": "leave.approve",
+      "resource": "leave",
+      "action": "approve",
+      "description": "Approve leave requests."
+    },
+    {
+      "key": "leave.reject",
+      "resource": "leave",
+      "action": "reject",
+      "description": "Reject leave requests."
+    },
+    {
+      "key": "leave.policy.read",
+      "resource": "leave_policy",
+      "action": "read",
+      "description": "Read leave types and policies."
+    },
+    {
+      "key": "leave.policy.write",
+      "resource": "leave_policy",
+      "action": "write",
+      "description": "Modify leave types and policies."
+    },
+    {
+      "key": "leave.balance.adjust",
+      "resource": "leave_balance",
+      "action": "adjust",
+      "description": "Manually adjust a leave balance."
+    },
+    {
+      "key": "leave.export",
+      "resource": "leave",
+      "action": "export",
+      "description": "Export leave data."
+    },
+    {
+      "key": "document.read",
+      "resource": "document",
+      "action": "read",
+      "description": "Read distributed documents."
+    },
+    {
+      "key": "document.create",
+      "resource": "document",
+      "action": "create",
+      "description": "Create or upload documents."
+    },
+    {
+      "key": "document.update",
+      "resource": "document",
+      "action": "update",
+      "description": "Modify documents."
+    },
+    {
+      "key": "document.delete",
+      "resource": "document",
+      "action": "delete",
+      "description": "Archive or delete documents."
+    },
+    {
+      "key": "document.acknowledge",
+      "resource": "document",
+      "action": "acknowledge",
+      "description": "Acknowledge a document."
+    },
+    {
+      "key": "document.category.read",
+      "resource": "document_category",
+      "action": "read",
+      "description": "Read document categories."
+    },
+    {
+      "key": "document.category.write",
+      "resource": "document_category",
+      "action": "write",
+      "description": "Modify document categories."
+    },
+    {
+      "key": "announcement.read",
+      "resource": "announcement",
+      "action": "read",
+      "description": "Read announcements."
+    },
+    {
+      "key": "announcement.create",
+      "resource": "announcement",
+      "action": "create",
+      "description": "Compose announcements."
+    },
+    {
+      "key": "announcement.update",
+      "resource": "announcement",
+      "action": "update",
+      "description": "Modify announcements."
+    },
+    {
+      "key": "announcement.delete",
+      "resource": "announcement",
+      "action": "delete",
+      "description": "Archive announcements."
+    },
+    {
+      "key": "announcement.publish",
+      "resource": "announcement",
+      "action": "publish",
+      "description": "Publish announcements."
+    },
+    {
+      "key": "announcement.acknowledge",
+      "resource": "announcement",
+      "action": "acknowledge",
+      "description": "Acknowledge an announcement."
+    },
+    {
+      "key": "holiday.read",
+      "resource": "holiday",
+      "action": "read",
+      "description": "Read holiday calendars."
+    },
+    {
+      "key": "holiday.write",
+      "resource": "holiday",
+      "action": "write",
+      "description": "Modify holiday calendars."
+    },
+    {
+      "key": "audit.read",
+      "resource": "audit",
+      "action": "read",
+      "description": "Read the audit log."
+    }
+  ],
+  "roles": [
+    {
+      "key": "super_admin",
+      "name": "Super Admin",
+      "description": "Owner role. Manages roles, billing (future), and dangerous settings.",
+      "isSystem": true,
+      "permissions": "*"
+    },
+    {
+      "key": "hr_admin",
+      "name": "HR Admin",
+      "description": "Full HR operations. Cannot manage roles or billing.",
+      "isSystem": true,
+      "permissions": [
+        "dashboard.view",
+        "org.settings.read",
+        "org.structure.read",
+        "org.structure.write",
+        "employee.read",
+        "employee.create",
+        "employee.update",
+        "employee.delete",
+        "employee.invite",
+        "employee.import",
+        "employee.export",
+        "employee.documents.read",
+        "employee.documents.write",
+        "attendance.read",
+        "attendance.write",
+        "attendance.approve",
+        "attendance.policy.read",
+        "attendance.export",
+        "leave.read",
+        "leave.create",
+        "leave.update",
+        "leave.cancel",
+        "leave.approve",
+        "leave.reject",
+        "leave.policy.read",
+        "leave.policy.write",
+        "leave.balance.adjust",
+        "leave.export",
+        "document.read",
+        "document.create",
+        "document.update",
+        "document.delete",
+        "document.acknowledge",
+        "document.category.read",
+        "document.category.write",
+        "announcement.read",
+        "announcement.create",
+        "announcement.update",
+        "announcement.delete",
+        "announcement.publish",
+        "announcement.acknowledge",
+        "holiday.read",
+        "holiday.write"
+      ]
+    },
+    {
+      "key": "manager",
+      "name": "Manager",
+      "description": "Placeholder for Phase 2 team-scoped approvals. No extra powers in Phase 1.",
+      "isSystem": true,
+      "permissions": [
+        "dashboard.view",
+        "announcement.read",
+        "announcement.acknowledge",
+        "holiday.read"
+      ]
+    },
+    {
+      "key": "employee",
+      "name": "Employee",
+      "description": "Self-service only.",
+      "isSystem": true,
+      "permissions": [
+        "attendance.write",
+        "leave.create",
+        "leave.update",
+        "leave.cancel",
+        "document.acknowledge",
+        "announcement.read",
+        "announcement.acknowledge",
+        "holiday.read"
+      ]
+    }
+  ]
+}

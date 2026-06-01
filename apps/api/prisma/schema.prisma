@@ -1,0 +1,313 @@
+// Staffly — Identity, Tenancy & RBAC (Sprint 0 Batch 2).
+//
+// Source of truth: docs/02-database-design.md § 2.1.
+// Conventions: snake_case tables / columns, UUIDv7 PKs (Postgres 18 native uuidv7()),
+// timestamptz, soft delete via deleted_at where applicable.
+//
+// Domain modules (employees, attendance, leave, …) are added in their own sprints.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = []
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum OrgPlan {
+  trial
+  starter
+  growth
+  enterprise
+
+  @@map("org_plan")
+}
+
+enum OrgStatus {
+  active
+  suspended
+  cancelled
+
+  @@map("org_status")
+}
+
+enum UserStatus {
+  invited
+  active
+  disabled
+
+  @@map("user_status")
+}
+
+enum Portal {
+  admin
+  employee
+
+  @@map("portal")
+}
+
+enum PermissionScope {
+  global
+  team
+  self
+  assigned
+
+  @@map("permission_scope")
+}
+
+enum NotificationPriority {
+  low
+  normal
+  high
+
+  @@map("notification_priority")
+}
+
+// ─── Organizations ──────────────────────────────────────────────────────────
+
+model Organization {
+  id              String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name            String    @db.VarChar(120)
+  slug            String    @unique @db.VarChar(60)
+  legalName       String?   @map("legal_name") @db.VarChar(180)
+  domain          String?   @db.VarChar(180)
+  logoUrl         String?   @map("logo_url")
+  primaryColor    String    @default("#0F172A") @map("primary_color") @db.VarChar(9)
+  timezone        String    @default("Etc/UTC") @db.VarChar(64)
+  locale          String    @default("en-US") @db.VarChar(16)
+  currency        String    @default("USD") @db.Char(3)
+  weekStart       Int       @default(1) @map("week_start") @db.SmallInt
+  billingEmail    String?   @map("billing_email") @db.VarChar(254)
+  plan            OrgPlan   @default(trial)
+  status          OrgStatus @default(active)
+  trialEndsAt     DateTime? @map("trial_ends_at") @db.Timestamptz(6)
+  settingsVersion Int       @default(1) @map("settings_version")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy       String?   @map("created_by") @db.Uuid
+  updatedBy       String?   @map("updated_by") @db.Uuid
+
+  settings                OrgSetting[]
+  users                   User[]
+  refreshTokens           RefreshToken[]
+  roles                   Role[]
+  rolePermissions         RolePermission[]
+  userRoles               UserRole[]
+  auditLogs               AuditLog[]
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+
+  @@unique([domain])
+  @@index([status])
+  @@index([plan])
+  @@map("organizations")
+}
+
+model OrgSetting {
+  organizationId String   @map("organization_id") @db.Uuid
+  key            String   @db.VarChar(100)
+  value          Json     @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, key])
+  @@map("org_settings")
+}
+
+// ─── Users ──────────────────────────────────────────────────────────────────
+
+model User {
+  id                        String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId            String     @map("organization_id") @db.Uuid
+  email                     String     @db.VarChar(254)
+  emailVerifiedAt           DateTime?  @map("email_verified_at") @db.Timestamptz(6)
+  passwordHash              String?    @map("password_hash")
+  status                    UserStatus @default(invited)
+  inviteTokenHash           String?    @map("invite_token_hash") @db.VarChar(128)
+  inviteTokenExpiresAt      DateTime?  @map("invite_token_expires_at") @db.Timestamptz(6)
+  twoFactorEnabled          Boolean    @default(false) @map("two_factor_enabled")
+  twoFactorSecretEnc        String?    @map("two_factor_secret_enc")
+  twoFactorRecoveryCodesEnc String?    @map("two_factor_recovery_codes_enc")
+  lastLoginAt               DateTime?  @map("last_login_at") @db.Timestamptz(6)
+  lastLoginIp               String?    @map("last_login_ip") @db.Inet
+  failedLoginCount          Int        @default(0) @map("failed_login_count")
+  lockedUntil               DateTime?  @map("locked_until") @db.Timestamptz(6)
+  defaultPortal             Portal     @default(employee) @map("default_portal")
+  preferences               Json       @default("{}") @db.JsonB
+  createdAt                 DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                 DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                 DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  createdBy                 String?    @map("created_by") @db.Uuid
+  updatedBy                 String?    @map("updated_by") @db.Uuid
+
+  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  refreshTokens           RefreshToken[]
+  userRoles               UserRole[]
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+
+  @@unique([organizationId, email])
+  @@unique([email])
+  @@index([organizationId, status])
+  @@index([inviteTokenHash])
+  @@map("users")
+}
+
+model RefreshToken {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  tokenHash      String    @unique @map("token_hash") @db.Char(64)
+  parentId       String?   @map("parent_id") @db.Uuid
+  userAgent      String?   @map("user_agent")
+  ipAddress      String?   @map("ip_address") @db.Inet
+  issuedAt       DateTime  @default(now()) @map("issued_at") @db.Timestamptz(6)
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(6)
+  revokeReason   String?   @map("revoke_reason") @db.VarChar(40)
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent       RefreshToken?  @relation("RefreshTokenChain", fields: [parentId], references: [id], onDelete: SetNull)
+  children     RefreshToken[] @relation("RefreshTokenChain")
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// ─── RBAC ───────────────────────────────────────────────────────────────────
+
+model Role {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  key            String    @db.VarChar(40)
+  name           String    @db.VarChar(80)
+  description    String?
+  isSystem       Boolean   @default(false) @map("is_system")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([organizationId, key])
+  @@map("roles")
+}
+
+/// Global catalog of permission keys. Not tenant-scoped.
+model Permission {
+  key         String   @id @db.VarChar(80)
+  resource    String   @db.VarChar(40)
+  action      String   @db.VarChar(40)
+  description String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  rolePermissions RolePermission[]
+
+  @@index([resource])
+  @@map("permissions")
+}
+
+model RolePermission {
+  organizationId String          @map("organization_id") @db.Uuid
+  roleId         String          @map("role_id") @db.Uuid
+  permissionKey  String          @map("permission_key") @db.VarChar(80)
+  scope          PermissionScope @default(global)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission   @relation(fields: [permissionKey], references: [key], onDelete: Restrict)
+
+  @@id([roleId, permissionKey])
+  @@index([organizationId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  roleId         String   @map("role_id") @db.Uuid
+  assignedAt     DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  assignedBy     String?  @map("assigned_by") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([organizationId])
+  @@map("user_roles")
+}
+
+// ─── Audit & Notifications ──────────────────────────────────────────────────
+
+model AuditLog {
+  id             String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  actorUserId    String?  @map("actor_user_id") @db.Uuid
+  actorIp        String?  @map("actor_ip") @db.Inet
+  action         String   @db.VarChar(80)
+  resourceType   String   @map("resource_type") @db.VarChar(40)
+  resourceId     String?  @map("resource_id") @db.Uuid
+  before         Json?    @db.JsonB
+  after          Json?    @db.JsonB
+  metadata       Json     @default("{}") @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([resourceType, resourceId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id             String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  userId         String               @map("user_id") @db.Uuid
+  templateId     String               @map("template_id") @db.VarChar(40)
+  payload        Json                 @default("{}") @db.JsonB
+  linkTo         String?              @map("link_to")
+  priority       NotificationPriority @default(normal)
+  readAt         DateTime?            @map("read_at") @db.Timestamptz(6)
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy      String?              @map("created_by") @db.Uuid
+  updatedBy      String?              @map("updated_by") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, readAt])
+  @@index([createdAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  organizationId String  @map("organization_id") @db.Uuid
+  userId         String  @map("user_id") @db.Uuid
+  templateId     String  @map("template_id") @db.VarChar(40)
+  emailEnabled   Boolean @default(true) @map("email_enabled")
+  inappEnabled   Boolean @default(true) @map("inapp_enabled")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, templateId])
+  @@index([organizationId])
+  @@map("notification_preferences")
+}
