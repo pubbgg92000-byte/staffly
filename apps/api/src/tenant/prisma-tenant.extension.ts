@@ -118,11 +118,18 @@ export function tenantExtension() {
 
           if (READ_OPS.has(operation) || MUTATE_OPS.has(operation)) {
             return query(
-              withTenantWhere(args as ExtensionArgs, orgId, model, operation),
+              withTenantWhere(
+                args as ExtensionArgs,
+                orgId,
+                model,
+                operation,
+              ) as typeof args,
             );
           }
           if (CREATE_OPS.has(operation)) {
-            return query(withTenantData(args as ExtensionArgs, orgId));
+            return query(
+              withTenantData(args as ExtensionArgs, orgId) as typeof args,
+            );
           }
           if (UPSERT_OPS.has(operation)) {
             const a = (args as ExtensionArgs) ?? {};
@@ -141,7 +148,7 @@ export function tenantExtension() {
                 ...(a.create as ExtensionArgs),
               };
             }
-            return query(merged);
+            return query(merged as typeof args);
           }
           return query(args);
         },

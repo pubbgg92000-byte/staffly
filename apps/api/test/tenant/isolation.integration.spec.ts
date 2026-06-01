@@ -13,7 +13,7 @@ import {
   type StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
 import { execSync } from "node:child_process";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
 import {
   buildTenantClient,
   type TenantPrismaClient,
@@ -91,13 +91,13 @@ describe("Prisma tenant extension — isolation", () => {
 
   it("scoped create auto-stamps the active tenant's organizationId", async () => {
     await runWithTenant({ organizationId: ORG_A }, async () => {
+      // Prisma's generated type requires organizationId here. The tenant
+      // extension injects it at runtime — this cast asserts the runtime
+      // behavior the test is verifying.
       const created = await scoped.user.create({
-        // Prisma's generated type requires organizationId here. The tenant extension
-        // injects it at runtime — this cast asserts the runtime behavior the test
-        // is verifying.
-        data: { email: "carol@acme.test" } as unknown as Parameters<
-          typeof scoped.user.create
-        >[0]["data"],
+        data: {
+          email: "carol@acme.test",
+        } as unknown as Prisma.UserUncheckedCreateInput,
       });
       expect(created.organizationId).toBe(ORG_A);
     });
