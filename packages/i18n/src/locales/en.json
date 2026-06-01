@@ -1,0 +1,15 @@
+{
+  "app.name": "Staffly",
+  "auth.signIn.title": "Sign in to Staffly",
+  "auth.signIn.email": "Work email",
+  "auth.signIn.password": "Password",
+  "auth.signIn.submit": "Sign in",
+  "auth.signIn.forgot": "Forgot password?",
+  "auth.signIn.errorGeneric": "We couldn't sign you in. Check your email or password.",
+  "auth.forgot.title": "Reset your password",
+  "auth.forgot.help": "Enter your work email. If an account exists, we'll send a reset link.",
+  "common.loading": "Loading…",
+  "common.errorGeneric": "Something went wrong. Please try again.",
+  "nav.dashboard": "Dashboard",
+  "dashboard.welcome": "Welcome to Staffly"
+}

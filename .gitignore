@@ -1,10 +1,29 @@
+# dependencies
 node_modules
+.pnpm-store
+
+# build artefacts
 .turbo
 .next
 dist
+build
 coverage
+*.tsbuildinfo
+
+# env
 .env
 .env.*
 !.env.example
-*.log
+
+# editor / OS
 .DS_Store
+*.log
+
+# claude code session state
+.claude/
+
+# prisma scratch
+prisma/migrations/.tmp
+
+# storybook
+storybook-static

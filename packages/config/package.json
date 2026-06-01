@@ -1,0 +1,27 @@
+{
+  "name": "@staffly/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tsconfig.base.json": "./tsconfig.base.json",
+    "./tsconfig.next.json": "./tsconfig.next.json",
+    "./tsconfig.nest.json": "./tsconfig.nest.json",
+    "./tailwind-preset": "./tailwind.preset.cjs",
+    "./eslint-preset": "./eslint.preset.mjs",
+    "./prettier": "./prettier.cjs"
+  },
+  "files": [
+    "tsconfig.base.json",
+    "tsconfig.next.json",
+    "tsconfig.nest.json",
+    "tailwind.preset.cjs",
+    "eslint.preset.mjs",
+    "prettier.cjs"
+  ],
+  "scripts": {
+    "lint": "echo \"no sources to lint\"",
+    "typecheck": "echo \"no sources to typecheck\"",
+    "build": "echo \"no build step\""
+  }
+}

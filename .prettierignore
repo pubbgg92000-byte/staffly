@@ -1,0 +1,11 @@
+node_modules
+.pnpm-store
+.turbo
+.next
+dist
+build
+coverage
+*.tsbuildinfo
+docs/**/*.md
+pnpm-lock.yaml
+.claude/
