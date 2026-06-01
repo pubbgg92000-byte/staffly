@@ -62,7 +62,12 @@ export function withTenantWhere(
     ? (next.where as Record<string, unknown>)
     : {};
   assertWhereOrgMatches(existingWhere, orgId, model, op);
-  next.where = { AND: [{ organizationId: orgId }, existingWhere] };
+  // Merge organizationId alongside existing filters rather than wrapping in
+  // AND. findUnique/update/delete take WhereUniqueInput, which requires a
+  // unique field at the top level — wrapping in AND would strip that.
+  // WhereUniqueInput accepts extra non-unique filter fields in Prisma 5+,
+  // so this preserves the unique constraint AND scopes by tenant.
+  next.where = { ...existingWhere, organizationId: orgId };
   return next;
 }
 

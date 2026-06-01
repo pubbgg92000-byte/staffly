@@ -76,7 +76,7 @@ describe("assertWhereOrgMatches", () => {
 describe("withTenantWhere", () => {
   it("injects organizationId when no where supplied", () => {
     const out = withTenantWhere(undefined, ORG_A, "User", "findMany");
-    expect(out.where).toEqual({ AND: [{ organizationId: ORG_A }, {}] });
+    expect(out.where).toEqual({ organizationId: ORG_A });
   });
 
   it("preserves caller-supplied where", () => {
@@ -87,7 +87,8 @@ describe("withTenantWhere", () => {
       "findMany",
     );
     expect(out.where).toEqual({
-      AND: [{ organizationId: ORG_A }, { email: "x@y.com" }],
+      email: "x@y.com",
+      organizationId: ORG_A,
     });
   });
 

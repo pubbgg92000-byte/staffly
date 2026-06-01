@@ -2,7 +2,7 @@
 #   docker compose -f infra/docker-compose.dev.yml up -d
 #
 # Services:
-#   postgres  16        DB                http://localhost:5432
+#   postgres  18        DB                http://localhost:5433
 #   redis     7         cache + queues    http://localhost:6379
 #   mailhog             dev SMTP + UI     SMTP :1025  UI :8025
 #   minio               S3-compatible     :9000   console :9001
@@ -20,9 +20,13 @@ services:
       POSTGRES_PASSWORD: staffly_dev_password
       POSTGRES_DB: staffly
     ports:
-      - "5432:5432"
+      # Host 5433 → container 5432 to avoid collisions with a local Postgres
+      # listening on 5432. Update apps/api/.env DATABASE_URL to match.
+      - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # PG 18+ images store data under /var/lib/postgresql/<major>/docker
+      # (pg_ctlcluster layout). Mount the parent so the image can manage that.
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U staffly -d staffly"]
       interval: 5s
