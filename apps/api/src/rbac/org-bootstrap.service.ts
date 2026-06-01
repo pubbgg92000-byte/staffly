@@ -1,0 +1,63 @@
+import { Injectable } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
+import {
+  SYSTEM_ROLES,
+  expandRolePermissions,
+  type RoleKey,
+} from "./system-roles";
+
+/**
+ * Materializes the four system roles into a new organization.
+ *
+ * Designed to run inside a Prisma transaction owned by the caller (signup),
+ * so it accepts a `Prisma.TransactionClient` rather than reaching for a
+ * shared `PrismaService`. The Permission catalog (global, shared across orgs)
+ * is assumed to already be seeded via `prisma db seed`.
+ *
+ * Idempotent at the role level: re-running for the same org is a no-op for
+ * roles whose `(organizationId, key)` already exists. The first call creates
+ * every (role, permission) edge.
+ */
+@Injectable()
+export class OrgBootstrapService {
+  async bootstrap(
+    tx: Prisma.TransactionClient,
+    organizationId: string,
+  ): Promise<Record<RoleKey, string>> {
+    const roleIdByKey = {} as Record<RoleKey, string>;
+
+    for (const role of SYSTEM_ROLES) {
+      const created = await tx.role.upsert({
+        where: {
+          organizationId_key: {
+            organizationId,
+            key: role.key,
+          },
+        },
+        create: {
+          organizationId,
+          key: role.key,
+          name: role.name,
+          description: role.description,
+          isSystem: role.isSystem,
+        },
+        update: {},
+      });
+      roleIdByKey[role.key] = created.id;
+
+      const permKeys = expandRolePermissions(role);
+      if (permKeys.length === 0) continue;
+
+      await tx.rolePermission.createMany({
+        data: permKeys.map((permissionKey) => ({
+          organizationId,
+          roleId: created.id,
+          permissionKey,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return roleIdByKey;
+  }
+}

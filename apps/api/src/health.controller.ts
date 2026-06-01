@@ -1,9 +1,11 @@
 import { Controller, Get } from "@nestjs/common";
+import { Public } from "./auth/decorators/public.decorator";
 
 /**
- * Liveness + readiness endpoints. In Batch 3 the readyz check will also probe
- * Postgres and Redis; for Batch 1 it returns a static `ok`.
+ * Liveness + readiness endpoints. Marked @Public() so they don't require auth.
+ * (A deeper readyz that probes Postgres + Redis lands in a later batch.)
  */
+@Public()
 @Controller()
 export class HealthController {
   @Get("/healthz")
