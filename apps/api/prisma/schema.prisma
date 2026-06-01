@@ -67,6 +67,54 @@ enum NotificationPriority {
   @@map("notification_priority")
 }
 
+enum EmployeeStatus {
+  invited
+  active
+  on_leave
+  suspended
+  offboarded
+
+  @@map("employee_status")
+}
+
+enum EmploymentType {
+  full_time
+  part_time
+  intern
+  contractor
+  consultant
+
+  @@map("employment_type")
+}
+
+enum WorkMode {
+  onsite
+  hybrid
+  remote
+
+  @@map("work_mode")
+}
+
+enum Gender {
+  male
+  female
+  non_binary
+  prefer_not_to_say
+  other
+
+  @@map("gender")
+}
+
+enum MaritalStatus {
+  single
+  married
+  divorced
+  widowed
+  other
+
+  @@map("marital_status")
+}
+
 // ─── Organizations ──────────────────────────────────────────────────────────
 
 model Organization {
@@ -101,6 +149,10 @@ model Organization {
   auditLogs               AuditLog[]
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
+  employees               Employee[]
+  departments             Department[]
+  designations            Designation[]
+  locations               Location[]
 
   @@unique([domain])
   @@index([status])
@@ -310,4 +362,128 @@ model NotificationPreference {
   @@id([userId, templateId])
   @@index([organizationId])
   @@map("notification_preferences")
+}
+
+// ─── Org structure ──────────────────────────────────────────────────────────
+
+model Department {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String    @db.VarChar(100)
+  code           String?   @db.VarChar(20)
+  parentId       String?   @map("parent_id") @db.Uuid
+  headEmployeeId String?   @map("head_employee_id") @db.Uuid
+  description    String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       Department?  @relation("DepartmentTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children     Department[] @relation("DepartmentTree")
+  employees    Employee[]
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@map("departments")
+}
+
+model Designation {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String    @db.VarChar(120)
+  level          Int?      @db.SmallInt
+  description    String?
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("designations")
+}
+
+model Location {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String    @db.VarChar(120)
+  code           String?   @db.VarChar(20)
+  addressLine1   String?   @map("address_line1") @db.VarChar(180)
+  addressLine2   String?   @map("address_line2") @db.VarChar(180)
+  city           String?   @db.VarChar(80)
+  state          String?   @db.VarChar(80)
+  country        String?   @db.Char(2)
+  postalCode     String?   @map("postal_code") @db.VarChar(20)
+  timezone       String    @default("Etc/UTC") @db.VarChar(64)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("locations")
+}
+
+model Employee {
+  id               String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId   String         @map("organization_id") @db.Uuid
+  userId           String?        @unique @map("user_id") @db.Uuid
+  employeeCode     String         @map("employee_code") @db.VarChar(32)
+  firstName        String         @map("first_name") @db.VarChar(60)
+  middleName       String?        @map("middle_name") @db.VarChar(60)
+  lastName         String         @map("last_name") @db.VarChar(60)
+  displayName      String         @map("display_name") @db.VarChar(120)
+  personalEmail    String?        @map("personal_email") @db.VarChar(254)
+  workEmail        String         @map("work_email") @db.VarChar(254)
+  mobilePhoneE164  String?        @map("mobile_phone_e164") @db.VarChar(20)
+  dateOfBirth      DateTime?      @map("date_of_birth") @db.Date
+  gender           Gender?
+  nationality      String?        @db.Char(2)
+  maritalStatus    MaritalStatus? @map("marital_status")
+  bloodGroup       String?        @map("blood_group") @db.VarChar(3)
+  profilePhotoUrl  String?        @map("profile_photo_url")
+  status           EmployeeStatus @default(invited)
+  joinedOn         DateTime?      @map("joined_on") @db.Date
+  confirmedOn      DateTime?      @map("confirmed_on") @db.Date
+  terminatedOn     DateTime?      @map("terminated_on") @db.Date
+  departmentId     String?        @map("department_id") @db.Uuid
+  designationId    String?        @map("designation_id") @db.Uuid
+  locationId       String?        @map("location_id") @db.Uuid
+  managerId        String?        @map("manager_id") @db.Uuid
+  employmentType   EmploymentType @default(full_time) @map("employment_type")
+  workMode         WorkMode       @default(onsite) @map("work_mode")
+  timezoneOverride String?        @map("timezone_override") @db.VarChar(64)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  createdBy        String?        @map("created_by") @db.Uuid
+  updatedBy        String?        @map("updated_by") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  designation  Designation? @relation(fields: [designationId], references: [id], onDelete: SetNull)
+  location     Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  manager      Employee?    @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports      Employee[]   @relation("EmployeeManager")
+
+  @@unique([organizationId, employeeCode])
+  @@unique([organizationId, workEmail])
+  @@index([organizationId, status])
+  @@index([organizationId, departmentId])
+  @@index([organizationId, managerId])
+  @@index([organizationId, displayName])
+  @@map("employees")
 }

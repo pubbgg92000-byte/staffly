@@ -5,17 +5,10 @@ import {
 } from "@nestjs/common";
 import type { ZodType, ZodTypeDef } from "zod";
 
-/**
- * Use as a controller method-level pipe: `@UsePipes(new ZodBody(MySchema))`
- * or directly on a parameter: `@Body(new ZodBody(MySchema)) body: MyType`.
- *
- * Accepts schemas that transform input → output (e.g. `z.string().transform(Date)`)
- * so a Zod `string` date input can be parsed into a `Date` output type.
- */
-export class ZodBody<T> implements PipeTransform<unknown, T> {
+export class ZodQuery<T> implements PipeTransform<unknown, T> {
   constructor(private readonly schema: ZodType<T, ZodTypeDef, unknown>) {}
 
-  transform(value: unknown, _metadata: ArgumentMetadata): T {
+  transform(value: unknown, _meta: ArgumentMetadata): T {
     const parsed = this.schema.safeParse(value);
     if (!parsed.success) {
       throw new BadRequestException({
