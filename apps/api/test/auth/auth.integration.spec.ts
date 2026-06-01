@@ -7,25 +7,13 @@
  * The TestProtectedController is registered only in the test module so it
  * never reaches the production bundle.
  */
-import {
-  beforeAll,
-  afterAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from "vitest";
+import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
 import { execSync } from "node:child_process";
-import {
-  Controller,
-  Get,
-  type INestApplication,
-  Module,
-} from "@nestjs/common";
+import { Controller, Get, type INestApplication, Module } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import cookieParser from "cookie-parser";
@@ -42,7 +30,11 @@ import { GlobalExceptionFilter } from "../../src/common/http-exception.filter";
 import { RequirePermission } from "../../src/rbac/decorators/require-permission.decorator";
 import { resetEnvCacheForTests } from "../../src/infra/config/env";
 import { PrismaService } from "../../src/infra/prisma/prisma.service";
-import { CSRF_COOKIE, REFRESH_COOKIE, ACCESS_COOKIE } from "../../src/auth/cookies";
+import {
+  CSRF_COOKIE,
+  REFRESH_COOKIE,
+  ACCESS_COOKIE,
+} from "../../src/auth/cookies";
 
 @Controller("_test")
 class TestProtectedController {
@@ -112,7 +104,12 @@ function extractCookies(setCookieHeader: string | string[] | undefined): {
     : typeof setCookieHeader === "string"
       ? [setCookieHeader]
       : [];
-  const out: { access?: string; refresh?: string; csrf?: string; raw: string[] } = {
+  const out: {
+    access?: string;
+    refresh?: string;
+    csrf?: string;
+    raw: string[];
+  } = {
     raw: arr,
   };
   for (const c of arr) {
@@ -217,18 +214,28 @@ describe("auth flow", () => {
 
   it("signup duplicate email → 409", async () => {
     const p1 = uniqueSignup();
-    await request(app.getHttpServer()).post("/auth/signup").send(p1).expect(201);
+    await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(p1)
+      .expect(201);
     const p2 = uniqueSignup({ email: p1.email });
-    const res = await request(app.getHttpServer()).post("/auth/signup").send(p2);
+    const res = await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(p2);
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("conflict.email_taken");
   });
 
   it("signup duplicate slug → 409", async () => {
     const p1 = uniqueSignup();
-    await request(app.getHttpServer()).post("/auth/signup").send(p1).expect(201);
+    await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(p1)
+      .expect(201);
     const p2 = uniqueSignup({ slug: p1.slug });
-    const res = await request(app.getHttpServer()).post("/auth/signup").send(p2);
+    const res = await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(p2);
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe("conflict.slug_taken");
   });

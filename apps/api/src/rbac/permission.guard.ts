@@ -34,9 +34,9 @@ export class PermissionGuard implements CanActivate {
 
     if (required.length === 0) return true;
 
-    const req = ctx.switchToHttp().getRequest<
-      Request & { user?: RequestUser }
-    >();
+    const req = ctx
+      .switchToHttp()
+      .getRequest<Request & { user?: RequestUser }>();
     if (!req.user) {
       throw new UnauthorizedException({ code: "auth.unauthenticated" });
     }

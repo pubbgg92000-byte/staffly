@@ -6,12 +6,14 @@ import {
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../infra/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
-import { pageOf, skipTake, type PaginationQueryT, type Page } from "../common/pagination";
+import {
+  pageOf,
+  skipTake,
+  type PaginationQueryT,
+  type Page,
+} from "../common/pagination";
 import { currentOrganizationId } from "../tenant/tenant-context";
-import type {
-  CreateDepartmentBodyT,
-  UpdateDepartmentBodyT,
-} from "./dto";
+import type { CreateDepartmentBodyT, UpdateDepartmentBodyT } from "./dto";
 
 function requireOrg(): string {
   const id = currentOrganizationId();
@@ -29,7 +31,8 @@ export class DepartmentsService {
   async list(q: PaginationQueryT): Promise<Page<unknown>> {
     const where: Prisma.DepartmentWhereInput = { deletedAt: null };
     if (q.search) where.name = { contains: q.search, mode: "insensitive" };
-    const sortBy = q.sortBy && ["name", "createdAt"].includes(q.sortBy) ? q.sortBy : "name";
+    const sortBy =
+      q.sortBy && ["name", "createdAt"].includes(q.sortBy) ? q.sortBy : "name";
     const [items, total] = await Promise.all([
       this.prisma.db.department.findMany({
         where,
@@ -65,7 +68,9 @@ export class DepartmentsService {
       return row;
     } catch (e) {
       if (isUniqueViolation(e)) {
-        throw new ConflictException({ code: "department.conflict_name_or_code" });
+        throw new ConflictException({
+          code: "department.conflict_name_or_code",
+        });
       }
       throw e;
     }
@@ -88,7 +93,9 @@ export class DepartmentsService {
       return row;
     } catch (e) {
       if (isUniqueViolation(e)) {
-        throw new ConflictException({ code: "department.conflict_name_or_code" });
+        throw new ConflictException({
+          code: "department.conflict_name_or_code",
+        });
       }
       throw e;
     }

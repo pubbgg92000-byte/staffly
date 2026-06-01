@@ -31,7 +31,13 @@ export const CreatePolicyBody = z.object({
   graceMinutesLate: z.coerce.number().int().min(0).max(240).optional(),
   halfDayThresholdHours: z.coerce.number().min(0).max(24).optional(),
   regularizationWindowDays: z.coerce.number().int().min(0).max(90).optional(),
-  autoCloseAtMinutesAfterEnd: z.coerce.number().int().min(0).max(1440).nullable().optional(),
+  autoCloseAtMinutesAfterEnd: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(1440)
+    .nullable()
+    .optional(),
 });
 export const UpdatePolicyBody = CreatePolicyBody.partial();
 export type CreatePolicyBodyT = z.infer<typeof CreatePolicyBody>;
@@ -78,13 +84,17 @@ export const CreateRegularizationBody = z
     (v) => v.requestedCheckInAt || v.requestedCheckOutAt,
     "must include at least one of requestedCheckInAt or requestedCheckOutAt",
   );
-export type CreateRegularizationBodyT = z.infer<typeof CreateRegularizationBody>;
+export type CreateRegularizationBodyT = z.infer<
+  typeof CreateRegularizationBody
+>;
 
 export const DecideRegularizationBody = z.object({
   decision: z.enum(["approved", "rejected"]),
   comment: z.string().trim().max(2000).optional(),
 });
-export type DecideRegularizationBodyT = z.infer<typeof DecideRegularizationBody>;
+export type DecideRegularizationBodyT = z.infer<
+  typeof DecideRegularizationBody
+>;
 
 export const RegularizationsListQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -92,4 +102,6 @@ export const RegularizationsListQuery = z.object({
   status: RegularizationStatus.optional(),
   employeeId: z.string().uuid().optional(),
 });
-export type RegularizationsListQueryT = z.infer<typeof RegularizationsListQuery>;
+export type RegularizationsListQueryT = z.infer<
+  typeof RegularizationsListQuery
+>;

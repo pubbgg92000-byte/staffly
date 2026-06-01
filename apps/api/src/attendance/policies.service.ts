@@ -25,8 +25,7 @@ export class AttendancePoliciesService {
 
   async list(q: PaginationQueryT): Promise<Page<unknown>> {
     const where: Prisma.AttendancePolicyWhereInput = { deletedAt: null };
-    if (q.search)
-      where.name = { contains: q.search, mode: "insensitive" };
+    if (q.search) where.name = { contains: q.search, mode: "insensitive" };
     const [items, total] = await Promise.all([
       this.prisma.db.attendancePolicy.findMany({
         where,
@@ -60,7 +59,10 @@ export class AttendancePoliciesService {
       if (body.isDefault) await this.unsetExistingDefault(tx, orgId);
       try {
         const row = await tx.attendancePolicy.create({
-          data: { ...body, organizationId: orgId } as Prisma.AttendancePolicyUncheckedCreateInput,
+          data: {
+            ...body,
+            organizationId: orgId,
+          } as Prisma.AttendancePolicyUncheckedCreateInput,
         });
         await this.audit.record({
           action: "attendance.policy.create",
@@ -71,7 +73,9 @@ export class AttendancePoliciesService {
         return row;
       } catch (e) {
         if (isUniqueViolation(e))
-          throw new ConflictException({ code: "attendance.policy.conflict_name" });
+          throw new ConflictException({
+            code: "attendance.policy.conflict_name",
+          });
         throw e;
       }
     });
@@ -98,7 +102,9 @@ export class AttendancePoliciesService {
         return row;
       } catch (e) {
         if (isUniqueViolation(e))
-          throw new ConflictException({ code: "attendance.policy.conflict_name" });
+          throw new ConflictException({
+            code: "attendance.policy.conflict_name",
+          });
         throw e;
       }
     });

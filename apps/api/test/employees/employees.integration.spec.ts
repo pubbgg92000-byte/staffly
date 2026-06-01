@@ -3,14 +3,7 @@
  * Same testcontainers + supertest + Nest test app pattern as
  * test/auth/auth.integration.spec.ts.
  */
-import {
-  beforeAll,
-  afterAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from "vitest";
+import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,
@@ -126,7 +119,10 @@ beforeAll(async () => {
   process.env.NODE_ENV = "test";
   resetEnvCacheForTests();
 
-  execSync("pnpm prisma migrate deploy", { stdio: "inherit", env: process.env });
+  execSync("pnpm prisma migrate deploy", {
+    stdio: "inherit",
+    env: process.env,
+  });
   execSync("pnpm db:seed", { stdio: "inherit", env: process.env });
 
   const moduleRef = await Test.createTestingModule({
@@ -247,7 +243,11 @@ describe("departments CRUD", () => {
       .send({ name: "Marketing" })
       .expect(201);
     const log = await prisma.db.auditLog.findFirst({
-      where: { organizationId, action: "department.create", resourceId: res.body.id },
+      where: {
+        organizationId,
+        action: "department.create",
+        resourceId: res.body.id,
+      },
     });
     expect(log).not.toBeNull();
   });
@@ -407,9 +407,24 @@ describe("employees", () => {
   it("list: search by displayName / employeeCode", async () => {
     const { cookies } = await setupOrgWithStructure();
     for (const e of [
-      { employeeCode: "E-001", firstName: "Alice", lastName: "Smith", workEmail: "alice@acme.test" },
-      { employeeCode: "E-002", firstName: "Bob", lastName: "Brown", workEmail: "bob@acme.test" },
-      { employeeCode: "E-003", firstName: "Carol", lastName: "Jones", workEmail: "carol@acme.test" },
+      {
+        employeeCode: "E-001",
+        firstName: "Alice",
+        lastName: "Smith",
+        workEmail: "alice@acme.test",
+      },
+      {
+        employeeCode: "E-002",
+        firstName: "Bob",
+        lastName: "Brown",
+        workEmail: "bob@acme.test",
+      },
+      {
+        employeeCode: "E-003",
+        firstName: "Carol",
+        lastName: "Jones",
+        workEmail: "carol@acme.test",
+      },
     ]) {
       await request(app.getHttpServer())
         .post("/employees")
@@ -488,7 +503,9 @@ describe("employees", () => {
       .get("/employees?page=2&pageSize=2&sortBy=employeeCode&sortDir=asc")
       .set("Cookie", asCookie(cookies));
     expect(p2.body.items).toHaveLength(2);
-    expect(p2.body.items[0].employeeCode).not.toBe(p1.body.items[0].employeeCode);
+    expect(p2.body.items[0].employeeCode).not.toBe(
+      p1.body.items[0].employeeCode,
+    );
   });
 
   it("soft delete: row hidden from list and get", async () => {
@@ -583,7 +600,11 @@ describe("employees", () => {
       .set("X-CSRF-Token", cookies.csrf!)
       .expect(204);
     const logs = await prisma.db.auditLog.findMany({
-      where: { organizationId, resourceType: "employee", resourceId: create.body.id },
+      where: {
+        organizationId,
+        resourceType: "employee",
+        resourceId: create.body.id,
+      },
       orderBy: { createdAt: "asc" },
     });
     expect(logs.map((l) => l.action)).toEqual([

@@ -47,8 +47,7 @@ export class RegularizationsService {
     const row = await this.prisma.db.attendanceRegularization.findFirst({
       where: { id },
     });
-    if (!row)
-      throw new NotFoundException({ code: "regularization.not_found" });
+    if (!row) throw new NotFoundException({ code: "regularization.not_found" });
     return row;
   }
 

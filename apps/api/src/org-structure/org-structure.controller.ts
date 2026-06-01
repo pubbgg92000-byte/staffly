@@ -52,7 +52,9 @@ export class OrgStructureController {
 
   @Get("departments/:id")
   @RequirePermission("org.structure.read")
-  getDepartment(@Param("id", new ParseUUIDPipe()) id: string): Promise<unknown> {
+  getDepartment(
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<unknown> {
     return this.departments.get(id);
   }
 
@@ -76,7 +78,9 @@ export class OrgStructureController {
   @Delete("departments/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission("org.structure.write")
-  removeDepartment(@Param("id", new ParseUUIDPipe()) id: string): Promise<void> {
+  removeDepartment(
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<void> {
     return this.departments.remove(id);
   }
 
@@ -91,7 +95,9 @@ export class OrgStructureController {
 
   @Get("designations/:id")
   @RequirePermission("org.structure.read")
-  getDesignation(@Param("id", new ParseUUIDPipe()) id: string): Promise<unknown> {
+  getDesignation(
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<unknown> {
     return this.designations.get(id);
   }
 
@@ -115,7 +121,9 @@ export class OrgStructureController {
   @Delete("designations/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission("org.structure.write")
-  removeDesignation(@Param("id", new ParseUUIDPipe()) id: string): Promise<void> {
+  removeDesignation(
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<void> {
     return this.designations.remove(id);
   }
 

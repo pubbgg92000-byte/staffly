@@ -56,8 +56,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     status: number,
   ): ErrorEnvelope {
     const code =
-      (typeof body.code === "string" && body.code) ||
-      this.defaultCode(status);
+      (typeof body.code === "string" && body.code) || this.defaultCode(status);
     const message =
       (typeof body.message === "string" && body.message) ||
       (Array.isArray(body.message) ? body.message.join("; ") : code);

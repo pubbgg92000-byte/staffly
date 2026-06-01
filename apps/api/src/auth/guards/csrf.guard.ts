@@ -35,9 +35,9 @@ export class CsrfGuard implements CanActivate {
     );
     if (isPublic) return true;
 
-    const req = ctx.switchToHttp().getRequest<
-      Request & { cookies?: CookieBag; user?: RequestUser }
-    >();
+    const req = ctx
+      .switchToHttp()
+      .getRequest<Request & { cookies?: CookieBag; user?: RequestUser }>();
 
     if (SAFE_METHODS.has(req.method)) return true;
     if (req.user?.authVia === "bearer") return true;

@@ -15,8 +15,13 @@ import type {
   EmployeeListQueryT,
 } from "./dto";
 
-function displayName(first: string, middle: string | undefined, last: string): string {
-  return [first, middle, last].filter((s): s is string => Boolean(s && s.trim()))
+function displayName(
+  first: string,
+  middle: string | undefined,
+  last: string,
+): string {
+  return [first, middle, last]
+    .filter((s): s is string => Boolean(s && s.trim()))
     .join(" ");
 }
 
@@ -62,7 +67,9 @@ export class EmployeesService {
         department: { select: { id: true, name: true } },
         designation: { select: { id: true, name: true } },
         location: { select: { id: true, name: true } },
-        manager: { select: { id: true, displayName: true, employeeCode: true } },
+        manager: {
+          select: { id: true, displayName: true, employeeCode: true },
+        },
       },
     });
     if (!row) throw new NotFoundException({ code: "employee.not_found" });
@@ -92,7 +99,9 @@ export class EmployeesService {
       return row;
     } catch (e) {
       if (isUniqueViolation(e)) {
-        throw new ConflictException({ code: "employee.conflict_code_or_email" });
+        throw new ConflictException({
+          code: "employee.conflict_code_or_email",
+        });
       }
       throw e;
     }
@@ -127,7 +136,9 @@ export class EmployeesService {
       return row;
     } catch (e) {
       if (isUniqueViolation(e)) {
-        throw new ConflictException({ code: "employee.conflict_code_or_email" });
+        throw new ConflictException({
+          code: "employee.conflict_code_or_email",
+        });
       }
       throw e;
     }

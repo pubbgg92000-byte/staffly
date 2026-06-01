@@ -149,9 +149,7 @@ export class AttendanceService {
     const policy = await this.policyFor();
     let status: "present" | "half_day" = "present";
     if (policy) {
-      const halfMin = Math.round(
-        Number(policy.halfDayThresholdHours) * 60,
-      );
+      const halfMin = Math.round(Number(policy.halfDayThresholdHours) * 60);
       if (worked < halfMin) status = "half_day";
     }
 
@@ -236,7 +234,9 @@ export class AttendanceService {
   private async resolveTargetEmployee(
     targetEmployeeId: string | undefined,
     actor: ActorCtx,
-  ): Promise<NonNullable<Awaited<ReturnType<AttendanceService["findEmployeeById"]>>>> {
+  ): Promise<
+    NonNullable<Awaited<ReturnType<AttendanceService["findEmployeeById"]>>>
+  > {
     if (targetEmployeeId) {
       // Self-service callers have `attendance.write`. To punch on behalf of
       // another employee, the caller must hold the admin-level

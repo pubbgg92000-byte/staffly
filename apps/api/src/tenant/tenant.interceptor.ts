@@ -21,9 +21,9 @@ import type { RequestUser } from "../auth/decorators/current-user.decorator";
 @Injectable()
 export class TenantInterceptor implements NestInterceptor {
   intercept(ctx: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const req = ctx.switchToHttp().getRequest<
-      Request & { user?: RequestUser }
-    >();
+    const req = ctx
+      .switchToHttp()
+      .getRequest<Request & { user?: RequestUser }>();
     const user = req.user;
     if (!user) return next.handle();
     return runWithTenant(

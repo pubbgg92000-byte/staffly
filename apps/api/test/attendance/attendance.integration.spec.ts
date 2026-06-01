@@ -1,14 +1,7 @@
 /**
  * Integration tests for Batch 5 — Attendance (policies, records, regularization).
  */
-import {
-  beforeAll,
-  afterAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-} from "vitest";
+import { beforeAll, afterAll, beforeEach, describe, expect, it } from "vitest";
 import {
   PostgreSqlContainer,
   type StartedPostgreSqlContainer,
@@ -151,7 +144,10 @@ beforeAll(async () => {
   process.env.COOKIE_DOMAIN = "localhost";
   process.env.NODE_ENV = "test";
   resetEnvCacheForTests();
-  execSync("pnpm prisma migrate deploy", { stdio: "inherit", env: process.env });
+  execSync("pnpm prisma migrate deploy", {
+    stdio: "inherit",
+    env: process.env,
+  });
   execSync("pnpm db:seed", { stdio: "inherit", env: process.env });
   const moduleRef = await Test.createTestingModule({
     imports: [TestAppModule],
@@ -208,7 +204,9 @@ describe("attendance policies CRUD", () => {
       .set("Cookie", cookieHeader(cookies))
       .expect(200);
     expect(list.body.items).toHaveLength(2);
-    const defaults = list.body.items.filter((p: { isDefault: boolean }) => p.isDefault);
+    const defaults = list.body.items.filter(
+      (p: { isDefault: boolean }) => p.isDefault,
+    );
     expect(defaults).toHaveLength(1);
     expect(defaults[0].name).toBe("Flex");
   });
@@ -397,11 +395,7 @@ describe("attendance check-in / out", () => {
 describe("attendance records listing", () => {
   it("filter by date range and pagination", async () => {
     const { cookies, organizationId, userId } = await signupOrg();
-    const empId = await createEmployeeForUser(
-      cookies,
-      organizationId,
-      userId,
-    );
+    const empId = await createEmployeeForUser(cookies, organizationId, userId);
     // Seed 3 records on different dates directly.
     const dates = ["2026-05-01", "2026-05-02", "2026-05-03"];
     for (const d of dates) {
@@ -443,11 +437,7 @@ describe("attendance records listing", () => {
 describe("regularization workflow", () => {
   it("employee submits, admin approves, record materializes", async () => {
     const { cookies, organizationId, userId } = await signupOrg();
-    const empId = await createEmployeeForUser(
-      cookies,
-      organizationId,
-      userId,
-    );
+    const empId = await createEmployeeForUser(cookies, organizationId, userId);
 
     const create = await request(app.getHttpServer())
       .post("/attendance/regularizations")
@@ -489,11 +479,7 @@ describe("regularization workflow", () => {
 
   it("reject does not create record", async () => {
     const { cookies, organizationId, userId } = await signupOrg();
-    const empId = await createEmployeeForUser(
-      cookies,
-      organizationId,
-      userId,
-    );
+    const empId = await createEmployeeForUser(cookies, organizationId, userId);
     const create = await request(app.getHttpServer())
       .post("/attendance/regularizations")
       .set("Cookie", cookieHeader(cookies))

@@ -113,7 +113,9 @@ export class AuthService {
 
     const user = await this.prisma.db.user.findUnique({
       where: { email: body.email },
-      include: { organization: { select: { id: true, slug: true, name: true } } },
+      include: {
+        organization: { select: { id: true, slug: true, name: true } },
+      },
     });
     if (!user || !user.passwordHash) {
       throw invalid;
@@ -190,4 +192,3 @@ export class AuthService {
     return { user: { id: user.id, email: user.email, role } };
   }
 }
-

@@ -43,7 +43,10 @@ export class TokensService {
     private readonly prisma: PrismaService,
   ) {}
 
-  signAccessToken(userId: string, organizationId: string): {
+  signAccessToken(
+    userId: string,
+    organizationId: string,
+  ): {
     token: string;
     ttlSeconds: number;
   } {

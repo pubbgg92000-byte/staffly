@@ -29,9 +29,9 @@ export class JwtAuthGuard implements CanActivate {
     );
     if (isPublic) return true;
 
-    const req = ctx.switchToHttp().getRequest<
-      Request & { cookies?: CookieBag; user?: RequestUser }
-    >();
+    const req = ctx
+      .switchToHttp()
+      .getRequest<Request & { cookies?: CookieBag; user?: RequestUser }>();
 
     let token: string | undefined;
     let via: RequestUser["authVia"] = "cookie";

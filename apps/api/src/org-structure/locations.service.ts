@@ -6,7 +6,12 @@ import {
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../infra/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
-import { pageOf, skipTake, type PaginationQueryT, type Page } from "../common/pagination";
+import {
+  pageOf,
+  skipTake,
+  type PaginationQueryT,
+  type Page,
+} from "../common/pagination";
 import { isUniqueViolation } from "./departments.service";
 import { currentOrganizationId } from "../tenant/tenant-context";
 import type { CreateLocationBodyT, UpdateLocationBodyT } from "./dto";
@@ -26,8 +31,10 @@ export class LocationsService {
         { city: { contains: q.search, mode: "insensitive" } },
       ];
     }
-    const sortBy = q.sortBy && ["name", "city", "createdAt"].includes(q.sortBy)
-      ? q.sortBy : "name";
+    const sortBy =
+      q.sortBy && ["name", "city", "createdAt"].includes(q.sortBy)
+        ? q.sortBy
+        : "name";
     const [items, total] = await Promise.all([
       this.prisma.db.location.findMany({
         where,
