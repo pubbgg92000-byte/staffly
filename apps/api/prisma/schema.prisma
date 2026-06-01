@@ -115,6 +115,26 @@ enum MaritalStatus {
   @@map("marital_status")
 }
 
+enum AttendanceStatus {
+  present
+  half_day
+  absent
+  on_leave
+  holiday
+  weekoff
+
+  @@map("attendance_status")
+}
+
+enum RegularizationStatus {
+  pending
+  approved
+  rejected
+  cancelled
+
+  @@map("regularization_status")
+}
+
 // ─── Organizations ──────────────────────────────────────────────────────────
 
 model Organization {
@@ -140,19 +160,22 @@ model Organization {
   createdBy       String?   @map("created_by") @db.Uuid
   updatedBy       String?   @map("updated_by") @db.Uuid
 
-  settings                OrgSetting[]
-  users                   User[]
-  refreshTokens           RefreshToken[]
-  roles                   Role[]
-  rolePermissions         RolePermission[]
-  userRoles               UserRole[]
-  auditLogs               AuditLog[]
-  notifications           Notification[]
-  notificationPreferences NotificationPreference[]
-  employees               Employee[]
-  departments             Department[]
-  designations            Designation[]
-  locations               Location[]
+  settings                  OrgSetting[]
+  users                     User[]
+  refreshTokens             RefreshToken[]
+  roles                     Role[]
+  rolePermissions           RolePermission[]
+  userRoles                 UserRole[]
+  auditLogs                 AuditLog[]
+  notifications             Notification[]
+  notificationPreferences   NotificationPreference[]
+  employees                 Employee[]
+  departments               Department[]
+  designations              Designation[]
+  locations                 Location[]
+  attendancePolicies        AttendancePolicy[]
+  attendanceRecords         AttendanceRecord[]
+  attendanceRegularizations AttendanceRegularization[]
 
   @@unique([domain])
   @@index([status])
@@ -472,12 +495,14 @@ model Employee {
   createdBy        String?        @map("created_by") @db.Uuid
   updatedBy        String?        @map("updated_by") @db.Uuid
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  designation  Designation? @relation(fields: [designationId], references: [id], onDelete: SetNull)
-  location     Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  manager      Employee?    @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
-  reports      Employee[]   @relation("EmployeeManager")
+  organization              Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department                Department?                @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  designation               Designation?               @relation(fields: [designationId], references: [id], onDelete: SetNull)
+  location                  Location?                  @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  manager                   Employee?                  @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports                   Employee[]                 @relation("EmployeeManager")
+  attendanceRecords         AttendanceRecord[]
+  attendanceRegularizations AttendanceRegularization[]
 
   @@unique([organizationId, employeeCode])
   @@unique([organizationId, workEmail])
@@ -486,4 +511,90 @@ model Employee {
   @@index([organizationId, managerId])
   @@index([organizationId, displayName])
   @@map("employees")
+}
+
+// ─── Attendance ─────────────────────────────────────────────────────────────
+
+model AttendancePolicy {
+  id                         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId             String    @map("organization_id") @db.Uuid
+  name                       String    @db.VarChar(80)
+  isDefault                  Boolean   @default(false) @map("is_default")
+  workDays                   Int[]     @default([1, 2, 3, 4, 5]) @map("work_days") @db.SmallInt
+  expectedHoursPerDay        Decimal   @default(8.00) @map("expected_hours_per_day") @db.Decimal(4, 2)
+  dayStartTime               String    @default("09:00") @map("day_start_time") @db.VarChar(8)
+  dayEndTime                 String    @default("18:00") @map("day_end_time") @db.VarChar(8)
+  graceMinutesLate           Int       @default(15) @map("grace_minutes_late") @db.SmallInt
+  halfDayThresholdHours      Decimal   @default(4.00) @map("half_day_threshold_hours") @db.Decimal(4, 2)
+  regularizationWindowDays   Int       @default(14) @map("regularization_window_days") @db.SmallInt
+  autoCloseAtMinutesAfterEnd Int?      @default(120) @map("auto_close_at_minutes_after_end") @db.SmallInt
+  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                  DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy                  String?   @map("created_by") @db.Uuid
+  updatedBy                  String?   @map("updated_by") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId, isDefault])
+  @@map("attendance_policies")
+}
+
+model AttendanceRecord {
+  id                String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId    String           @map("organization_id") @db.Uuid
+  employeeId        String           @map("employee_id") @db.Uuid
+  attendanceDate    DateTime         @map("attendance_date") @db.Date
+  checkInAt         DateTime?        @map("check_in_at") @db.Timestamptz(6)
+  checkOutAt        DateTime?        @map("check_out_at") @db.Timestamptz(6)
+  checkInIp         String?          @map("check_in_ip") @db.Inet
+  checkOutIp        String?          @map("check_out_ip") @db.Inet
+  checkInUserAgent  String?          @map("check_in_user_agent")
+  checkOutUserAgent String?          @map("check_out_user_agent")
+  workedMinutes     Int?             @map("worked_minutes")
+  status            AttendanceStatus @default(absent)
+  isLate            Boolean          @default(false) @map("is_late")
+  isRegularized     Boolean          @default(false) @map("is_regularized")
+  regularizationId  String?          @map("regularization_id") @db.Uuid
+  notes             String?
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy         String?          @map("created_by") @db.Uuid
+  updatedBy         String?          @map("updated_by") @db.Uuid
+
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee       Employee                  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  regularization AttendanceRegularization? @relation("RegularizationApplied", fields: [regularizationId], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, attendanceDate])
+  @@index([organizationId, attendanceDate])
+  @@index([organizationId, status, attendanceDate])
+  @@map("attendance_records")
+}
+
+model AttendanceRegularization {
+  id                  String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId      String               @map("organization_id") @db.Uuid
+  employeeId          String               @map("employee_id") @db.Uuid
+  attendanceDate      DateTime             @map("attendance_date") @db.Date
+  requestedCheckInAt  DateTime?            @map("requested_check_in_at") @db.Timestamptz(6)
+  requestedCheckOutAt DateTime?            @map("requested_check_out_at") @db.Timestamptz(6)
+  reason              String
+  status              RegularizationStatus @default(pending)
+  decidedBy           String?              @map("decided_by") @db.Uuid
+  decidedAt           DateTime?            @map("decided_at") @db.Timestamptz(6)
+  decisionComment     String?              @map("decision_comment")
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy           String?              @map("created_by") @db.Uuid
+  updatedBy           String?              @map("updated_by") @db.Uuid
+
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee       Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  appliedRecords AttendanceRecord[] @relation("RegularizationApplied")
+
+  @@index([organizationId, status, createdAt(sort: Desc)])
+  @@index([employeeId, attendanceDate])
+  @@map("attendance_regularizations")
 }
