@@ -7,11 +7,7 @@ import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../infra/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { isUniqueViolation } from "../org-structure/departments.service";
-import {
-  pageOf,
-  skipTake,
-  type Page,
-} from "../common/pagination";
+import { pageOf, skipTake, type Page } from "../common/pagination";
 import type {
   BulkUpsertHolidaysBodyT,
   CreateHolidayBodyT,
@@ -27,8 +23,7 @@ async function requireCalendar(
     where: { id: calendarId, deletedAt: null },
     select: { id: true, organizationId: true },
   });
-  if (!cal)
-    throw new NotFoundException({ code: "holiday.calendar.not_found" });
+  if (!cal) throw new NotFoundException({ code: "holiday.calendar.not_found" });
   return cal;
 }
 
@@ -66,10 +61,7 @@ export class HolidaysService {
     return row;
   }
 
-  async create(
-    calendarId: string,
-    body: CreateHolidayBodyT,
-  ): Promise<unknown> {
+  async create(calendarId: string, body: CreateHolidayBodyT): Promise<unknown> {
     const cal = await requireCalendar(this.prisma, calendarId);
     try {
       const row = await this.prisma.db.holiday.create({
@@ -144,36 +136,34 @@ export class HolidaysService {
   ): Promise<{ upserted: number }> {
     const cal = await requireCalendar(this.prisma, calendarId);
     let upserted = 0;
-    await this.prisma.db.$transaction(
-      async (tx: Prisma.TransactionClient) => {
-        for (const item of body.items) {
-          await tx.holiday.upsert({
-            where: {
-              calendarId_date: {
-                calendarId: cal.id,
-                date: new Date(item.date),
-              },
-            },
-            create: {
-              organizationId: cal.organizationId,
+    await this.prisma.db.$transaction(async (tx: Prisma.TransactionClient) => {
+      for (const item of body.items) {
+        await tx.holiday.upsert({
+          where: {
+            calendarId_date: {
               calendarId: cal.id,
               date: new Date(item.date),
-              name: item.name,
-              type: item.type ?? "public",
-              isOptional: item.isOptional ?? false,
-              description: item.description ?? null,
             },
-            update: {
-              name: item.name,
-              type: item.type ?? "public",
-              isOptional: item.isOptional ?? false,
-              description: item.description ?? null,
-            },
-          });
-          upserted += 1;
-        }
-      },
-    );
+          },
+          create: {
+            organizationId: cal.organizationId,
+            calendarId: cal.id,
+            date: new Date(item.date),
+            name: item.name,
+            type: item.type ?? "public",
+            isOptional: item.isOptional ?? false,
+            description: item.description ?? null,
+          },
+          update: {
+            name: item.name,
+            type: item.type ?? "public",
+            isOptional: item.isOptional ?? false,
+            description: item.description ?? null,
+          },
+        });
+        upserted += 1;
+      }
+    });
     await this.audit.record({
       action: "holiday.bulk_upsert",
       resourceType: "holiday_calendar",

@@ -101,10 +101,7 @@ export class HolidayCalendarsService {
     }
   }
 
-  async update(
-    id: string,
-    body: UpdateHolidayCalendarBodyT,
-  ): Promise<unknown> {
+  async update(id: string, body: UpdateHolidayCalendarBodyT): Promise<unknown> {
     const before = (await this.get(id)) as { isDefault: boolean };
     try {
       const row = await this.prisma.db.$transaction(

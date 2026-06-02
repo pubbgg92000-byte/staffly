@@ -15,8 +15,7 @@ export class LocationCalendarAssignmentsService {
       where: { id: locationId, deletedAt: null },
       select: { id: true, organizationId: true },
     });
-    if (!location)
-      throw new NotFoundException({ code: "location.not_found" });
+    if (!location) throw new NotFoundException({ code: "location.not_found" });
     return this.prisma.db.locationHolidayCalendar.findUnique({
       where: { locationId },
       include: { calendar: true },
@@ -32,8 +31,7 @@ export class LocationCalendarAssignmentsService {
       where: { id: locationId, deletedAt: null },
       select: { id: true, organizationId: true },
     });
-    if (!location)
-      throw new NotFoundException({ code: "location.not_found" });
+    if (!location) throw new NotFoundException({ code: "location.not_found" });
     const calendar = await this.prisma.db.holidayCalendar.findFirst({
       where: { id: calendarId, deletedAt: null },
       select: { id: true, organizationId: true },

@@ -75,9 +75,7 @@ export class HolidaysController {
 
   @Get("holiday-calendars/:id")
   @RequirePermission("holiday.read")
-  getCalendar(
-    @Param("id", new ParseUUIDPipe()) id: string,
-  ): Promise<unknown> {
+  getCalendar(@Param("id", new ParseUUIDPipe()) id: string): Promise<unknown> {
     return this.calendars.get(id);
   }
 
@@ -94,17 +92,13 @@ export class HolidaysController {
   @Delete("holiday-calendars/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission("holiday.write")
-  removeCalendar(
-    @Param("id", new ParseUUIDPipe()) id: string,
-  ): Promise<void> {
+  removeCalendar(@Param("id", new ParseUUIDPipe()) id: string): Promise<void> {
     return this.calendars.remove(id);
   }
 
   @Post("holiday-calendars/:id/set-default")
   @RequirePermission("holiday.write")
-  setDefault(
-    @Param("id", new ParseUUIDPipe()) id: string,
-  ): Promise<unknown> {
+  setDefault(@Param("id", new ParseUUIDPipe()) id: string): Promise<unknown> {
     return this.calendars.setDefault(id);
   }
 
@@ -149,9 +143,7 @@ export class HolidaysController {
   @Delete("holidays/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission("holiday.write")
-  removeHoliday(
-    @Param("id", new ParseUUIDPipe()) id: string,
-  ): Promise<void> {
+  removeHoliday(@Param("id", new ParseUUIDPipe()) id: string): Promise<void> {
     return this.holidays.remove(id);
   }
 

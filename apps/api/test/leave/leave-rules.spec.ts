@@ -172,11 +172,7 @@ describe("computeUnits", () => {
           endDate: "2026-06-03",
           halfDayStart: false,
           halfDayEnd: false,
-          holidayDates: new Set([
-            "2026-06-01",
-            "2026-06-02",
-            "2026-06-03",
-          ]),
+          holidayDates: new Set(["2026-06-01", "2026-06-02", "2026-06-03"]),
         }),
       ).toBe(0);
     });

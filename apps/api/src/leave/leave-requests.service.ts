@@ -84,8 +84,9 @@ export class LeaveRequestsService {
 
     // 2. Compute units and validate against the leave type's min/max bounds.
     //    Subtract holidays observed by the employee's resolved calendar.
-    const calendarId =
-      await this.holidayLookup.resolveCalendarIdForEmployee(employee.id);
+    const calendarId = await this.holidayLookup.resolveCalendarIdForEmployee(
+      employee.id,
+    );
     const holidayDates = calendarId
       ? await this.holidayLookup.holidayDatesInRange(
           calendarId,

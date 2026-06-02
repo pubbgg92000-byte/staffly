@@ -424,9 +424,7 @@ describe("holidays CRUD + bulk upsert", () => {
       })
       .expect(201);
     const ranged = await request(app.getHttpServer())
-      .get(
-        `/holiday-calendars/${calId}/holidays?from=2026-06-01&to=2026-06-30`,
-      )
+      .get(`/holiday-calendars/${calId}/holidays?from=2026-06-01&to=2026-06-30`)
       .set("Cookie", cookieHeader(cookies))
       .expect(200);
     expect(ranged.body.items).toHaveLength(1);
