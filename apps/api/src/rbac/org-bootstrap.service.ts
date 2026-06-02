@@ -5,6 +5,7 @@ import {
   expandRolePermissions,
   type RoleKey,
 } from "./system-roles";
+import { DEFAULT_LEAVE_TYPES } from "../leave/default-leave-types";
 
 /**
  * Materializes the four system roles into a new organization.
@@ -57,6 +58,24 @@ export class OrgBootstrapService {
         skipDuplicates: true,
       });
     }
+
+    // Seed default leave types for the org. Idempotent — `(organizationId, code)`
+    // is unique, so re-running for the same org is a no-op.
+    await tx.leaveType.createMany({
+      data: DEFAULT_LEAVE_TYPES.map((t) => ({
+        organizationId,
+        name: t.name,
+        code: t.code,
+        color: t.color,
+        accrualType: t.accrualType,
+        accrualAmount: t.accrualAmount,
+        maxBalance: t.maxBalance,
+        carryForwardMax: t.carryForwardMax,
+        isPaid: t.isPaid,
+        isSystem: true,
+      })),
+      skipDuplicates: true,
+    });
 
     return roleIdByKey;
   }

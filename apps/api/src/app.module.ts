@@ -8,6 +8,7 @@ import { AuditModule } from "./audit/audit.module";
 import { OrgStructureModule } from "./org-structure/org-structure.module";
 import { EmployeesModule } from "./employees/employees.module";
 import { AttendanceModule } from "./attendance/attendance.module";
+import { LeaveModule } from "./leave/leave.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { CsrfGuard } from "./auth/guards/csrf.guard";
 import { PermissionGuard } from "./rbac/permission.guard";
@@ -23,6 +24,7 @@ import { GlobalExceptionFilter } from "./common/http-exception.filter";
     OrgStructureModule,
     EmployeesModule,
     AttendanceModule,
+    LeaveModule,
   ],
   controllers: [HealthController],
   providers: [
