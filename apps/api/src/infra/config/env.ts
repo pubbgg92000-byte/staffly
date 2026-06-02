@@ -49,6 +49,26 @@ const EnvSchema = z.object({
 
   COOKIE_DOMAIN: z.string().default("localhost"),
 
+  /**
+   * Comma-separated allowlist of origins permitted to call the API with
+   * credentials. The browser's Same-Origin policy needs an explicit echo
+   * of the request's `Origin` header — wildcards are not allowed when
+   * cookies are involved — so the CORS middleware checks each request's
+   * origin against this list and reflects it on a match.
+   *
+   * Default covers the two dev portals (admin :3000, employee :3001).
+   * In production, set this to the public portal hostnames.
+   */
+  CORS_ORIGINS: z
+    .string()
+    .default("http://localhost:3000,http://localhost:3001")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0),
+    ),
+
   // ─── Object storage (MinIO / S3) ─────────────────────────────────────
   // All optional at boot — the StorageService is allowed to construct
   // without them and produce a clear error on first use. Tests stub the
