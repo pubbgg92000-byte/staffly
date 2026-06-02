@@ -205,6 +205,17 @@ enum AnnouncementAudienceType {
   @@map("announcement_audience_type")
 }
 
+enum DocumentAudienceType {
+  all_employees
+  department
+  designation
+  location
+  employment_type
+  specific_employees
+
+  @@map("document_audience_type")
+}
+
 // ─── Organizations ──────────────────────────────────────────────────────────
 
 model Organization {
@@ -256,6 +267,11 @@ model Organization {
   announcements             Announcement[]
   announcementAudiences     AnnouncementAudience[]
   announcementAcks          AnnouncementAcknowledgement[]
+  documentCategories        DocumentCategory[]
+  documents                 Document[]
+  documentVersions          DocumentVersion[]
+  documentAudiences         DocumentAudience[]
+  documentAcks              DocumentAcknowledgement[]
 
   @@unique([domain])
   @@index([status])
@@ -587,6 +603,8 @@ model Employee {
   leaveBalances             LeaveBalance[]
   leaveRequests             LeaveRequest[]
   announcementAcks          AnnouncementAcknowledgement[]
+  personalDocuments         Document[]                    @relation("DocumentSubject")
+  documentAcks              DocumentAcknowledgement[]
 
   @@unique([organizationId, employeeCode])
   @@unique([organizationId, workEmail])
@@ -926,4 +944,127 @@ model AnnouncementAcknowledgement {
   @@index([organizationId, acknowledgedAt(sort: Desc)])
   @@index([employeeId, acknowledgedAt(sort: Desc)])
   @@map("announcement_acknowledgements")
+}
+
+// ─── Documents ──────────────────────────────────────────────────────────────
+
+model DocumentCategory {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String    @db.VarChar(80)
+  code           String?   @db.VarChar(20)
+  color          String    @default("#94A3B8") @db.VarChar(9)
+  description    String?
+  isActive       Boolean   @default(true) @map("is_active")
+  isPersonal     Boolean   @default(false) @map("is_personal")
+  isSystem       Boolean   @default(false) @map("is_system")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documents    Document[]
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, code])
+  @@index([organizationId, isActive])
+  @@map("document_categories")
+}
+
+model Document {
+  id                String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  categoryId        String    @map("category_id") @db.Uuid
+  title             String    @db.VarChar(180)
+  description       String?
+  isRequired        Boolean   @default(false) @map("is_required")
+  isPersonal        Boolean   @default(false) @map("is_personal")
+  subjectEmployeeId String?   @map("subject_employee_id") @db.Uuid
+  currentVersionId  String?   @unique @map("current_version_id") @db.Uuid
+  dueBy             DateTime? @map("due_by") @db.Date
+  publishedAt       DateTime? @map("published_at") @db.Timestamptz(6)
+  expiresAt         DateTime? @map("expires_at") @db.Timestamptz(6)
+  archivedAt        DateTime? @map("archived_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy         String?   @map("created_by") @db.Uuid
+  updatedBy         String?   @map("updated_by") @db.Uuid
+
+  organization     Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category         DocumentCategory          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  subjectEmployee  Employee?                 @relation("DocumentSubject", fields: [subjectEmployeeId], references: [id], onDelete: SetNull)
+  currentVersion   DocumentVersion?          @relation("DocumentCurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  versions         DocumentVersion[]         @relation("DocumentVersions")
+  audiences        DocumentAudience[]
+  acknowledgements DocumentAcknowledgement[]
+
+  @@index([organizationId, categoryId])
+  @@index([organizationId, publishedAt(sort: Desc)])
+  @@index([organizationId, expiresAt])
+  @@index([subjectEmployeeId])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id             String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  documentId     String   @map("document_id") @db.Uuid
+  versionNo      Int      @map("version_no")
+  storageKey     String   @map("storage_key") @db.VarChar(512)
+  fileName       String   @map("file_name") @db.VarChar(255)
+  mimeType       String   @map("mime_type") @db.VarChar(120)
+  sizeBytes      BigInt   @map("size_bytes")
+  uploadedAt     DateTime @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  uploadedBy     String?  @map("uploaded_by") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  document     Document     @relation("DocumentVersions", fields: [documentId], references: [id], onDelete: Cascade)
+  currentOf    Document?    @relation("DocumentCurrentVersion")
+
+  @@unique([documentId, versionNo])
+  @@index([organizationId, documentId, uploadedAt(sort: Desc)])
+  @@map("document_versions")
+}
+
+model DocumentAudience {
+  id             String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String               @map("organization_id") @db.Uuid
+  documentId     String               @map("document_id") @db.Uuid
+  audienceType   DocumentAudienceType @map("audience_type")
+  departmentId   String?              @map("department_id") @db.Uuid
+  designationId  String?              @map("designation_id") @db.Uuid
+  locationId     String?              @map("location_id") @db.Uuid
+  employmentType EmploymentType?      @map("employment_type")
+  employeeId     String?              @map("employee_id") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  document     Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([organizationId, audienceType])
+  @@map("document_audiences")
+}
+
+model DocumentAcknowledgement {
+  id             String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  documentId     String   @map("document_id") @db.Uuid
+  employeeId     String   @map("employee_id") @db.Uuid
+  versionNo      Int      @map("version_no")
+  acknowledgedAt DateTime @default(now()) @map("acknowledged_at") @db.Timestamptz(6)
+  ipAddress      String?  @map("ip_address") @db.Inet
+  userAgent      String?  @map("user_agent")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  document     Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, employeeId])
+  @@index([organizationId, acknowledgedAt(sort: Desc)])
+  @@index([employeeId, acknowledgedAt(sort: Desc)])
+  @@map("document_acknowledgements")
 }

@@ -11,6 +11,7 @@ import { AttendanceModule } from "./attendance/attendance.module";
 import { LeaveModule } from "./leave/leave.module";
 import { HolidaysModule } from "./holidays/holidays.module";
 import { AnnouncementsModule } from "./announcements/announcements.module";
+import { DocumentsModule } from "./documents/documents.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { CsrfGuard } from "./auth/guards/csrf.guard";
 import { PermissionGuard } from "./rbac/permission.guard";
@@ -29,6 +30,7 @@ import { GlobalExceptionFilter } from "./common/http-exception.filter";
     LeaveModule,
     HolidaysModule,
     AnnouncementsModule,
+    DocumentsModule,
   ],
   controllers: [HealthController],
   providers: [
