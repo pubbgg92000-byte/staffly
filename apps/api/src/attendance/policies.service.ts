@@ -55,7 +55,7 @@ export class AttendancePoliciesService {
   async create(body: CreatePolicyBodyT): Promise<unknown> {
     const orgId = currentOrganizationId();
     if (!orgId) throw new Error("no active tenant context");
-    return this.prisma.db.$transaction(async (tx) => {
+    return this.prisma.db.$transaction(async (tx: Prisma.TransactionClient) => {
       if (body.isDefault) await this.unsetExistingDefault(tx, orgId);
       try {
         const row = await tx.attendancePolicy.create({
@@ -85,7 +85,7 @@ export class AttendancePoliciesService {
     const before = await this.get(id);
     const orgId = currentOrganizationId();
     if (!orgId) throw new Error("no active tenant context");
-    return this.prisma.db.$transaction(async (tx) => {
+    return this.prisma.db.$transaction(async (tx: Prisma.TransactionClient) => {
       if (body.isDefault) await this.unsetExistingDefault(tx, orgId, id);
       try {
         const row = await tx.attendancePolicy.update({

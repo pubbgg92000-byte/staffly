@@ -5,6 +5,7 @@ import {
   Logger,
   UnauthorizedException,
 } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../infra/prisma/prisma.service";
 import { PasswordService } from "./password.service";
 import { TokensService, type RefreshContext } from "./tokens.service";
@@ -44,48 +45,50 @@ export class AuthService {
     const passwordHash = await this.passwords.hash(body.password);
 
     // Single transaction so a partial signup never leaves dangling rows.
-    const result = await this.prisma.db.$transaction(async (tx) => {
-      const existingEmail = await tx.user.findUnique({
-        where: { email: body.email },
-        select: { id: true },
-      });
-      if (existingEmail) {
-        throw new ConflictException({ code: "conflict.email_taken" });
-      }
-      const existingSlug = await tx.organization.findUnique({
-        where: { slug: body.slug },
-        select: { id: true },
-      });
-      if (existingSlug) {
-        throw new ConflictException({ code: "conflict.slug_taken" });
-      }
+    const result = await this.prisma.db.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const existingEmail = await tx.user.findUnique({
+          where: { email: body.email },
+          select: { id: true },
+        });
+        if (existingEmail) {
+          throw new ConflictException({ code: "conflict.email_taken" });
+        }
+        const existingSlug = await tx.organization.findUnique({
+          where: { slug: body.slug },
+          select: { id: true },
+        });
+        if (existingSlug) {
+          throw new ConflictException({ code: "conflict.slug_taken" });
+        }
 
-      const org = await tx.organization.create({
-        data: { name: body.organizationName, slug: body.slug },
-      });
+        const org = await tx.organization.create({
+          data: { name: body.organizationName, slug: body.slug },
+        });
 
-      const user = await tx.user.create({
-        data: {
-          organizationId: org.id,
-          email: body.email,
-          passwordHash,
-          status: "active",
-          emailVerifiedAt: null,
-        },
-      });
+        const user = await tx.user.create({
+          data: {
+            organizationId: org.id,
+            email: body.email,
+            passwordHash,
+            status: "active",
+            emailVerifiedAt: null,
+          },
+        });
 
-      const roleIds = await this.bootstrap.bootstrap(tx, org.id);
+        const roleIds = await this.bootstrap.bootstrap(tx, org.id);
 
-      await tx.userRole.create({
-        data: {
-          organizationId: org.id,
-          userId: user.id,
-          roleId: roleIds.super_admin,
-        },
-      });
+        await tx.userRole.create({
+          data: {
+            organizationId: org.id,
+            userId: user.id,
+            roleId: roleIds.super_admin,
+          },
+        });
 
-      return { org, user };
-    });
+        return { org, user };
+      },
+    );
 
     const tokens = await this.tokens.issueInitialTokens(
       result.user.id,

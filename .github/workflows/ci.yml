@@ -34,6 +34,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Belt-and-braces: postinstall on @staffly/api also runs `prisma generate`,
+      # but make it explicit here so a missing client never silently breaks
+      # typecheck/build downstream.
+      - name: Generate Prisma client
+        run: pnpm --filter @staffly/api prisma:generate
+
       - name: Prettier
         run: pnpm format:check
 

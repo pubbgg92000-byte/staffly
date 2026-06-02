@@ -119,47 +119,49 @@ export class RegularizationsService {
       });
     }
 
-    const updated = await this.prisma.db.$transaction(async (tx) => {
-      const upd = await tx.attendanceRegularization.update({
-        where: { id },
-        data: {
-          status: body.decision,
-          decidedBy: actor.userId,
-          decidedAt: new Date(),
-          decisionComment: body.comment ?? null,
-        },
-      });
-
-      if (body.decision === "approved") {
-        const existing = await tx.attendanceRecord.findUnique({
-          where: {
-            employeeId_attendanceDate: {
-              employeeId: reg.employeeId,
-              attendanceDate: reg.attendanceDate,
-            },
+    const updated = await this.prisma.db.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const upd = await tx.attendanceRegularization.update({
+          where: { id },
+          data: {
+            status: body.decision,
+            decidedBy: actor.userId,
+            decidedAt: new Date(),
+            decisionComment: body.comment ?? null,
           },
         });
-        const recordData = {
-          organizationId: reg.organizationId,
-          employeeId: reg.employeeId,
-          attendanceDate: reg.attendanceDate,
-          checkInAt: reg.requestedCheckInAt ?? existing?.checkInAt ?? null,
-          checkOutAt: reg.requestedCheckOutAt ?? existing?.checkOutAt ?? null,
-          status: "present" as const,
-          isRegularized: true,
-          regularizationId: reg.id,
-        };
-        if (existing) {
-          await tx.attendanceRecord.update({
-            where: { id: existing.id },
-            data: recordData,
+
+        if (body.decision === "approved") {
+          const existing = await tx.attendanceRecord.findUnique({
+            where: {
+              employeeId_attendanceDate: {
+                employeeId: reg.employeeId,
+                attendanceDate: reg.attendanceDate,
+              },
+            },
           });
-        } else {
-          await tx.attendanceRecord.create({ data: recordData });
+          const recordData = {
+            organizationId: reg.organizationId,
+            employeeId: reg.employeeId,
+            attendanceDate: reg.attendanceDate,
+            checkInAt: reg.requestedCheckInAt ?? existing?.checkInAt ?? null,
+            checkOutAt: reg.requestedCheckOutAt ?? existing?.checkOutAt ?? null,
+            status: "present" as const,
+            isRegularized: true,
+            regularizationId: reg.id,
+          };
+          if (existing) {
+            await tx.attendanceRecord.update({
+              where: { id: existing.id },
+              data: recordData,
+            });
+          } else {
+            await tx.attendanceRecord.create({ data: recordData });
+          }
         }
-      }
-      return upd;
-    });
+        return upd;
+      },
+    );
 
     await this.audit.record({
       action: `attendance.regularization.${body.decision}`,
