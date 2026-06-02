@@ -12,6 +12,7 @@
   },
   "scripts": {
     "lint": "eslint .",
+    "test": "echo 'No tests configured'",
     "typecheck": "tsc --noEmit",
     "build": "echo \"source-only package\""
   },

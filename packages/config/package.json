@@ -21,6 +21,7 @@
   ],
   "scripts": {
     "lint": "echo \"no sources to lint\"",
+    "test": "echo 'No tests configured'",
     "typecheck": "echo \"no sources to typecheck\"",
     "build": "echo \"no build step\""
   }
