@@ -177,6 +177,34 @@ enum HolidayType {
   @@map("holiday_type")
 }
 
+enum AnnouncementStatus {
+  draft
+  scheduled
+  published
+  archived
+
+  @@map("announcement_status")
+}
+
+enum AnnouncementPriority {
+  low
+  normal
+  high
+
+  @@map("announcement_priority")
+}
+
+enum AnnouncementAudienceType {
+  all_employees
+  department
+  designation
+  location
+  employment_type
+  specific_employees
+
+  @@map("announcement_audience_type")
+}
+
 // ─── Organizations ──────────────────────────────────────────────────────────
 
 model Organization {
@@ -225,6 +253,9 @@ model Organization {
   holidayCalendars          HolidayCalendar[]
   holidays                  Holiday[]
   locationHolidayCalendars  LocationHolidayCalendar[]
+  announcements             Announcement[]
+  announcementAudiences     AnnouncementAudience[]
+  announcementAcks          AnnouncementAcknowledgement[]
 
   @@unique([domain])
   @@index([status])
@@ -545,16 +576,17 @@ model Employee {
   createdBy        String?        @map("created_by") @db.Uuid
   updatedBy        String?        @map("updated_by") @db.Uuid
 
-  organization              Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  department                Department?                @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  designation               Designation?               @relation(fields: [designationId], references: [id], onDelete: SetNull)
-  location                  Location?                  @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  manager                   Employee?                  @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
-  reports                   Employee[]                 @relation("EmployeeManager")
+  organization              Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department                Department?                   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  designation               Designation?                  @relation(fields: [designationId], references: [id], onDelete: SetNull)
+  location                  Location?                     @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  manager                   Employee?                     @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports                   Employee[]                    @relation("EmployeeManager")
   attendanceRecords         AttendanceRecord[]
   attendanceRegularizations AttendanceRegularization[]
   leaveBalances             LeaveBalance[]
   leaveRequests             LeaveRequest[]
+  announcementAcks          AnnouncementAcknowledgement[]
 
   @@unique([organizationId, employeeCode])
   @@unique([organizationId, workEmail])
@@ -826,4 +858,72 @@ model LocationHolidayCalendar {
   @@index([organizationId])
   @@index([calendarId])
   @@map("location_holiday_calendars")
+}
+
+// ─── Announcements ──────────────────────────────────────────────────────────
+
+model Announcement {
+  id                     String               @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId         String               @map("organization_id") @db.Uuid
+  title                  String               @db.VarChar(180)
+  bodyHtml               String               @map("body_html")
+  coverImageUrl          String?              @map("cover_image_url")
+  pinned                 Boolean              @default(false)
+  requiresAcknowledgment Boolean              @default(false) @map("requires_acknowledgment")
+  priority               AnnouncementPriority @default(normal)
+  status                 AnnouncementStatus   @default(draft)
+  publishedAt            DateTime?            @map("published_at") @db.Timestamptz(6)
+  scheduledFor           DateTime?            @map("scheduled_for") @db.Timestamptz(6)
+  expiresAt              DateTime?            @map("expires_at") @db.Timestamptz(6)
+  createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt              DateTime?            @map("deleted_at") @db.Timestamptz(6)
+  createdBy              String?              @map("created_by") @db.Uuid
+  updatedBy              String?              @map("updated_by") @db.Uuid
+
+  organization     Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  audiences        AnnouncementAudience[]
+  acknowledgements AnnouncementAcknowledgement[]
+
+  @@index([organizationId, status, publishedAt(sort: Desc)])
+  @@index([organizationId, scheduledFor])
+  @@index([organizationId, pinned, publishedAt(sort: Desc)])
+  @@map("announcements")
+}
+
+model AnnouncementAudience {
+  id             String                   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String                   @map("organization_id") @db.Uuid
+  announcementId String                   @map("announcement_id") @db.Uuid
+  audienceType   AnnouncementAudienceType @map("audience_type")
+  departmentId   String?                  @map("department_id") @db.Uuid
+  designationId  String?                  @map("designation_id") @db.Uuid
+  locationId     String?                  @map("location_id") @db.Uuid
+  employmentType EmploymentType?          @map("employment_type")
+  employeeId     String?                  @map("employee_id") @db.Uuid
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@index([announcementId])
+  @@index([organizationId, audienceType])
+  @@map("announcement_audiences")
+}
+
+model AnnouncementAcknowledgement {
+  id             String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  announcementId String   @map("announcement_id") @db.Uuid
+  employeeId     String   @map("employee_id") @db.Uuid
+  acknowledgedAt DateTime @default(now()) @map("acknowledged_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, employeeId])
+  @@index([organizationId, acknowledgedAt(sort: Desc)])
+  @@index([employeeId, acknowledgedAt(sort: Desc)])
+  @@map("announcement_acknowledgements")
 }
