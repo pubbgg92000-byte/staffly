@@ -13,7 +13,17 @@ export { cn } from "./lib/cn";
 // API + session
 export { api, type Api, type ApiFetchOptions } from "./api/client";
 export { ApiError, isApiError } from "./api/error";
-export { useSession, useSignIn, useSignOut, sessionKeys } from "./api/session";
+export {
+  useSession,
+  useSignIn,
+  useSignOut,
+  useVerifyTwoFactor,
+  useForgotPassword,
+  useResetPassword,
+  useInvitePeek,
+  useAcceptInvite,
+  sessionKeys,
+} from "./api/session";
 
 // Providers
 export { QueryProvider } from "./providers/query-provider";
@@ -75,6 +85,14 @@ export { EmptyState } from "./components/empty-state";
 export { PasswordInput } from "./components/password-input";
 export { PasswordStrengthMeter } from "./components/password-strength-meter";
 export { OtpInput, type OtpInputProps } from "./components/otp-input";
+
+// Auth forms (page-level, shared across portals)
+export { SignInForm } from "./auth-forms/sign-in-form";
+export { ForgotPasswordForm } from "./auth-forms/forgot-password-form";
+export { ResetPasswordForm } from "./auth-forms/reset-password-form";
+export { TwoFactorForm } from "./auth-forms/two-factor-form";
+export { AcceptInviteForm } from "./auth-forms/accept-invite-form";
+export { resolveRedirect } from "./auth-forms/role-redirect";
 
 // Layouts
 export { AuthLayout } from "./layouts/auth-layout";

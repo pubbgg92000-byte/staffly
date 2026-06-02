@@ -3,11 +3,25 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { ApiError } from "./error";
-import type { MeResponse, SignInInput } from "@staffly/types";
+import type {
+  AcceptInviteInput,
+  AuthSuccess,
+  ForgotPasswordInput,
+  ForgotPasswordResponse,
+  InvitePeekResponse,
+  MeResponse,
+  ResetPasswordInput,
+  ResetPasswordResponse,
+  SignInInput,
+  SignInResponse,
+  TwoFactorInput,
+  VerifyTwoFactorResponse,
+} from "@staffly/types";
 
 /** Reusable React Query keys for the auth surface. */
 export const sessionKeys = {
   me: ["auth", "me"] as const,
+  invite: (token: string) => ["auth", "invite", token] as const,
 };
 
 /**
@@ -43,15 +57,104 @@ export function useSession(): {
 }
 
 export function useSignIn(): ReturnType<
-  typeof useMutation<{ user: MeResponse["user"] }, ApiError, SignInInput>
+  typeof useMutation<SignInResponse, ApiError, SignInInput>
 > {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: SignInInput) =>
-      api.post<{ user: MeResponse["user"] }>("/auth/signin", input),
+      api.post<SignInResponse>("/auth/signin", input),
     onSuccess: (res) => {
-      // Prime the session cache so the next render has data immediately.
-      qc.setQueryData(sessionKeys.me, { user: res.user });
+      // Only prime the session cache if the user is fully signed in.
+      // 2FA challenge returns a `challenge` payload — no cookies yet.
+      if ("user" in res) {
+        qc.setQueryData(sessionKeys.me, {
+          user: {
+            ...res.user,
+            organizationId: res.organization.id,
+            defaultPortal: res.defaultPortal,
+          },
+        } satisfies MeResponse);
+      }
+    },
+  });
+}
+
+export function useVerifyTwoFactor(): ReturnType<
+  typeof useMutation<VerifyTwoFactorResponse, ApiError, TwoFactorInput>
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: TwoFactorInput) =>
+      api.post<VerifyTwoFactorResponse>("/auth/verify-2fa", input),
+    onSuccess: (res) => {
+      qc.setQueryData(sessionKeys.me, {
+        user: {
+          ...res.user,
+          organizationId: res.organization.id,
+          defaultPortal: res.defaultPortal,
+        },
+      } satisfies MeResponse);
+    },
+  });
+}
+
+export function useForgotPassword(): ReturnType<
+  typeof useMutation<ForgotPasswordResponse, ApiError, ForgotPasswordInput>
+> {
+  return useMutation({
+    mutationFn: (input) =>
+      api.post<ForgotPasswordResponse>("/auth/forgot-password", input),
+  });
+}
+
+export function useResetPassword(): ReturnType<
+  typeof useMutation<ResetPasswordResponse, ApiError, ResetPasswordInput>
+> {
+  return useMutation({
+    mutationFn: ({ token, password }) =>
+      api.post<ResetPasswordResponse>("/auth/reset-password", {
+        token,
+        password,
+      }),
+  });
+}
+
+export function useInvitePeek(token: string | null): {
+  data: InvitePeekResponse | undefined;
+  isLoading: boolean;
+  error: ApiError | null;
+} {
+  const q = useQuery({
+    queryKey: sessionKeys.invite(token ?? ""),
+    queryFn: () =>
+      api.get<InvitePeekResponse>(
+        `/auth/invite?token=${encodeURIComponent(token ?? "")}`,
+      ),
+    enabled: !!token,
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+  return {
+    data: q.data,
+    isLoading: q.isLoading,
+    error: q.error instanceof ApiError ? q.error : null,
+  };
+}
+
+export function useAcceptInvite(): ReturnType<
+  typeof useMutation<AuthSuccess, ApiError, AcceptInviteInput>
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input) => api.post<AuthSuccess>("/auth/accept-invite", input),
+    onSuccess: (res) => {
+      qc.setQueryData(sessionKeys.me, {
+        user: {
+          ...res.user,
+          organizationId: res.organization.id,
+          defaultPortal: res.defaultPortal,
+        },
+      } satisfies MeResponse);
     },
   });
 }

@@ -16,6 +16,36 @@ const EnvSchema = z.object({
     .int()
     .positive()
     .default(60 * 60 * 24 * 7),
+  /**
+   * Extended refresh TTL when the user opts in to "remember me" at sign-in.
+   * Defaults to 30 days. Set on the refresh cookie's Max-Age, so the
+   * difference is purely browser-side persistence.
+   */
+  REMEMBER_ME_REFRESH_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60 * 24 * 30),
+  /** TTL for password-reset tokens (default 1 hour). */
+  PASSWORD_RESET_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60),
+  /** TTL for invite tokens (default 7 days). */
+  INVITE_TOKEN_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60 * 24 * 7),
+  /** TTL for a 2FA challenge (default 5 minutes). */
+  TWO_FACTOR_CHALLENGE_TTL_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(5 * 60),
+  /** Base URL used to build dev reset/invite links printed to logs. */
+  APP_BASE_URL: z.string().url().default("http://localhost:3000"),
 
   COOKIE_DOMAIN: z.string().default("localhost"),
 

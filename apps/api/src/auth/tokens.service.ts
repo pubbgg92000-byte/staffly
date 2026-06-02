@@ -74,9 +74,12 @@ export class TokensService {
     organizationId: string,
     ctx: RefreshContext = {},
     parentId: string | null = null,
+    options: { rememberMe?: boolean } = {},
   ): Promise<{ token: string; ttlSeconds: number }> {
     const raw = urlSafe(randomBytes(32));
-    const ttlSeconds = this.env.REFRESH_TOKEN_TTL_SECONDS;
+    const ttlSeconds = options.rememberMe
+      ? this.env.REMEMBER_ME_REFRESH_TTL_SECONDS
+      : this.env.REFRESH_TOKEN_TTL_SECONDS;
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
     await this.prisma.db.refreshToken.create({
       data: {
@@ -182,9 +185,16 @@ export class TokensService {
     userId: string,
     organizationId: string,
     ctx: RefreshContext = {},
+    options: { rememberMe?: boolean } = {},
   ): Promise<IssuedTokens> {
     const access = this.signAccessToken(userId, organizationId);
-    const refresh = await this.issueRefreshToken(userId, organizationId, ctx);
+    const refresh = await this.issueRefreshToken(
+      userId,
+      organizationId,
+      ctx,
+      null,
+      options,
+    );
     return {
       accessToken: access.token,
       accessTokenTtlSeconds: access.ttlSeconds,

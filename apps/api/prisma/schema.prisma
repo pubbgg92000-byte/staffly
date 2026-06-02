@@ -216,6 +216,22 @@ enum DocumentAudienceType {
   @@map("document_audience_type")
 }
 
+enum TwoFactorChallengeKind {
+  totp
+  dev_otp
+
+  @@map("two_factor_challenge_kind")
+}
+
+enum InviteStatus {
+  pending
+  accepted
+  revoked
+  expired
+
+  @@map("invite_status")
+}
+
 // ─── Organizations ──────────────────────────────────────────────────────────
 
 model Organization {
@@ -272,6 +288,9 @@ model Organization {
   documentVersions          DocumentVersion[]
   documentAudiences         DocumentAudience[]
   documentAcks              DocumentAcknowledgement[]
+  passwordResetTokens       PasswordResetToken[]
+  invites                   Invite[]
+  twoFactorChallenges       TwoFactorChallenge[]
 
   @@unique([domain])
   @@index([status])
@@ -323,6 +342,8 @@ model User {
   userRoles               UserRole[]
   notifications           Notification[]
   notificationPreferences NotificationPreference[]
+  passwordResetTokens     PasswordResetToken[]
+  twoFactorChallenges     TwoFactorChallenge[]
 
   @@unique([organizationId, email])
   @@unique([email])
@@ -1067,4 +1088,82 @@ model DocumentAcknowledgement {
   @@index([organizationId, acknowledgedAt(sort: Desc)])
   @@index([employeeId, acknowledgedAt(sort: Desc)])
   @@map("document_acknowledgements")
+}
+
+// ─── Auth: password reset / invites / 2FA ───────────────────────────────────
+
+/// Single-use bearer token for the forgot-password flow. The plain token is
+/// emailed to the user (or printed to logs in dev). We store only its sha256
+/// hash, so a DB leak does not yield reusable reset URLs.
+model PasswordResetToken {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  tokenHash      String    @unique @map("token_hash") @db.Char(64)
+  requestedIp    String?   @map("requested_ip") @db.Inet
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt         DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+/// Admin-created invitation. Lifecycle:
+///   created → status=pending (token issued)
+///   acceptance → status=accepted, user row materialized (or updated)
+///   manual revoke → status=revoked
+///   expiry crossed without acceptance → status=expired (set lazily on read)
+///
+/// Stores the *role to assign* on acceptance so HR can pre-assign permissions
+/// without first creating the User row. `usedAt` is `null` until acceptance.
+model Invite {
+  id             String       @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  email          String       @db.VarChar(254)
+  roleKey        String       @map("role_key") @db.VarChar(40)
+  tokenHash      String       @unique @map("token_hash") @db.Char(64)
+  status         InviteStatus @default(pending)
+  expiresAt      DateTime     @map("expires_at") @db.Timestamptz(6)
+  acceptedAt     DateTime?    @map("accepted_at") @db.Timestamptz(6)
+  revokedAt      DateTime?    @map("revoked_at") @db.Timestamptz(6)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy      String?      @map("created_by") @db.Uuid
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([organizationId, email])
+  @@index([expiresAt])
+  @@map("invites")
+}
+
+/// Short-lived second-factor challenge created at sign-in time. The user is
+/// granted a "partial auth" cookie (via the regular access cookie flow with a
+/// reduced scope claim — see auth.service.ts) until the challenge is solved.
+///
+/// Dev mode: `devOtp` carries a 6-digit code printed to API logs so the UI can
+/// be exercised end-to-end without a TOTP authenticator. Production swaps for
+/// `users.two_factor_secret_enc` verification.
+model TwoFactorChallenge {
+  id             String                 @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  userId         String                 @map("user_id") @db.Uuid
+  kind           TwoFactorChallengeKind
+  devOtp         String?                @map("dev_otp") @db.VarChar(6)
+  attempts       Int                    @default(0)
+  expiresAt      DateTime               @map("expires_at") @db.Timestamptz(6)
+  consumedAt     DateTime?              @map("consumed_at") @db.Timestamptz(6)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, consumedAt])
+  @@index([expiresAt])
+  @@map("two_factor_challenges")
 }

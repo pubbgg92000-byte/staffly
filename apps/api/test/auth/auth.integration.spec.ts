@@ -30,6 +30,7 @@ import { GlobalExceptionFilter } from "../../src/common/http-exception.filter";
 import { RequirePermission } from "../../src/rbac/decorators/require-permission.decorator";
 import { resetEnvCacheForTests } from "../../src/infra/config/env";
 import { PrismaService } from "../../src/infra/prisma/prisma.service";
+import { AuthService } from "../../src/auth/auth.service";
 import {
   CSRF_COOKIE,
   REFRESH_COOKIE,
@@ -72,6 +73,7 @@ class TestAppModule {}
 let container: StartedPostgreSqlContainer;
 let app: INestApplication;
 let prisma: PrismaService;
+let authService: AuthService;
 let unique = 0;
 
 /** Build a unique signup payload so tests in the same run don't collide. */
@@ -168,6 +170,7 @@ beforeAll(async () => {
   await app.init();
 
   prisma = moduleRef.get(PrismaService);
+  authService = moduleRef.get(AuthService);
 }, 180_000);
 
 afterAll(async () => {
@@ -576,5 +579,276 @@ describe("tenant isolation via HTTP", () => {
     // data; the deeper isolation is already covered by
     // test/tenant/isolation.integration.spec.ts.)
     void cA;
+  });
+});
+
+// ─── UI-1.2: forgot/reset, 2FA challenge, accept-invite, remember-me ─────
+
+describe("v0.11 auth uplift", () => {
+  it("signin response includes defaultPortal=admin for the org owner", async () => {
+    const payload = uniqueSignup();
+    await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(payload)
+      .expect(201);
+    const res = await request(app.getHttpServer())
+      .post("/auth/signin")
+      .send({ email: payload.email, password: payload.password })
+      .expect(200);
+    expect(res.body.defaultPortal).toBe("admin");
+    expect(res.body.user.role).toBe("super_admin");
+  });
+
+  it("signin with rememberMe=true issues a refresh cookie with a long Max-Age", async () => {
+    const payload = uniqueSignup();
+    await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(payload)
+      .expect(201);
+    const res = await request(app.getHttpServer())
+      .post("/auth/signin")
+      .send({
+        email: payload.email,
+        password: payload.password,
+        rememberMe: true,
+      })
+      .expect(200);
+    const setCookie = res.headers["set-cookie"] ?? [];
+    const arr = Array.isArray(setCookie) ? setCookie : [setCookie];
+    const refresh = arr.find((c) => c.startsWith("sf_refresh="));
+    expect(refresh).toBeTruthy();
+    const m = refresh!.match(/Max-Age=(\d+)/);
+    expect(m).toBeTruthy();
+    // Default refresh TTL in tests is 604800s (7d). rememberMe should be
+    // ≥ that — default REMEMBER_ME_REFRESH_TTL_SECONDS=2592000 (30d).
+    expect(Number(m![1])).toBeGreaterThanOrEqual(7 * 86_400);
+  });
+
+  it("forgot-password returns 200 regardless of email existence, devResetUrl when match", async () => {
+    const payload = uniqueSignup();
+    await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(payload)
+      .expect(201);
+    const hit = await request(app.getHttpServer())
+      .post("/auth/forgot-password")
+      .send({ email: payload.email })
+      .expect(200);
+    expect(hit.body.ok).toBe(true);
+    expect(typeof hit.body.devResetUrl).toBe("string");
+    expect(hit.body.devResetUrl).toContain("/auth/reset-password?token=");
+
+    const miss = await request(app.getHttpServer())
+      .post("/auth/forgot-password")
+      .send({ email: `nope-${Date.now()}@test.local` })
+      .expect(200);
+    expect(miss.body.ok).toBe(true);
+    expect(miss.body.devResetUrl).toBeUndefined();
+  });
+
+  it("reset-password flow: change password + revoke other sessions, old refresh fails", async () => {
+    const payload = uniqueSignup();
+    const signup = await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(payload)
+      .expect(201);
+    const cookies = extractCookies(signup.headers["set-cookie"]);
+    expect(cookies.refresh).toBeTruthy();
+
+    const fp = await request(app.getHttpServer())
+      .post("/auth/forgot-password")
+      .send({ email: payload.email })
+      .expect(200);
+    const token = new URL(fp.body.devResetUrl).searchParams.get("token");
+    expect(token).toBeTruthy();
+
+    const newPassword = "newPassword123!";
+    await request(app.getHttpServer())
+      .post("/auth/reset-password")
+      .send({ token, password: newPassword })
+      .expect(200);
+
+    // Old refresh is now revoked.
+    const stale = await request(app.getHttpServer())
+      .post("/auth/refresh")
+      .set("Cookie", asCookieHeader(cookies))
+      .set("X-CSRF-Token", cookies.csrf!);
+    expect(stale.status).toBe(401);
+
+    // New password works.
+    const newSignin = await request(app.getHttpServer())
+      .post("/auth/signin")
+      .send({ email: payload.email, password: newPassword })
+      .expect(200);
+    expect(newSignin.body.user.email).toBe(payload.email);
+  });
+
+  it("reset-password rejects expired and reused tokens", async () => {
+    const payload = uniqueSignup();
+    await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(payload)
+      .expect(201);
+
+    // Generate a token.
+    const fp = await request(app.getHttpServer())
+      .post("/auth/forgot-password")
+      .send({ email: payload.email })
+      .expect(200);
+    const token = new URL(fp.body.devResetUrl).searchParams.get("token")!;
+    const first = await request(app.getHttpServer())
+      .post("/auth/reset-password")
+      .send({ token, password: "anotherPassword1" });
+    expect(first.status).toBe(200);
+    // Second use → 401 invalid.
+    const reuse = await request(app.getHttpServer())
+      .post("/auth/reset-password")
+      .send({ token, password: "anotherPassword2" });
+    expect(reuse.status).toBe(401);
+    expect(reuse.body.error.code).toBe("reset.invalid");
+  });
+
+  it("2FA challenge: signin returns challenge, verify-2fa with code completes sign-in", async () => {
+    const payload = uniqueSignup();
+    const signup = await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(payload)
+      .expect(201);
+    // Enable 2FA on the user row (test backdoor).
+    await prisma.db.user.update({
+      where: { id: signup.body.user.id },
+      data: { twoFactorEnabled: true },
+    });
+
+    const challenge = await request(app.getHttpServer())
+      .post("/auth/signin")
+      .send({ email: payload.email, password: payload.password })
+      .expect(200);
+    expect(challenge.body.challenge).toBeTruthy();
+    expect(challenge.body.user).toBeUndefined();
+    // No auth cookies set yet.
+    const ch1 = challenge.headers["set-cookie"] ?? [];
+    const arr = Array.isArray(ch1) ? ch1 : [ch1];
+    expect(arr.find((c) => c.startsWith("sf_access="))).toBeUndefined();
+
+    const ch = await prisma.db.twoFactorChallenge.findUnique({
+      where: { id: challenge.body.challenge.id },
+    });
+    expect(ch?.devOtp).toMatch(/^\d{6}$/);
+
+    const wrong = await request(app.getHttpServer())
+      .post("/auth/verify-2fa")
+      .send({ challengeId: ch!.id, code: "000000" });
+    expect(wrong.status).toBe(401);
+
+    const ok = await request(app.getHttpServer())
+      .post("/auth/verify-2fa")
+      .send({ challengeId: ch!.id, code: ch!.devOtp })
+      .expect(200);
+    expect(ok.body.user.email).toBe(payload.email);
+    expect(ok.body.defaultPortal).toBe("admin");
+    // Cookies issued now.
+    const ch2 = ok.headers["set-cookie"] ?? [];
+    const arr2 = Array.isArray(ch2) ? ch2 : [ch2];
+    expect(arr2.find((c) => c.startsWith("sf_access="))).toBeTruthy();
+  });
+
+  it("accept-invite flow: peek then accept activates the user and signs them in", async () => {
+    // Bootstrap an org to issue the invite from.
+    const owner = uniqueSignup();
+    const signup = await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(owner)
+      .expect(201);
+    const orgId = signup.body.organization.id as string;
+
+    const inviteEmail = `invitee-${Date.now()}@test.local`;
+    const issued = await authService.createInvite({
+      organizationId: orgId,
+      email: inviteEmail,
+      roleKey: "hr_admin",
+    });
+
+    const peek = await request(app.getHttpServer())
+      .get(`/auth/invite?token=${encodeURIComponent(issued.token)}`)
+      .expect(200);
+    expect(peek.body.email).toBe(inviteEmail);
+    expect(peek.body.roleKey).toBe("hr_admin");
+
+    const accept = await request(app.getHttpServer())
+      .post("/auth/accept-invite")
+      .send({
+        token: issued.token,
+        firstName: "Test",
+        lastName: "Invitee",
+        password: "hunter22hunter22",
+      })
+      .expect(200);
+    expect(accept.body.user.email).toBe(inviteEmail);
+    expect(accept.body.user.role).toBe("hr_admin");
+    expect(accept.body.defaultPortal).toBe("admin");
+
+    // Cookies issued.
+    const set = accept.headers["set-cookie"] ?? [];
+    const arr = Array.isArray(set) ? set : [set];
+    expect(arr.find((c) => c.startsWith("sf_access="))).toBeTruthy();
+
+    // Repeat acceptance with the same token → 409.
+    const replay = await request(app.getHttpServer())
+      .post("/auth/accept-invite")
+      .send({
+        token: issued.token,
+        firstName: "Test",
+        lastName: "Invitee",
+        password: "hunter22hunter22",
+      });
+    expect(replay.status).toBe(409);
+  });
+
+  it("accept-invite rejects invalid tokens", async () => {
+    const res = await request(app.getHttpServer())
+      .post("/auth/accept-invite")
+      .send({
+        token: "no-such-token",
+        firstName: "A",
+        lastName: "B",
+        password: "hunter22hunter22",
+      });
+    expect(res.status).toBe(404);
+  });
+
+  it("/auth/me reports defaultPortal + organizationId for admin and employee roles", async () => {
+    const payload = uniqueSignup();
+    const signup = await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(payload)
+      .expect(201);
+    const cookies = extractCookies(signup.headers["set-cookie"]);
+    const me = await request(app.getHttpServer())
+      .get("/auth/me")
+      .set("Cookie", asCookieHeader(cookies))
+      .expect(200);
+    expect(me.body.user.defaultPortal).toBe("admin");
+    expect(me.body.user.organizationId).toBeTruthy();
+  });
+
+  it("signout endpoint behaves identically to logout", async () => {
+    const payload = uniqueSignup();
+    const signup = await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(payload)
+      .expect(201);
+    const cookies = extractCookies(signup.headers["set-cookie"]);
+    const res = await request(app.getHttpServer())
+      .post("/auth/signout")
+      .set("Cookie", asCookieHeader(cookies))
+      .set("X-CSRF-Token", cookies.csrf!);
+    expect(res.status).toBe(204);
+    // After signout, refresh is revoked — token rotation fails.
+    const refresh = await request(app.getHttpServer())
+      .post("/auth/refresh")
+      .set("Cookie", asCookieHeader(cookies))
+      .set("X-CSRF-Token", cookies.csrf!);
+    expect(refresh.status).toBe(401);
   });
 });

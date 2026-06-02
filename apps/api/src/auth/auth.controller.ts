@@ -5,16 +5,44 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
   UseGuards,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
-import { AuthService, type AuthResult, type MeResult } from "./auth.service";
+import {
+  AuthService,
+  isChallenge,
+  type AuthResult,
+  type InvitePeek,
+  type MeResult,
+  type SigninOutcome,
+  type TwoFactorChallengeResult,
+} from "./auth.service";
 import { SignupBody, type SignupBodyT } from "./dto/signup.dto";
 import { SigninBody, type SigninBodyT } from "./dto/signin.dto";
+import {
+  ForgotPasswordBody,
+  type ForgotPasswordBodyT,
+} from "./dto/forgot-password.dto";
+import {
+  ResetPasswordBody,
+  type ResetPasswordBodyT,
+} from "./dto/reset-password.dto";
+import {
+  VerifyTwoFactorBody,
+  type VerifyTwoFactorBodyT,
+} from "./dto/verify-2fa.dto";
+import {
+  AcceptInviteBody,
+  PeekInviteQuery,
+  type AcceptInviteBodyT,
+  type PeekInviteQueryT,
+} from "./dto/accept-invite.dto";
 import { ZodBody } from "../common/zod-validation.pipe";
+import { ZodQuery } from "../common/zod-query.pipe";
 import { Public } from "./decorators/public.decorator";
 import {
   CurrentUser,
@@ -27,9 +55,15 @@ interface CookieBag {
   [name: string]: string | undefined;
 }
 
+type SignInPublic =
+  | (Omit<AuthResult, "tokens"> & { challenge?: undefined })
+  | TwoFactorChallengeResult;
+
 @Controller("auth")
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
+
+  // ─── Signup (org bootstrap) ─────────────────────────────────────────
 
   @Public()
   @Post("signup")
@@ -41,8 +75,14 @@ export class AuthController {
     const result = await this.auth.signup(body, this.ctx(req));
     setAuthCookies(res, result.tokens);
     res.status(HttpStatus.CREATED);
-    return { user: result.user, organization: result.organization };
+    return {
+      user: result.user,
+      organization: result.organization,
+      defaultPortal: result.defaultPortal,
+    };
   }
+
+  // ─── Signin (password + optional 2FA challenge) ─────────────────────
 
   @Public()
   @Post("signin")
@@ -51,16 +91,41 @@ export class AuthController {
     @Body(new ZodBody(SigninBody)) body: SigninBodyT,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<{ user: AuthResult["user"] }> {
-    const result = await this.auth.signin(body, this.ctx(req));
+  ): Promise<SignInPublic> {
+    const result: SigninOutcome = await this.auth.signin(body, this.ctx(req));
+    if (isChallenge(result)) {
+      // Do NOT set auth cookies until 2FA verifies.
+      return result;
+    }
     setAuthCookies(res, result.tokens);
-    return { user: result.user };
+    return {
+      user: result.user,
+      organization: result.organization,
+      defaultPortal: result.defaultPortal,
+    };
   }
 
-  /**
-   * Refresh is "public" w.r.t. the access JWT — it authenticates via the
-   * refresh cookie. CSRF still applies (cookie-borne state-changing call).
-   */
+  // ─── Verify 2FA ─────────────────────────────────────────────────────
+
+  @Public()
+  @Post("verify-2fa")
+  @HttpCode(HttpStatus.OK)
+  async verifyTwoFactor(
+    @Body(new ZodBody(VerifyTwoFactorBody)) body: VerifyTwoFactorBodyT,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<Omit<AuthResult, "tokens">> {
+    const result = await this.auth.verifyTwoFactor(body, this.ctx(req));
+    setAuthCookies(res, result.tokens);
+    return {
+      user: result.user,
+      organization: result.organization,
+      defaultPortal: result.defaultPortal,
+    };
+  }
+
+  // ─── Refresh + logout + me ──────────────────────────────────────────
+
   @Public()
   @UseGuards(CsrfGuard)
   @Post("refresh")
@@ -87,10 +152,78 @@ export class AuthController {
     clearAuthCookies(res);
   }
 
+  /**
+   * Alias for clients that prefer the spelling `signout`. Same semantics as
+   * `/auth/logout` — clears cookies and revokes the presented refresh.
+   */
+  @Post("signout")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  signout(
+    @Req() req: Request & { cookies?: CookieBag },
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    return this.logout(req, res);
+  }
+
   @Get("me")
-  async me(@CurrentUser() user: RequestUser): Promise<MeResult> {
+  me(@CurrentUser() user: RequestUser): Promise<MeResult> {
     return this.auth.me(user.userId);
   }
+
+  // ─── Forgot / reset ─────────────────────────────────────────────────
+
+  /**
+   * Always returns 200 to avoid email enumeration. Dev mode includes the
+   * generated reset URL in the response body so the developer can copy it
+   * without setting up SMTP — production strips this field.
+   */
+  @Public()
+  @Post("forgot-password")
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(
+    @Body(new ZodBody(ForgotPasswordBody)) body: ForgotPasswordBodyT,
+    @Req() req: Request,
+  ): Promise<{ ok: true; devResetUrl?: string }> {
+    return this.auth.forgotPassword(body, this.ctx(req));
+  }
+
+  @Public()
+  @Post("reset-password")
+  @HttpCode(HttpStatus.OK)
+  resetPassword(
+    @Body(new ZodBody(ResetPasswordBody)) body: ResetPasswordBodyT,
+  ): Promise<{ ok: true }> {
+    return this.auth.resetPassword(body);
+  }
+
+  // ─── Invite ─────────────────────────────────────────────────────────
+
+  @Public()
+  @Get("invite")
+  peekInvite(
+    @Query(new ZodQuery(PeekInviteQuery)) q: PeekInviteQueryT,
+  ): Promise<InvitePeek> {
+    return this.auth.peekInvite(q.token);
+  }
+
+  @Public()
+  @Post("accept-invite")
+  @HttpCode(HttpStatus.OK)
+  async acceptInvite(
+    @Body(new ZodBody(AcceptInviteBody)) body: AcceptInviteBodyT,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<Omit<AuthResult, "tokens">> {
+    const result = await this.auth.acceptInvite(body, this.ctx(req));
+    setAuthCookies(res, result.tokens);
+    return {
+      user: result.user,
+      organization: result.organization,
+      defaultPortal: result.defaultPortal,
+    };
+  }
+
+  // ─── Helpers ────────────────────────────────────────────────────────
 
   private ctx(req: Request): { userAgent?: string; ipAddress?: string } {
     const ua = req.headers["user-agent"];

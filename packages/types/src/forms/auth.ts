@@ -10,8 +10,6 @@ import { z } from "zod";
 
 const Email = z.string().trim().toLowerCase().email().max(254);
 
-// Match the backend's signup rule (apps/api/src/auth/dto/signup.dto.ts uses
-// min(16)). We require min 10 for forms the backend doesn't yet validate.
 const StrongPassword = z
   .string()
   .min(10, "Minimum 10 characters")
@@ -21,6 +19,7 @@ const StrongPassword = z
 export const SignInSchema = z.object({
   email: Email,
   password: z.string().min(1, "Required"),
+  rememberMe: z.boolean().optional(),
 });
 export type SignInInput = z.infer<typeof SignInSchema>;
 
@@ -42,7 +41,9 @@ export const ResetPasswordSchema = z
 export type ResetPasswordInput = z.infer<typeof ResetPasswordSchema>;
 
 export const TwoFactorSchema = z.object({
+  challengeId: z.string().uuid(),
   code: z.string().regex(/^\d{6}$/, "Enter the 6-digit code"),
+  rememberMe: z.boolean().optional(),
 });
 export type TwoFactorInput = z.infer<typeof TwoFactorSchema>;
 
