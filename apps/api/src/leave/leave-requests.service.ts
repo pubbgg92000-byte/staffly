@@ -9,6 +9,7 @@ import { PrismaService } from "../infra/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { PermissionsService } from "../rbac/permissions.service";
 import { LeaveBalancesService } from "./leave-balances.service";
+import { HolidayLookupService } from "../holidays/holiday-lookup.service";
 import { pageOf, skipTake, type Page } from "../common/pagination";
 import { availableBalance, computeUnits } from "./leave-rules";
 import type { ApplyLeaveBodyT, DecideBodyT, RequestsListQueryT } from "./dto";
@@ -25,6 +26,7 @@ export class LeaveRequestsService {
     private readonly audit: AuditService,
     private readonly permissions: PermissionsService,
     private readonly balances: LeaveBalancesService,
+    private readonly holidayLookup: HolidayLookupService,
   ) {}
 
   async list(q: RequestsListQueryT): Promise<Page<unknown>> {
@@ -81,11 +83,22 @@ export class LeaveRequestsService {
     }
 
     // 2. Compute units and validate against the leave type's min/max bounds.
+    //    Subtract holidays observed by the employee's resolved calendar.
+    const calendarId =
+      await this.holidayLookup.resolveCalendarIdForEmployee(employee.id);
+    const holidayDates = calendarId
+      ? await this.holidayLookup.holidayDatesInRange(
+          calendarId,
+          body.startDate,
+          body.endDate,
+        )
+      : new Set<string>();
     const units = computeUnits({
       startDate: body.startDate,
       endDate: body.endDate,
       halfDayStart: body.halfDayStart ?? false,
       halfDayEnd: body.halfDayEnd ?? false,
+      holidayDates,
     });
     if (units <= 0) {
       throw new BadRequestException({ code: "leave.units.invalid" });

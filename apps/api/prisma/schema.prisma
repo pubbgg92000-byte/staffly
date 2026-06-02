@@ -168,6 +168,15 @@ enum LeaveApprovalDecision {
   @@map("leave_approval_decision")
 }
 
+enum HolidayType {
+  public
+  restricted
+  optional
+  company
+
+  @@map("holiday_type")
+}
+
 // ─── Organizations ──────────────────────────────────────────────────────────
 
 model Organization {
@@ -213,6 +222,9 @@ model Organization {
   leaveBalances             LeaveBalance[]
   leaveRequests             LeaveRequest[]
   leaveApprovals            LeaveApproval[]
+  holidayCalendars          HolidayCalendar[]
+  holidays                  Holiday[]
+  locationHolidayCalendars  LocationHolidayCalendar[]
 
   @@unique([domain])
   @@index([status])
@@ -489,8 +501,9 @@ model Location {
   createdBy      String?   @map("created_by") @db.Uuid
   updatedBy      String?   @map("updated_by") @db.Uuid
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  employees    Employee[]
+  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employees       Employee[]
+  holidayCalendar LocationHolidayCalendar?
 
   @@unique([organizationId, name])
   @@index([organizationId])
@@ -750,4 +763,67 @@ model LeaveApproval {
   @@index([leaveRequestId])
   @@index([organizationId, decidedAt(sort: Desc)])
   @@map("leave_approvals")
+}
+
+// ─── Holidays ───────────────────────────────────────────────────────────────
+
+model HolidayCalendar {
+  id             String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String    @db.VarChar(80)
+  code           String?   @db.VarChar(20)
+  description    String?
+  isDefault      Boolean   @default(false) @map("is_default")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy      String?   @map("created_by") @db.Uuid
+  updatedBy      String?   @map("updated_by") @db.Uuid
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  holidays     Holiday[]
+  locations    LocationHolidayCalendar[]
+
+  @@unique([organizationId, name])
+  @@unique([organizationId, code])
+  @@index([organizationId, isDefault])
+  @@map("holiday_calendars")
+}
+
+model Holiday {
+  id             String      @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId String      @map("organization_id") @db.Uuid
+  calendarId     String      @map("calendar_id") @db.Uuid
+  date           DateTime    @db.Date
+  name           String      @db.VarChar(120)
+  type           HolidayType @default(public)
+  isOptional     Boolean     @default(false) @map("is_optional")
+  description    String?
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy      String?     @map("created_by") @db.Uuid
+  updatedBy      String?     @map("updated_by") @db.Uuid
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  calendar     HolidayCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  @@unique([calendarId, date])
+  @@index([organizationId, date])
+  @@map("holidays")
+}
+
+model LocationHolidayCalendar {
+  locationId     String   @id @map("location_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  calendarId     String   @map("calendar_id") @db.Uuid
+  assignedAt     DateTime @default(now()) @map("assigned_at") @db.Timestamptz(6)
+  assignedBy     String?  @map("assigned_by") @db.Uuid
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  location     Location        @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  calendar     HolidayCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([calendarId])
+  @@map("location_holiday_calendars")
 }

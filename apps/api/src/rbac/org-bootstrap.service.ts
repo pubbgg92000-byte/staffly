@@ -77,6 +77,19 @@ export class OrgBootstrapService {
       skipDuplicates: true,
     });
 
+    // Seed an empty default holiday calendar for the org. Admins populate it.
+    // Idempotent — `(organizationId, name)` is unique on holiday_calendars.
+    await tx.holidayCalendar.createMany({
+      data: [
+        {
+          organizationId,
+          name: "Standard",
+          isDefault: true,
+        },
+      ],
+      skipDuplicates: true,
+    });
+
     return roleIdByKey;
   }
 }

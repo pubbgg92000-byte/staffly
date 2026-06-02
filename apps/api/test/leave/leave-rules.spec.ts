@@ -74,6 +74,113 @@ describe("computeUnits", () => {
       }),
     ).toBe(0);
   });
+
+  describe("holiday exclusion", () => {
+    it("subtracts each holiday day in the range", () => {
+      expect(
+        computeUnits({
+          startDate: "2026-06-01",
+          endDate: "2026-06-05",
+          halfDayStart: false,
+          halfDayEnd: false,
+          holidayDates: new Set(["2026-06-03"]),
+        }),
+      ).toBe(4);
+    });
+
+    it("subtracts multiple holidays in the range", () => {
+      expect(
+        computeUnits({
+          startDate: "2026-06-01",
+          endDate: "2026-06-05",
+          halfDayStart: false,
+          halfDayEnd: false,
+          holidayDates: new Set(["2026-06-02", "2026-06-04"]),
+        }),
+      ).toBe(3);
+    });
+
+    it("ignores holiday dates outside the range", () => {
+      expect(
+        computeUnits({
+          startDate: "2026-06-01",
+          endDate: "2026-06-03",
+          halfDayStart: false,
+          halfDayEnd: false,
+          holidayDates: new Set(["2026-05-31", "2026-06-04"]),
+        }),
+      ).toBe(3);
+    });
+
+    it("single-day request on a holiday yields 0", () => {
+      expect(
+        computeUnits({
+          startDate: "2026-06-02",
+          endDate: "2026-06-02",
+          halfDayStart: false,
+          halfDayEnd: false,
+          holidayDates: new Set(["2026-06-02"]),
+        }),
+      ).toBe(0);
+    });
+
+    it("single-day half-day request on a holiday yields 0 (not 0.5)", () => {
+      expect(
+        computeUnits({
+          startDate: "2026-06-02",
+          endDate: "2026-06-02",
+          halfDayStart: true,
+          halfDayEnd: false,
+          holidayDates: new Set(["2026-06-02"]),
+        }),
+      ).toBe(0);
+    });
+
+    it("half-day boundary on a holiday ignores the half-day flag", () => {
+      // 3-day range with halfDayStart=true; start is a holiday.
+      // Without holiday: 3 - 0.5 = 2.5.
+      // With holiday on start: subtract 1 (holiday) + ignore halfDayStart → 2.
+      expect(
+        computeUnits({
+          startDate: "2026-06-01",
+          endDate: "2026-06-03",
+          halfDayStart: true,
+          halfDayEnd: false,
+          holidayDates: new Set(["2026-06-01"]),
+        }),
+      ).toBe(2);
+    });
+
+    it("half-day on a non-holiday boundary still applies", () => {
+      // halfDayStart on a non-holiday day; middle day is a holiday.
+      // total = 3, holiday = 1, halfDayStart = -0.5 → 1.5.
+      expect(
+        computeUnits({
+          startDate: "2026-06-01",
+          endDate: "2026-06-03",
+          halfDayStart: true,
+          halfDayEnd: false,
+          holidayDates: new Set(["2026-06-02"]),
+        }),
+      ).toBe(1.5);
+    });
+
+    it("all-holiday range yields 0", () => {
+      expect(
+        computeUnits({
+          startDate: "2026-06-01",
+          endDate: "2026-06-03",
+          halfDayStart: false,
+          halfDayEnd: false,
+          holidayDates: new Set([
+            "2026-06-01",
+            "2026-06-02",
+            "2026-06-03",
+          ]),
+        }),
+      ).toBe(0);
+    });
+  });
 });
 
 describe("rangesOverlap", () => {
