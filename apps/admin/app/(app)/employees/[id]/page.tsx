@@ -68,9 +68,7 @@ export default function EmployeeDetailPage(): React.ReactNode {
         <PageHeader title="Employee not found" />
         <div className="flex flex-col items-center gap-4 rounded-lg border bg-card p-12 text-center">
           <User className="h-12 w-12 text-muted-foreground" />
-          <p className="text-muted-foreground">
-            Could not load this employee.
-          </p>
+          <p className="text-muted-foreground">Could not load this employee.</p>
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => refetch()}>
               Retry
@@ -159,9 +157,7 @@ export default function EmployeeDetailPage(): React.ReactNode {
                     onClick={handleOffboard}
                     disabled={deleteEmp.isPending}
                   >
-                    {deleteEmp.isPending
-                      ? "Offboarding…"
-                      : "Confirm Offboard"}
+                    {deleteEmp.isPending ? "Offboarding…" : "Confirm Offboard"}
                   </Button>
                 </DialogFooter>
               </DialogContent>

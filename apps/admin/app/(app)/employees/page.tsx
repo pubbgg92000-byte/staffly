@@ -76,7 +76,11 @@ export default function EmployeesListPage(): React.ReactNode {
         if (v) next.set(k, v);
         else next.delete(k);
       }
-      if (updates.search !== undefined || updates.status !== undefined || updates.departmentId !== undefined) {
+      if (
+        updates.search !== undefined ||
+        updates.status !== undefined ||
+        updates.departmentId !== undefined
+      ) {
         next.delete("page");
       }
       router.push(`/employees?${next.toString()}`);
@@ -299,9 +303,8 @@ export default function EmployeesListPage(): React.ReactNode {
       {meta && meta.totalPages > 1 ? (
         <div className="flex items-center justify-between text-sm text-muted-foreground">
           <p>
-            Showing{" "}
-            {(meta.page - 1) * meta.pageSize + 1}–{Math.min(meta.page * meta.pageSize, meta.total)} of{" "}
-            {meta.total}
+            Showing {(meta.page - 1) * meta.pageSize + 1}–
+            {Math.min(meta.page * meta.pageSize, meta.total)} of {meta.total}
           </p>
           <div className="flex gap-2">
             <Button

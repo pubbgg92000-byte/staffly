@@ -1,7 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { toast, useCreateEmployee, useDepartments, useDesignations, useLocations } from "@staffly/ui";
+import {
+  toast,
+  useCreateEmployee,
+  useDepartments,
+  useDesignations,
+  useLocations,
+} from "@staffly/ui";
 import { EmployeeForm } from "../_components/employee-form";
 import type { CreateEmployeeFormValues } from "@staffly/types";
 
@@ -18,7 +24,9 @@ export default function NewEmployeePage(): React.ReactNode {
       toast.success(`Employee ${created.displayName} created`);
       router.push(`/employees/${created.id}`);
     } catch {
-      toast.error("Failed to create employee. Check for duplicate code or email.");
+      toast.error(
+        "Failed to create employee. Check for duplicate code or email.",
+      );
     }
   };
 

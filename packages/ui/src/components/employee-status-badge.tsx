@@ -24,11 +24,7 @@ const LABEL: Record<EmployeeStatus, string> = {
   offboarded: "Offboarded",
 };
 
-export function EmployeeStatusBadge({
-  status,
-}: {
-  status: string;
-}): ReactNode {
+export function EmployeeStatusBadge({ status }: { status: string }): ReactNode {
   const tone = TONE[status as EmployeeStatus] ?? "muted";
   const label = LABEL[status as EmployeeStatus] ?? status;
   return <StatusBadge tone={tone}>{label}</StatusBadge>;

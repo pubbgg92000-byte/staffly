@@ -71,10 +71,7 @@ function DialogFooter({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>): React.ReactNode {
   return (
-    <div
-      className={cn("flex justify-end gap-3 pt-4", className)}
-      {...props}
-    />
+    <div className={cn("flex justify-end gap-3 pt-4", className)} {...props} />
   );
 }
 
@@ -84,7 +81,10 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-semibold leading-none tracking-tight", className)}
+    className={cn(
+      "text-lg font-semibold leading-none tracking-tight",
+      className,
+    )}
     {...props}
   />
 ));

@@ -9,13 +9,7 @@ import {
 } from "@staffly/types";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Button,
-  Input,
-  Select,
-  Label,
-  PageHeader,
-} from "@staffly/ui";
+import { Button, Input, Select, Label, PageHeader } from "@staffly/ui";
 import { ArrowLeft } from "lucide-react";
 
 const FRIENDLY_ERRORS: Record<string, string> = {
@@ -75,7 +69,8 @@ export function EmployeeForm({
   locations,
 }: EmployeeFormProps): React.ReactNode {
   const router = useRouter();
-  const schema = mode === "create" ? CreateEmployeeSchema : UpdateEmployeeSchema;
+  const schema =
+    mode === "create" ? CreateEmployeeSchema : UpdateEmployeeSchema;
 
   const form = useForm<CreateEmployeeFormValues>({
     resolver: zodResolver(schema),
@@ -105,9 +100,12 @@ export function EmployeeForm({
       : "Update employee information";
 
   const FieldError = ({ name }: { name: string }) => {
-    const err = form.formState.errors[name as keyof typeof form.formState.errors];
+    const err =
+      form.formState.errors[name as keyof typeof form.formState.errors];
     if (!err?.message) return null;
-    return <p className="text-xs text-destructive mt-1">{String(err.message)}</p>;
+    return (
+      <p className="text-xs text-destructive mt-1">{String(err.message)}</p>
+    );
   };
 
   return (
@@ -158,7 +156,9 @@ export function EmployeeForm({
               <Label htmlFor="status">Status</Label>
               <Select id="status" {...form.register("status")}>
                 {STATUS_OPTS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </Select>
             </div>
@@ -171,17 +171,29 @@ export function EmployeeForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="workEmail">Work Email *</Label>
-              <Input id="workEmail" type="email" {...form.register("workEmail")} />
+              <Input
+                id="workEmail"
+                type="email"
+                {...form.register("workEmail")}
+              />
               <FieldError name="workEmail" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="personalEmail">Personal Email</Label>
-              <Input id="personalEmail" type="email" {...form.register("personalEmail")} />
+              <Input
+                id="personalEmail"
+                type="email"
+                {...form.register("personalEmail")}
+              />
               <FieldError name="personalEmail" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="mobilePhoneE164">Phone</Label>
-              <Input id="mobilePhoneE164" placeholder="+1234567890" {...form.register("mobilePhoneE164")} />
+              <Input
+                id="mobilePhoneE164"
+                placeholder="+1234567890"
+                {...form.register("mobilePhoneE164")}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="joinedOn">Joined On</Label>
@@ -199,7 +211,9 @@ export function EmployeeForm({
               <Select id="departmentId" {...form.register("departmentId")}>
                 <option value="">—</option>
                 {departments.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
                 ))}
               </Select>
             </div>
@@ -208,7 +222,9 @@ export function EmployeeForm({
               <Select id="designationId" {...form.register("designationId")}>
                 <option value="">—</option>
                 {designations.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
                 ))}
               </Select>
             </div>
@@ -217,7 +233,9 @@ export function EmployeeForm({
               <Select id="locationId" {...form.register("locationId")}>
                 <option value="">—</option>
                 {locations.map((l) => (
-                  <option key={l.id} value={l.id}>{l.name}</option>
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
                 ))}
               </Select>
             </div>
@@ -225,7 +243,9 @@ export function EmployeeForm({
               <Label htmlFor="employmentType">Employment Type</Label>
               <Select id="employmentType" {...form.register("employmentType")}>
                 {EMPLOYMENT_OPTS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </Select>
             </div>
@@ -233,7 +253,9 @@ export function EmployeeForm({
               <Label htmlFor="workMode">Work Mode</Label>
               <Select id="workMode" {...form.register("workMode")}>
                 {WORK_MODE_OPTS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
               </Select>
             </div>
@@ -250,7 +272,11 @@ export function EmployeeForm({
             Cancel
           </Button>
           <Button type="submit" disabled={isPending}>
-            {isPending ? "Saving…" : mode === "create" ? "Create Employee" : "Save Changes"}
+            {isPending
+              ? "Saving…"
+              : mode === "create"
+                ? "Create Employee"
+                : "Save Changes"}
           </Button>
         </div>
       </form>

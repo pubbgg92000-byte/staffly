@@ -22,11 +22,26 @@ const dateOrEmpty = z
 export const CreateEmployeeSchema = z.object({
   employeeCode: z.string().min(1, "Required").max(32),
   firstName: z.string().min(1, "Required").max(60),
-  middleName: z.string().max(60).optional().or(z.literal("")).transform((v) => v === "" ? undefined : v),
+  middleName: z
+    .string()
+    .max(60)
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v)),
   lastName: z.string().min(1, "Required").max(60),
   workEmail: z.string().email("Must be a valid email"),
-  personalEmail: z.string().email("Must be a valid email").optional().or(z.literal("")).transform((v) => v === "" ? undefined : v),
-  mobilePhoneE164: z.string().max(20).optional().or(z.literal("")).transform((v) => v === "" ? undefined : v),
+  personalEmail: z
+    .string()
+    .email("Must be a valid email")
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v)),
+  mobilePhoneE164: z
+    .string()
+    .max(20)
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v)),
   status: z
     .enum(["invited", "active", "on_leave", "suspended", "offboarded"])
     .optional(),

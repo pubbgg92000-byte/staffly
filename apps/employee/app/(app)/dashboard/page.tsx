@@ -36,7 +36,10 @@ function formatMinutes(mins: number): string {
   return `${h}h ${m}m`;
 }
 
-const PRIORITY_VARIANT: Record<string, "default" | "secondary" | "destructive"> = {
+const PRIORITY_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive"
+> = {
   high: "destructive",
   normal: "default",
   low: "secondary",
@@ -73,9 +76,10 @@ export default function EmployeeDashboardPage(): React.ReactNode {
     (data?.pendingTasks.documentAcknowledgements ?? 0) +
     (data?.pendingTasks.announcementAcknowledgements ?? 0);
 
-  const leaveAvailable = data?.leaveBalances.reduce((sum, b) => {
-    return sum + (Number(b.allocated) - Number(b.used) - Number(b.pending));
-  }, 0) ?? 0;
+  const leaveAvailable =
+    data?.leaveBalances.reduce((sum, b) => {
+      return sum + (Number(b.allocated) - Number(b.used) - Number(b.pending));
+    }, 0) ?? 0;
 
   const displayName = data?.me.displayName ?? "";
   const subtitle = displayName ? `Hi, ${displayName}` : "Your day at a glance";
@@ -89,14 +93,19 @@ export default function EmployeeDashboardPage(): React.ReactNode {
           <div>
             {!att && !isLoading ? (
               <>
-                <p className="text-sm text-muted-foreground">You haven&apos;t checked in yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  You haven&apos;t checked in yet.
+                </p>
                 {data?.todayStatus.date ? (
                   <p className="text-xs text-muted-foreground">
-                    {new Date(data.todayStatus.date).toLocaleDateString(undefined, {
-                      weekday: "long",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                    {new Date(data.todayStatus.date).toLocaleDateString(
+                      undefined,
+                      {
+                        weekday: "long",
+                        month: "long",
+                        day: "numeric",
+                      },
+                    )}
                   </p>
                 ) : null}
               </>
@@ -106,7 +115,9 @@ export default function EmployeeDashboardPage(): React.ReactNode {
                   Checked in at {fmtTime(att.checkInAt!)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {att.workedMinutes ? formatMinutes(att.workedMinutes) + " so far" : "In progress"}
+                  {att.workedMinutes
+                    ? formatMinutes(att.workedMinutes) + " so far"
+                    : "In progress"}
                 </p>
               </>
             ) : att && checkedIn && checkedOut ? (
@@ -132,7 +143,11 @@ export default function EmployeeDashboardPage(): React.ReactNode {
               className="w-full sm:w-auto"
             >
               <Clock className="h-4 w-4" />
-              {isMutating ? "Please wait…" : checkedIn ? "Check out" : "Check in"}
+              {isMutating
+                ? "Please wait…"
+                : checkedIn
+                  ? "Check out"
+                  : "Check in"}
             </Button>
           ) : null}
         </div>
@@ -167,7 +182,10 @@ export default function EmployeeDashboardPage(): React.ReactNode {
         >
           <ul className="divide-y">
             {data?.announcements.map((a) => (
-              <li key={a.id} className="flex items-start justify-between gap-2 py-2 text-sm">
+              <li
+                key={a.id}
+                className="flex items-start justify-between gap-2 py-2 text-sm"
+              >
                 <div className="flex items-center gap-1.5 min-w-0">
                   {a.pinned ? (
                     <Pin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -175,7 +193,10 @@ export default function EmployeeDashboardPage(): React.ReactNode {
                   <p className="line-clamp-2 font-medium">{a.title}</p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  <Badge variant={PRIORITY_VARIANT[a.priority] ?? "default"} className="text-xs">
+                  <Badge
+                    variant={PRIORITY_VARIANT[a.priority] ?? "default"}
+                    className="text-xs"
+                  >
                     {a.priority}
                   </Badge>
                   {a.publishedAt ? (
@@ -202,10 +223,15 @@ export default function EmployeeDashboardPage(): React.ReactNode {
         >
           <ul className="divide-y">
             {data?.upcomingHolidays.map((h) => (
-              <li key={h.id} className="flex items-center justify-between py-2 text-sm">
+              <li
+                key={h.id}
+                className="flex items-center justify-between py-2 text-sm"
+              >
                 <div>
                   <p className="font-medium">{h.name}</p>
-                  <p className="text-xs text-muted-foreground">{h.calendarName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {h.calendarName}
+                  </p>
                 </div>
                 <span className="text-xs text-muted-foreground tabular-nums">
                   {fmtDate(h.date)}
@@ -222,11 +248,13 @@ export default function EmployeeDashboardPage(): React.ReactNode {
             <div>
               <p className="font-medium">{data.upcomingLeave.leaveType.name}</p>
               <p className="text-xs text-muted-foreground">
-                {fmtDate(data.upcomingLeave.startDate)} – {fmtDate(data.upcomingLeave.endDate)}
+                {fmtDate(data.upcomingLeave.startDate)} –{" "}
+                {fmtDate(data.upcomingLeave.endDate)}
               </p>
             </div>
             <Badge variant="secondary">
-              {Number(data.upcomingLeave.units)} day{Number(data.upcomingLeave.units) !== 1 ? "s" : ""}
+              {Number(data.upcomingLeave.units)} day
+              {Number(data.upcomingLeave.units) !== 1 ? "s" : ""}
             </Badge>
           </div>
         </WidgetCard>

@@ -47,8 +47,7 @@ export function useEmployees(params?: EmployeeListParams): {
 } {
   const q = useQuery({
     queryKey: employeeKeys.list(params),
-    queryFn: () =>
-      api.get<EmployeeListResponse>(`/employees${qp(params)}`),
+    queryFn: () => api.get<EmployeeListResponse>(`/employees${qp(params)}`),
     staleTime: 30_000,
     retry: 1,
   });
@@ -96,13 +95,14 @@ export function useCreateEmployee(): ReturnType<
   });
 }
 
-export function useUpdateEmployee(id: string): ReturnType<
+export function useUpdateEmployee(
+  id: string,
+): ReturnType<
   typeof useMutation<EmployeeDetail, ApiError, UpdateEmployeeInput>
 > {
   const qc = useQueryClient();
   return useMutation<EmployeeDetail, ApiError, UpdateEmployeeInput>({
-    mutationFn: (body) =>
-      api.patch<EmployeeDetail>(`/employees/${id}`, body),
+    mutationFn: (body) => api.patch<EmployeeDetail>(`/employees/${id}`, body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["employees"] });
     },

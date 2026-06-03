@@ -1,7 +1,14 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { toast, useEmployee, useUpdateEmployee, useDepartments, useDesignations, useLocations } from "@staffly/ui";
+import {
+  toast,
+  useEmployee,
+  useUpdateEmployee,
+  useDepartments,
+  useDesignations,
+  useLocations,
+} from "@staffly/ui";
 import { EmployeeForm } from "../../_components/employee-form";
 import type { CreateEmployeeFormValues } from "@staffly/types";
 
@@ -15,7 +22,11 @@ export default function EditEmployeePage(): React.ReactNode {
   const { data: locs } = useLocations();
 
   if (isLoading || !emp) {
-    return <div className="flex items-center justify-center py-20 text-muted-foreground">Loading employee…</div>;
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
+        Loading employee…
+      </div>
+    );
   }
 
   const handleSubmit = async (values: CreateEmployeeFormValues) => {

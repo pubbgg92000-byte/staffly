@@ -19,7 +19,10 @@ function fmtDate(iso: string): string {
   });
 }
 
-const PRIORITY_VARIANT: Record<string, "default" | "secondary" | "destructive"> = {
+const PRIORITY_VARIANT: Record<
+  string,
+  "default" | "secondary" | "destructive"
+> = {
   high: "destructive",
   normal: "default",
   low: "secondary",
@@ -87,10 +90,15 @@ export default function AdminDashboardPage(): React.ReactNode {
         >
           <ul className="divide-y">
             {data?.upcomingHolidays.map((h) => (
-              <li key={h.id} className="flex items-center justify-between py-2 text-sm">
+              <li
+                key={h.id}
+                className="flex items-center justify-between py-2 text-sm"
+              >
                 <div>
                   <p className="font-medium">{h.name}</p>
-                  <p className="text-xs text-muted-foreground">{h.calendarName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {h.calendarName}
+                  </p>
                 </div>
                 <span className="text-xs text-muted-foreground tabular-nums">
                   {fmtDate(h.date)}
@@ -106,17 +114,24 @@ export default function AdminDashboardPage(): React.ReactNode {
           error={isError ? { message: "Failed to load" } : null}
           onRetry={refetch}
           empty={
-            !isLoading && data?.recentActivity.announcementsPublished.length === 0
+            !isLoading &&
+            data?.recentActivity.announcementsPublished.length === 0
               ? "No announcements yet"
               : undefined
           }
         >
           <ul className="divide-y">
             {data?.recentActivity.announcementsPublished.map((a) => (
-              <li key={a.id} className="flex items-start justify-between gap-2 py-2 text-sm">
+              <li
+                key={a.id}
+                className="flex items-start justify-between gap-2 py-2 text-sm"
+              >
                 <p className="line-clamp-2 font-medium">{a.title}</p>
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  <Badge variant={PRIORITY_VARIANT[a.priority] ?? "default"} className="text-xs">
+                  <Badge
+                    variant={PRIORITY_VARIANT[a.priority] ?? "default"}
+                    className="text-xs"
+                  >
                     {a.priority}
                   </Badge>
                   {a.publishedAt ? (
@@ -148,17 +163,25 @@ export default function AdminDashboardPage(): React.ReactNode {
               <p className="text-muted-foreground">
                 Your organization has no employees yet.
               </p>
-              <Link href="/employees/new" className="font-medium text-primary hover:underline">
+              <Link
+                href="/employees/new"
+                className="font-medium text-primary hover:underline"
+              >
                 Add your first employee →
               </Link>
             </div>
           ) : (
             <ul className="divide-y">
               {data?.recentActivity.newEmployees.map((e) => (
-                <li key={e.id} className="flex items-center justify-between py-2 text-sm">
+                <li
+                  key={e.id}
+                  className="flex items-center justify-between py-2 text-sm"
+                >
                   <div>
                     <p className="font-medium">{e.displayName}</p>
-                    <p className="text-xs text-muted-foreground">{e.employeeCode}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {e.employeeCode}
+                    </p>
                   </div>
                   {e.joinedOn ? (
                     <span className="text-xs text-muted-foreground tabular-nums">
