@@ -4,21 +4,104 @@ Staffly is the working repository for **PeopleFlow**, a multi-tenant HRMS for SM
 
 ## Status
 
-Sprint 0 is in progress. The repo is intentionally foundation-only:
+**v0.12-ui-dashboard** — active development.
 
-- Monorepo scaffolding (pnpm workspaces + Turborepo)
-- Next.js admin shell (`apps/admin`, port 3000)
-- Next.js employee shell (`apps/employee`, port 3001)
-- NestJS API foundation (`apps/api`, port 4000)
-- PostgreSQL + Prisma foundation
-- Auth and RBAC skeletons
-- Shared UI / types / config / i18n packages
+Twelve releases shipped across the backend sprint and UI foundation sprints:
 
-Feature modules — employee CRUD, attendance, leave, documents, announcements, holidays — begin **after** the foundation is stable. The roadmap lives in [`docs/07-development-roadmap.md`](docs/07-development-roadmap.md).
+| Tag                         | Milestone                                                       |
+| --------------------------- | --------------------------------------------------------------- |
+| `v0.1-infrastructure`       | Monorepo, CI, Docker Compose                                    |
+| `v0.2-auth`                 | Auth + RBAC + multi-tenancy (JWT, refresh chain, org-bootstrap) |
+| `v0.3-employee-management`  | Employee records + org structure                                |
+| `v0.4-attendance`           | Attendance policies, check-in/out, regularization               |
+| `v0.5-leave-management`     | Leave types, balances, requests, approvals                      |
+| `v0.6-holidays`             | Holiday calendars + location assignment                         |
+| `v0.7-announcements`        | Announcement composer, scheduling, ack tracking                 |
+| `v0.8-documents-compliance` | Documents, versioning, MinIO, ack tracking                      |
+| `v0.9-dashboards`           | `GET /dashboard/admin` + `GET /dashboard/employee` aggregations |
+| `v0.10-ui-foundation`       | Shared UI package + auth/dashboard route scaffolds              |
+| `v0.11-ui-auth`             | End-to-end authentication for both portals                      |
+| `v0.12-ui-dashboard`        | Live dashboard widgets wired to API data                        |
+
+## Stack
+
+- **Monorepo**: pnpm workspaces + Turborepo
+- **API**: NestJS 10, Prisma 6, PostgreSQL 18, argon2id, JWT (HS256) + opaque-refresh chain
+- **Frontend**: Next.js 15 (App Router), React 19, Tailwind CSS, TanStack Query 5, react-hook-form + Zod
+- **Storage**: MinIO (S3-compatible) for documents and files
+- **Dev infra**: PostgreSQL 18, Redis, Mailhog, MinIO — all via Docker Compose
+
+## Requirements
+
+- Node.js 22+
+- pnpm 11.5+
+- Docker (OrbStack, Docker Desktop, or equivalent)
+
+## Quick start
+
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Start dev infra (Postgres :5433, Redis :6379, Mailhog :8025, MinIO :9000)
+docker compose -f infra/docker-compose.dev.yml up -d
+
+# 3. Apply migrations and seed
+pnpm --filter @staffly/api prisma:migrate:deploy
+pnpm --filter @staffly/api db:seed          # catalog data (roles, permissions)
+pnpm --filter @staffly/api db:seed:dev      # dev users (see table below)
+
+# 4. Start all three servers concurrently
+pnpm dev
+```
+
+| App             | URL                           |
+| --------------- | ----------------------------- |
+| Admin portal    | http://localhost:3000         |
+| Employee portal | http://localhost:3001         |
+| API             | http://localhost:4000         |
+| API health      | http://localhost:4000/healthz |
+
+### Dev seed users
+
+| Role          | Email                      | Password       |
+| ------------- | -------------------------- | -------------- |
+| `super_admin` | `superadmin@staffly.local` | `Admin@123`    |
+| `hr_admin`    | `hr@staffly.local`         | `HR@123`       |
+| `manager`     | `manager@staffly.local`    | `Manager@123`  |
+| `employee`    | `employee@staffly.local`   | `Employee@123` |
+
+Admin portal accepts super_admin / hr_admin / manager. Employee portal accepts employee.
+
+## Quality checks
+
+```bash
+pnpm typecheck    # tsc --noEmit across 7 packages
+pnpm lint         # ESLint across the workspace
+pnpm test         # Vitest unit tests
+pnpm test:integration   # NestJS integration tests (requires running infra)
+pnpm format:check # Prettier check
+pnpm build        # Full Turborepo build
+```
+
+## Repository layout
+
+```
+apps/
+  admin/      Next.js 15 — Admin portal (port 3000)
+  employee/   Next.js 15 — Employee self-service portal (port 3001)
+  api/        NestJS 10 — REST API (port 4000)
+packages/
+  ui/         Shared design system (shadcn/ui based)
+  types/      Zod schemas + TypeScript types shared between client and server
+  config/     tsconfig / Tailwind / ESLint / Prettier presets
+  i18n/       Translation keys + locales
+docs/         Architecture, design, and project state
+infra/        Docker Compose dev stack
+.github/      CI workflows
+```
 
 ## Planning documents
-
-All architectural decisions are written down before code. See [`docs/`](docs/):
 
 | #   | Document                                                        |
 | --- | --------------------------------------------------------------- |
@@ -32,44 +115,7 @@ All architectural decisions are written down before code. See [`docs/`](docs/):
 | 07  | [Development roadmap](docs/07-development-roadmap.md)           |
 | 08  | [Technical architecture](docs/08-technical-architecture.md)     |
 
-## Requirements
-
-- Node.js 22+
-- pnpm 11.5+
-- Docker (for the dev stack — Postgres, Redis, Mailhog, MinIO; arrives in Sprint 0 Batch 2)
-
-## Quick start
-
-```bash
-pnpm install
-pnpm check       # lint + typecheck across the monorepo
-pnpm build       # turbo build
-pnpm dev         # runs admin + employee + api in parallel
-```
-
-After Sprint 0 Batch 2 lands, you'll also run:
-
-```bash
-docker compose -f infra/docker-compose.dev.yml up -d
-pnpm --filter @staffly/api prisma migrate dev
-```
-
-## Repository layout
-
-```
-apps/
-  admin/      Next.js 15 — Admin portal
-  employee/   Next.js 15 — Employee self-service
-  api/        NestJS 10 — REST API + workers
-packages/
-  ui/         Shared design system (shadcn/ui based)
-  types/      Zod schemas + TypeScript types shared client/server
-  config/     tsconfig / tailwind / eslint / prettier presets
-  i18n/       Translation keys + locales
-docs/         Architecture and planning
-infra/        Docker Compose, k6 (post-launch)
-.github/      CI workflows
-```
+Current sprint state: [`docs/PROJECT_STATE.md`](docs/PROJECT_STATE.md)
 
 ## License
 
