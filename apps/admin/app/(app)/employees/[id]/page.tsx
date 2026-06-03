@@ -88,11 +88,12 @@ export default function EmployeeDetailPage(): React.ReactNode {
     try {
       await deleteEmp.mutateAsync(id);
       toast.success(`${emp.displayName} has been offboarded`);
+      setOffboardOpen(false);
       router.push("/employees");
     } catch {
       toast.error("Failed to offboard employee");
+      setOffboardOpen(false);
     }
-    setOffboardOpen(false);
   };
 
   const canOffboard = emp.status !== "offboarded";

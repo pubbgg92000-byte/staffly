@@ -9,9 +9,14 @@ const uuidOrEmpty = z
 
 const dateOrEmpty = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD")
-  .or(z.literal(""))
-  .optional()
+  .transform((v) => (v?.length > 10 ? v.slice(0, 10) : v))
+  .pipe(
+    z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "Must be YYYY-MM-DD")
+      .or(z.literal(""))
+      .optional(),
+  )
   .transform((v) => (v === "" ? undefined : v));
 
 export const CreateEmployeeSchema = z.object({

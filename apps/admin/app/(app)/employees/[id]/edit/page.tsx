@@ -37,7 +37,7 @@ export default function EditEmployeePage(): React.ReactNode {
     personalEmail: emp.personalEmail ?? "",
     mobilePhoneE164: emp.mobilePhoneE164 ?? "",
     status: emp.status,
-    joinedOn: emp.joinedOn ?? "",
+    joinedOn: emp.joinedOn ? emp.joinedOn.slice(0, 10) : "",
     departmentId: emp.department?.id ?? "",
     designationId: emp.designation?.id ?? "",
     locationId: emp.location?.id ?? "",

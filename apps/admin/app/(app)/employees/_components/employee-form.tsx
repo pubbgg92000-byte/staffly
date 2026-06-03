@@ -18,6 +18,17 @@ import {
 } from "@staffly/ui";
 import { ArrowLeft } from "lucide-react";
 
+const FRIENDLY_ERRORS: Record<string, string> = {
+  "employee.conflict_code_or_email":
+    "An employee with this code or email already exists.",
+  "validation.failed": "Please check the form for errors.",
+};
+
+function friendlyError(msg: string | undefined): string | undefined {
+  if (!msg) return undefined;
+  return FRIENDLY_ERRORS[msg] ?? msg;
+}
+
 type OrgItem = { id: string; name: string };
 type Mode = "create" | "edit";
 
@@ -113,7 +124,7 @@ export function EmployeeForm({
 
       {serverError ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          {serverError}
+          {friendlyError(serverError)}
         </div>
       ) : null}
 

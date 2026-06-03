@@ -127,7 +127,7 @@ export function useDepartments(): {
 } {
   const q = useQuery({
     queryKey: employeeKeys.departments,
-    queryFn: () => api.get<OrgListResponse>("/departments?pageSize=200"),
+    queryFn: () => api.get<OrgListResponse>("/departments?pageSize=100"),
     staleTime: 300_000,
   });
   return { data: q.data, isLoading: q.isLoading };
@@ -139,7 +139,7 @@ export function useDesignations(): {
 } {
   const q = useQuery({
     queryKey: employeeKeys.designations,
-    queryFn: () => api.get<OrgListResponse>("/designations?pageSize=200"),
+    queryFn: () => api.get<OrgListResponse>("/designations?pageSize=100"),
     staleTime: 300_000,
   });
   return { data: q.data, isLoading: q.isLoading };
@@ -151,7 +151,7 @@ export function useLocations(): {
 } {
   const q = useQuery({
     queryKey: employeeKeys.locations,
-    queryFn: () => api.get<OrgListResponse>("/locations?pageSize=200"),
+    queryFn: () => api.get<OrgListResponse>("/locations?pageSize=100"),
     staleTime: 300_000,
   });
   return { data: q.data, isLoading: q.isLoading };
