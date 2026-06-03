@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -48,7 +48,7 @@ function fmtDate(iso: string | null): string {
   });
 }
 
-export default function EmployeesListPage(): React.ReactNode {
+function EmployeesListContent(): React.ReactNode {
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -327,5 +327,13 @@ export default function EmployeesListPage(): React.ReactNode {
         </div>
       ) : null}
     </div>
+  );
+}
+
+export default function EmployeesListPage(): React.ReactNode {
+  return (
+    <Suspense>
+      <EmployeesListContent />
+    </Suspense>
   );
 }
