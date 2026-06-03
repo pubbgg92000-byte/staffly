@@ -81,6 +81,32 @@ export {
   SheetClose,
   SheetPortal,
 } from "./components/ui/sheet";
+export { Select, type SelectProps } from "./components/ui/select";
+export {
+  Dialog,
+  DialogTrigger,
+  DialogClose,
+  DialogPortal,
+  DialogOverlay,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "./components/ui/dialog";
+
+// API — employee
+export {
+  useEmployees,
+  useEmployee,
+  useCreateEmployee,
+  useUpdateEmployee,
+  useDeleteEmployee,
+  useDepartments,
+  useDesignations,
+  useLocations,
+  employeeKeys,
+} from "./api/employees";
 
 // Composites
 export { Brand } from "./components/brand";
@@ -92,6 +118,7 @@ export { EmptyState } from "./components/empty-state";
 export { PasswordInput } from "./components/password-input";
 export { PasswordStrengthMeter } from "./components/password-strength-meter";
 export { OtpInput, type OtpInputProps } from "./components/otp-input";
+export { EmployeeStatusBadge } from "./components/employee-status-badge";
 
 // Auth forms (page-level, shared across portals)
 export { SignInForm } from "./auth-forms/sign-in-form";

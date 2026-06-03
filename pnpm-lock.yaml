@@ -32,6 +32,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@hookform/resolvers':
+        specifier: ^3.10.0
+        version: 3.10.0(react-hook-form@7.77.0(react@19.2.6))
       '@staffly/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -53,6 +56,9 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.6(react@19.2.6)
+      react-hook-form:
+        specifier: ^7.77.0
+        version: 7.77.0(react@19.2.6)
     devDependencies:
       '@staffly/config':
         specifier: workspace:*

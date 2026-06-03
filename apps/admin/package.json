@@ -11,13 +11,15 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.10.0",
     "@staffly/i18n": "workspace:*",
     "@staffly/types": "workspace:*",
     "@staffly/ui": "workspace:*",
     "lucide-react": "^0.469.0",
     "next": "^15.1.4",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.77.0"
   },
   "devDependencies": {
     "@staffly/config": "workspace:*",

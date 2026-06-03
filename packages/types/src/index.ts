@@ -12,3 +12,5 @@ export const STAFFLY_TYPES_VERSION = "0.0.0";
 export * from "./forms/auth";
 export * from "./api/auth";
 export * from "./api/dashboard";
+export * from "./api/employees";
+export * from "./forms/employees";
