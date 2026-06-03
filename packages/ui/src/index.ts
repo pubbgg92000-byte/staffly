@@ -24,6 +24,13 @@ export {
   useAcceptInvite,
   sessionKeys,
 } from "./api/session";
+export {
+  useAdminDashboard,
+  useEmployeeDashboard,
+  useCheckIn,
+  useCheckOut,
+  dashboardKeys,
+} from "./api/dashboard";
 
 // Providers
 export { QueryProvider } from "./providers/query-provider";
