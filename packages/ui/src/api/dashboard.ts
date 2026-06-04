@@ -69,6 +69,7 @@ export function useCheckIn(): ReturnType<
     mutationFn: () => api.post("/attendance/check-in", {}),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: dashboardKeys.employee });
+      void qc.invalidateQueries({ queryKey: ["attendance"] });
     },
   });
 }
@@ -81,6 +82,7 @@ export function useCheckOut(): ReturnType<
     mutationFn: () => api.post("/attendance/check-out", {}),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: dashboardKeys.employee });
+      void qc.invalidateQueries({ queryKey: ["attendance"] });
     },
   });
 }

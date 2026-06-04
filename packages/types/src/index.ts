@@ -13,4 +13,6 @@ export * from "./forms/auth";
 export * from "./api/auth";
 export * from "./api/dashboard";
 export * from "./api/employees";
+export * from "./api/attendance";
 export * from "./forms/employees";
+export * from "./forms/attendance";

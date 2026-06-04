@@ -2,11 +2,11 @@
 
 import type { ReactNode } from "react";
 import { AdminLayout, type NavItem } from "@staffly/ui";
-import { LayoutDashboard, Users } from "lucide-react";
+import { LayoutDashboard, Users, Clock } from "lucide-react";
 
 /**
- * Phase 1 nav — Dashboard only. Later phases append Employees, Attendance,
- * Leave, Documents, Announcements, Holidays, Settings entries here.
+ * Phase 1 nav — Dashboard only. Later phases append Leave, Documents,
+ * Announcements, Holidays, Settings entries here.
  */
 const nav: NavItem[] = [
   {
@@ -20,6 +20,12 @@ const nav: NavItem[] = [
     label: "Employees",
     icon: Users,
     permission: "employee.read",
+  },
+  {
+    href: "/attendance",
+    label: "Attendance",
+    icon: Clock,
+    permission: "attendance.read",
   },
 ];
 

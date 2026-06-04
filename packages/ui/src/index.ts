@@ -108,6 +108,17 @@ export {
   employeeKeys,
 } from "./api/employees";
 
+// API — attendance
+export {
+  useMyAttendance,
+  useAttendanceList,
+  useAttendanceRecord,
+  useRegularizations,
+  useCreateRegularization,
+  useDecideRegularization,
+  attendanceKeys,
+} from "./api/attendance";
+
 // Composites
 export { Brand } from "./components/brand";
 export { PageHeader } from "./components/page-header";
