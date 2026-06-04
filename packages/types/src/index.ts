@@ -15,6 +15,8 @@ export * from "./api/dashboard";
 export * from "./api/employees";
 export * from "./api/attendance";
 export * from "./api/leave";
+export * from "./api/holidays";
 export * from "./forms/employees";
 export * from "./forms/attendance";
 export * from "./forms/leave";
+export * from "./forms/holidays";

@@ -132,6 +132,25 @@ export {
   leaveKeys,
 } from "./api/leave";
 
+// API — holidays
+export {
+  useHolidayCalendars,
+  useHolidayCalendar,
+  useHolidaysInCalendar,
+  useMyHolidays,
+  useLocationCalendar,
+  useCreateHolidayCalendar,
+  useUpdateHolidayCalendar,
+  useDeleteHolidayCalendar,
+  useSetDefaultCalendar,
+  useCreateHoliday,
+  useUpdateHoliday,
+  useDeleteHoliday,
+  useAssignLocationCalendar,
+  useUnassignLocationCalendar,
+  holidayKeys,
+} from "./api/holidays";
+
 // Composites
 export { Brand } from "./components/brand";
 export { PageHeader } from "./components/page-header";
