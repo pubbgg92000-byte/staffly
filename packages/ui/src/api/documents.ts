@@ -5,9 +5,11 @@ import { api } from "./client";
 import { ApiError } from "./error";
 import { dashboardKeys } from "./dashboard";
 import type {
+  CreateCategoryInput,
   CreateDocumentInput,
   DocumentAcknowledgementsResponse,
   DocumentAudiencePreviewResult,
+  DocumentCategory,
   DocumentCategoryListParams,
   DocumentCategoryListResponse,
   DocumentDetail,
@@ -17,6 +19,7 @@ import type {
   MyDocumentsParams,
   MyDocumentsResponse,
   PresignUploadResult,
+  UpdateCategoryInput,
   UpdateDocumentInput,
   DocumentAudienceType,
 } from "@staffly/types";
@@ -209,6 +212,54 @@ export function usePendingAck(id: string | undefined): {
     retry: 1,
   });
   return { data: q.data, isLoading: q.isLoading };
+}
+
+// ─── Category mutations ──────────────────────────────────────────────────
+
+export function useCreateCategory(): ReturnType<
+  typeof useMutation<DocumentCategory, ApiError, CreateCategoryInput>
+> {
+  const qc = useQueryClient();
+  return useMutation<DocumentCategory, ApiError, CreateCategoryInput>({
+    mutationFn: (body) =>
+      api.post<DocumentCategory>("/documents/categories", body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["documents", "categories"] });
+    },
+  });
+}
+
+export function useUpdateCategory(): ReturnType<
+  typeof useMutation<
+    DocumentCategory,
+    ApiError,
+    { id: string; body: UpdateCategoryInput }
+  >
+> {
+  const qc = useQueryClient();
+  return useMutation<
+    DocumentCategory,
+    ApiError,
+    { id: string; body: UpdateCategoryInput }
+  >({
+    mutationFn: ({ id, body }) =>
+      api.patch<DocumentCategory>(`/documents/categories/${id}`, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["documents", "categories"] });
+    },
+  });
+}
+
+export function useDeleteCategory(): ReturnType<
+  typeof useMutation<void, ApiError, string>
+> {
+  const qc = useQueryClient();
+  return useMutation<void, ApiError, string>({
+    mutationFn: (id) => api.delete(`/documents/categories/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["documents", "categories"] });
+    },
+  });
 }
 
 // ─── Mutations ──────────────────────────────────────────────────────────

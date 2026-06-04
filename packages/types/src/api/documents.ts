@@ -39,6 +39,17 @@ export interface DocumentCategoryListResponse {
   meta: PageMeta;
 }
 
+export interface CreateCategoryInput {
+  name: string;
+  code?: string;
+  color?: string;
+  description?: string;
+  isActive?: boolean;
+  isPersonal?: boolean;
+}
+
+export type UpdateCategoryInput = Partial<CreateCategoryInput>;
+
 export interface DocumentVersion {
   id: string;
   organizationId: string;

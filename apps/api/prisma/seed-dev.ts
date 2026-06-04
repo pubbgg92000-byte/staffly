@@ -18,6 +18,7 @@ import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { DEFAULT_DOCUMENT_CATEGORIES } from "../src/documents/default-document-categories";
 
 type Catalog = {
   permissions: {
@@ -160,6 +161,20 @@ async function main(): Promise<void> {
       });
     }
   }
+
+  // 3b. Default document categories (idempotent on code).
+  await prisma.documentCategory.createMany({
+    data: DEFAULT_DOCUMENT_CATEGORIES.map((c) => ({
+      organizationId: org.id,
+      name: c.name,
+      code: c.code,
+      color: c.color,
+      isPersonal: c.isPersonal,
+      isActive: true,
+      isSystem: true,
+    })),
+    skipDuplicates: true,
+  });
 
   // 4. Users + role assignments + employee records (linked via userId).
   const employeeIdByEmail: Record<string, string> = {};

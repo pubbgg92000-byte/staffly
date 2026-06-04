@@ -19,7 +19,7 @@ import {
   useDocuments,
 } from "@staffly/ui";
 import type { DocumentListParams } from "@staffly/types";
-import { FileText, Plus, Search } from "lucide-react";
+import { FileText, FolderOpen, Plus, Search } from "lucide-react";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -116,12 +116,20 @@ function DocumentsContent(): React.ReactNode {
         title="Documents"
         subtitle="Company documents and compliance files"
         actions={
-          <Link href="/documents/new">
-            <Button>
-              <Plus className="h-4 w-4" />
-              Upload document
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/documents/categories">
+              <Button variant="outline">
+                <FolderOpen className="h-4 w-4" />
+                Categories
+              </Button>
+            </Link>
+            <Link href="/documents/new">
+              <Button>
+                <Plus className="h-4 w-4" />
+                Upload document
+              </Button>
+            </Link>
+          </div>
         }
       />
 

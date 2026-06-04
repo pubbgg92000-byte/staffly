@@ -7,11 +7,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Button,
+  EmptyState,
   extractErrorMessage,
   Input,
   Label,
   PageHeader,
   Select,
+  Skeleton,
   toast,
   useCreateDocument,
   useDocumentCategories,
@@ -29,7 +31,7 @@ import {
   type DocumentAudienceType,
   type CreateDocumentInput,
 } from "@staffly/types";
-import { ArrowLeft, Upload, Users } from "lucide-react";
+import { ArrowLeft, FolderOpen, Upload, Users } from "lucide-react";
 
 const AUDIENCE_TYPES = [
   { value: "all_employees", label: "All employees" },
@@ -98,7 +100,8 @@ export default function NewDocumentPage(): React.ReactNode {
   const create = useCreateDocument();
   const audiencePreview = useDocumentAudiencePreview();
 
-  const { data: categories } = useDocumentCategories({ pageSize: 100 });
+  const { data: categories, isLoading: categoriesLoading } =
+    useDocumentCategories({ pageSize: 100, isActive: true });
   const { data: depts } = useDepartments();
   const { data: desigs } = useDesignations();
   const { data: locs } = useLocations();
@@ -237,6 +240,49 @@ export default function NewDocumentPage(): React.ReactNode {
     );
   };
 
+  const activeCategories = categories?.items ?? [];
+  const hasNoCategories = !categoriesLoading && activeCategories.length === 0;
+
+  if (categoriesLoading) {
+    return (
+      <div className="max-w-2xl space-y-4">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full rounded-lg" />
+      </div>
+    );
+  }
+
+  if (hasNoCategories) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <Link
+          href="/documents"
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to documents
+        </Link>
+        <PageHeader
+          title="Upload document"
+          subtitle="Create a new document and assign it to employees"
+        />
+        <EmptyState
+          icon={<FolderOpen className="h-8 w-8" />}
+          title="No document categories exist"
+          description="Documents must belong to a category. Create at least one category before uploading."
+          action={
+            <Link href="/documents/categories">
+              <Button>
+                <FolderOpen className="h-4 w-4" /> Manage categories
+              </Button>
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl space-y-6">
       <Link
@@ -267,13 +313,11 @@ export default function NewDocumentPage(): React.ReactNode {
             <Label htmlFor="categoryId">Category *</Label>
             <Select id="categoryId" {...form.register("categoryId")}>
               <option value="">Select a category…</option>
-              {(categories?.items ?? [])
-                .filter((c) => c.isActive)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+              {activeCategories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </Select>
             <FieldError name="categoryId" />
           </div>

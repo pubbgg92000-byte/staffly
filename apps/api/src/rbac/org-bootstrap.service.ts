@@ -6,6 +6,7 @@ import {
   type RoleKey,
 } from "./system-roles";
 import { DEFAULT_LEAVE_TYPES } from "../leave/default-leave-types";
+import { DEFAULT_DOCUMENT_CATEGORIES } from "../documents/default-document-categories";
 
 /**
  * Materializes the four system roles into a new organization.
@@ -87,6 +88,21 @@ export class OrgBootstrapService {
           isDefault: true,
         },
       ],
+      skipDuplicates: true,
+    });
+
+    // Seed default document categories. isSystem=true prevents deletion.
+    // Idempotent — `(organizationId, code)` is unique on document_categories.
+    await tx.documentCategory.createMany({
+      data: DEFAULT_DOCUMENT_CATEGORIES.map((c) => ({
+        organizationId,
+        name: c.name,
+        code: c.code,
+        color: c.color,
+        isPersonal: c.isPersonal,
+        isActive: true,
+        isSystem: true,
+      })),
       skipDuplicates: true,
     });
 
