@@ -2,7 +2,13 @@
 
 import type { ReactNode } from "react";
 import { AdminLayout, type NavItem } from "@staffly/ui";
-import { LayoutDashboard, Users, Clock } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  Clock,
+  CalendarDays,
+  Scale,
+} from "lucide-react";
 
 /**
  * Phase 1 nav — Dashboard only. Later phases append Leave, Documents,
@@ -26,6 +32,18 @@ const nav: NavItem[] = [
     label: "Attendance",
     icon: Clock,
     permission: "attendance.read",
+  },
+  {
+    href: "/leave",
+    label: "Leave Requests",
+    icon: CalendarDays,
+    permission: "leave.read",
+  },
+  {
+    href: "/leave/balances",
+    label: "Balances",
+    icon: Scale,
+    permission: "leave.read",
   },
 ];
 
