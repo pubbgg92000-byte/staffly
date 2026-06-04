@@ -28,3 +28,42 @@ export class ApiError extends Error {
 export function isApiError(err: unknown): err is ApiError {
   return err instanceof ApiError;
 }
+
+/**
+ * Extract the most useful user-facing message from any thrown value.
+ *
+ * - `validation.failed` responses include a `details.issues` array from the
+ *   backend's Zod pipe. We surface the first issue's path + message so the
+ *   user sees "pageSize: Number must be less than or equal to 100" instead of
+ *   the generic code.
+ * - Any other ApiError: use the `message` field.
+ * - Plain Error: use `message`.
+ * - Fallback: return the provided `fallback` string.
+ */
+export function extractErrorMessage(
+  err: unknown,
+  fallback = "An unexpected error occurred",
+): string {
+  if (!(err instanceof ApiError)) {
+    return err instanceof Error ? err.message : fallback;
+  }
+
+  if (err.code === "validation.failed") {
+    const details = err.details as
+      | {
+          error?: {
+            details?: { issues?: { path: string; message: string }[] };
+          };
+        }
+      | undefined;
+    const issues = details?.error?.details?.issues;
+    if (Array.isArray(issues) && issues.length > 0) {
+      const first = issues[0] as { path: string; message: string } | undefined;
+      if (first) {
+        return first.path ? `${first.path}: ${first.message}` : first.message;
+      }
+    }
+  }
+
+  return err.message || fallback;
+}

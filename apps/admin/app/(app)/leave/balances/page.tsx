@@ -42,7 +42,7 @@ function LeaveBalancesContent(): React.ReactNode {
     cycleYear,
   });
 
-  const { data: emps } = useEmployees({ pageSize: 200 });
+  const { data: emps } = useEmployees({ pageSize: 100 });
   const { data: types } = useLeaveTypes();
 
   const empLookup = useMemo(() => {

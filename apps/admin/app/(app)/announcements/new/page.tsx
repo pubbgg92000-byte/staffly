@@ -11,6 +11,7 @@ import {
   Label,
   PageHeader,
   Select,
+  extractErrorMessage,
   toast,
   useCreateAnnouncement,
   usePublishAnnouncement,
@@ -73,7 +74,7 @@ export default function NewAnnouncementPage(): React.ReactNode {
   const { data: depts } = useDepartments();
   const { data: desigs } = useDesignations();
   const { data: locs } = useLocations();
-  const { data: emps } = useEmployees({ pageSize: 200 });
+  const { data: emps } = useEmployees({ pageSize: 100 });
 
   const [serverError, setServerError] = useState<string | undefined>();
   const [previewResult, setPreviewResult] = useState<{
@@ -143,11 +144,13 @@ export default function NewAnnouncementPage(): React.ReactNode {
       toast.success("Draft saved");
       router.push(`/announcements/${ann.id}`);
     } catch (err) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? String((err as { code: unknown }).code)
-          : undefined;
-      setServerError(friendlyMsg(code) ?? "Failed to save announcement");
+      setServerError(
+        friendlyMsg(
+          err && typeof err === "object" && "code" in err
+            ? String((err as { code: unknown }).code)
+            : undefined,
+        ) ?? extractErrorMessage(err, "Failed to save announcement"),
+      );
     }
   });
 
@@ -167,11 +170,13 @@ export default function NewAnnouncementPage(): React.ReactNode {
       toast.success("Announcement published");
       router.push(`/announcements/${ann.id}`);
     } catch (err) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? String((err as { code: unknown }).code)
-          : undefined;
-      setServerError(friendlyMsg(code) ?? "Failed to publish announcement");
+      setServerError(
+        friendlyMsg(
+          err && typeof err === "object" && "code" in err
+            ? String((err as { code: unknown }).code)
+            : undefined,
+        ) ?? extractErrorMessage(err, "Failed to publish announcement"),
+      );
     }
   });
 
@@ -200,11 +205,13 @@ export default function NewAnnouncementPage(): React.ReactNode {
       toast.success("Announcement scheduled");
       router.push(`/announcements/${ann.id}`);
     } catch (err) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? String((err as { code: unknown }).code)
-          : undefined;
-      setServerError(friendlyMsg(code) ?? "Failed to schedule announcement");
+      setServerError(
+        friendlyMsg(
+          err && typeof err === "object" && "code" in err
+            ? String((err as { code: unknown }).code)
+            : undefined,
+        ) ?? extractErrorMessage(err, "Failed to schedule announcement"),
+      );
     }
   });
 

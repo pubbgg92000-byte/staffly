@@ -12,7 +12,7 @@ export { cn } from "./lib/cn";
 
 // API + session
 export { api, type Api, type ApiFetchOptions } from "./api/client";
-export { ApiError, isApiError } from "./api/error";
+export { ApiError, isApiError, extractErrorMessage } from "./api/error";
 export {
   useSession,
   useSignIn,

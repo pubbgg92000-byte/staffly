@@ -79,7 +79,7 @@ function LeaveRequestsContent(): React.ReactNode {
     to: to || undefined,
   });
 
-  const { data: emps } = useEmployees({ pageSize: 200 });
+  const { data: emps } = useEmployees({ pageSize: 100 });
   const { data: types } = useLeaveTypes();
 
   const empLookup = useMemo(() => {

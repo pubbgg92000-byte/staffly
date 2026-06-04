@@ -129,7 +129,7 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
   const { data: depts } = useDepartments();
   const { data: desigs } = useDesignations();
   const { data: locs } = useLocations();
-  const { data: emps } = useEmployees({ pageSize: 200 });
+  const { data: emps } = useEmployees({ pageSize: 100 });
 
   const [editOpen, setEditOpen] = useState(false);
   const [previewResult, setPreviewResult] = useState<{

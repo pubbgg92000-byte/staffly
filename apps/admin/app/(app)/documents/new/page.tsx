@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Button,
+  extractErrorMessage,
   Input,
   Label,
   PageHeader,
@@ -101,7 +102,7 @@ export default function NewDocumentPage(): React.ReactNode {
   const { data: depts } = useDepartments();
   const { data: desigs } = useDesignations();
   const { data: locs } = useLocations();
-  const { data: emps } = useEmployees({ pageSize: 200 });
+  const { data: emps } = useEmployees({ pageSize: 100 });
 
   const form = useForm<DocumentFormValues>({
     resolver: zodResolver(DocumentSchema),
@@ -216,11 +217,13 @@ export default function NewDocumentPage(): React.ReactNode {
       toast.success(values.publishNow ? "Document published" : "Draft saved");
       router.push(`/documents/${doc.id}`);
     } catch (err) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? String((err as { code: unknown }).code)
-          : undefined;
-      setServerError(friendlyMsg(code) ?? "Failed to create document");
+      setServerError(
+        friendlyMsg(
+          err && typeof err === "object" && "code" in err
+            ? String((err as { code: unknown }).code)
+            : undefined,
+        ) ?? extractErrorMessage(err, "Failed to create document"),
+      );
     }
   });
 

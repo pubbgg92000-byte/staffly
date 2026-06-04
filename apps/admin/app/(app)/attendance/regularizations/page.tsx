@@ -74,7 +74,7 @@ function RegularizationsContent(): React.ReactNode {
     status: (statusParam as RegularizationStatus) || undefined,
   });
 
-  const { data: emps } = useEmployees({ pageSize: 200 });
+  const { data: emps } = useEmployees({ pageSize: 100 });
   const empLookup = useMemo(() => {
     const m = new Map<string, string>();
     (emps?.items ?? []).forEach((e) => {

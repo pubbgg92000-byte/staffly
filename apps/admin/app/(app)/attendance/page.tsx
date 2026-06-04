@@ -93,7 +93,7 @@ function AttendanceListContent(): React.ReactNode {
     status: (statusParam as AttendanceStatus) || undefined,
   });
 
-  const { data: emps } = useEmployees({ pageSize: 200 });
+  const { data: emps } = useEmployees({ pageSize: 100 });
   const empLookup = useMemo(() => {
     const m = new Map<string, string>();
     (emps?.items ?? []).forEach((e) => {
