@@ -141,9 +141,9 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
   const { data: acksData, isLoading: acksLoading } = useAcknowledgements(id, {
     pageSize: 20,
   });
-  const update = useUpdateAnnouncement();
   const publish = usePublishAnnouncement();
   const archive = useArchiveAnnouncement();
+  const update = useUpdateAnnouncement();
   const preview = usePreviewAudience();
 
   const { data: depts } = useDepartments();
@@ -295,6 +295,24 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
     }
   };
 
+  /** Cancel a scheduled announcement — clears scheduledFor, drops status to draft. */
+  const handleCancelSchedule = async () => {
+    if (!ann) return;
+    try {
+      await update.mutateAsync({
+        id: ann.id,
+        body: { scheduledFor: null },
+      });
+      toast.success("Schedule cancelled — reverted to draft");
+      refetch();
+    } catch (err) {
+      toast.error(
+        friendlyMsg(err) ??
+          extractErrorMessage(err, "Failed to cancel schedule"),
+      );
+    }
+  };
+
   const handleArchive = async () => {
     if (!ann) return;
     try {
@@ -335,7 +353,7 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
     );
   }
 
-  const canEdit = ann.status !== "archived" && ann.status !== "published";
+  const canEdit = ann.status !== "archived";
   const canPublish = ann.status === "draft" || ann.status === "scheduled";
   const canArchive = ann.status !== "archived";
 
@@ -394,6 +412,15 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
           ) : null}
           {canPublish && !scheduleMode ? (
             <>
+              {ann.status === "scheduled" ? (
+                <Button
+                  variant="outline"
+                  onClick={handleCancelSchedule}
+                  disabled={update.isPending}
+                >
+                  {update.isPending ? "Cancelling…" : "Cancel schedule"}
+                </Button>
+              ) : null}
               <Button onClick={handlePublishNow} disabled={publish.isPending}>
                 {publish.isPending ? "Publishing…" : "Publish now"}
               </Button>

@@ -96,8 +96,8 @@ export interface CreateAnnouncementInput {
   pinned?: boolean;
   requiresAcknowledgment?: boolean;
   priority?: AnnouncementPriority;
-  scheduledFor?: string;
-  expiresAt?: string;
+  scheduledFor?: string | null;
+  expiresAt?: string | null;
   audiences: AudienceItem[];
 }
 
