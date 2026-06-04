@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   toast,
   useEmployee,
+  useEmployees,
   useUpdateEmployee,
   useDepartments,
   useDesignations,
@@ -20,6 +21,21 @@ export default function EditEmployeePage(): React.ReactNode {
   const { data: depts } = useDepartments();
   const { data: desigs } = useDesignations();
   const { data: locs } = useLocations();
+  const { data: emps } = useEmployees({
+    pageSize: 100,
+    status: "active",
+    sortBy: "displayName",
+  });
+
+  // Best-effort self-reference guard: exclude this employee from the
+  // manager picker. Backend does not enforce non-cyclic managers.
+  const managers = (emps?.items ?? [])
+    .filter((e) => e.id !== id)
+    .map((e) => ({
+      id: e.id,
+      displayName: e.displayName,
+      employeeCode: e.employeeCode,
+    }));
 
   if (isLoading || !emp) {
     return (
@@ -52,6 +68,7 @@ export default function EditEmployeePage(): React.ReactNode {
     departmentId: emp.department?.id ?? "",
     designationId: emp.designation?.id ?? "",
     locationId: emp.location?.id ?? "",
+    managerId: emp.manager?.id ?? "",
     employmentType: emp.employmentType,
     workMode: emp.workMode,
   };
@@ -66,6 +83,7 @@ export default function EditEmployeePage(): React.ReactNode {
       departments={depts?.items ?? []}
       designations={desigs?.items ?? []}
       locations={locs?.items ?? []}
+      managers={managers}
     />
   );
 }

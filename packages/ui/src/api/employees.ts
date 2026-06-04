@@ -31,6 +31,7 @@ function qp(params?: EmployeeListParams): string {
   if (params.departmentId) sp.set("departmentId", params.departmentId);
   if (params.designationId) sp.set("designationId", params.designationId);
   if (params.locationId) sp.set("locationId", params.locationId);
+  if (params.managerId) sp.set("managerId", params.managerId);
   if (params.employmentType) sp.set("employmentType", params.employmentType);
   if (params.sortBy) sp.set("sortBy", params.sortBy);
   if (params.sortDir) sp.set("sortDir", params.sortDir);

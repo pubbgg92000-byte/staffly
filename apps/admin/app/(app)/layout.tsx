@@ -11,6 +11,7 @@ import {
   PartyPopper,
   Megaphone,
   FileText,
+  Building2,
 } from "lucide-react";
 
 /**
@@ -65,6 +66,12 @@ const nav: NavItem[] = [
     label: "Documents",
     icon: FileText,
     permission: "document.read",
+  },
+  {
+    href: "/org-structure",
+    label: "Org Structure",
+    icon: Building2,
+    permission: "org.structure.read",
   },
 ];
 

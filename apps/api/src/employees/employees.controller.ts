@@ -23,6 +23,10 @@ import {
 import { ZodBody } from "../common/zod-validation.pipe";
 import { ZodQuery } from "../common/zod-query.pipe";
 import { RequirePermission } from "../rbac/decorators/require-permission.decorator";
+import {
+  CurrentUser,
+  type RequestUser,
+} from "../auth/decorators/current-user.decorator";
 
 @Controller("employees")
 export class EmployeesController {
@@ -34,6 +38,13 @@ export class EmployeesController {
     @Query(new ZodQuery(EmployeeListQuery)) q: EmployeeListQueryT,
   ): Promise<unknown> {
     return this.employees.list(q);
+  }
+
+  // /me declared BEFORE /:id so Nest does not match "me" as a UUID.
+  // Auth-only — any signed-in user can read their own employee record.
+  @Get("me")
+  me(@CurrentUser() user: RequestUser): Promise<unknown> {
+    return this.employees.findByUserId(user.userId);
   }
 
   @Get(":id")

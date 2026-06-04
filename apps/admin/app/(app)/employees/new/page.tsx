@@ -6,6 +6,7 @@ import {
   useCreateEmployee,
   useDepartments,
   useDesignations,
+  useEmployees,
   useLocations,
 } from "@staffly/ui";
 import { EmployeeForm } from "../_components/employee-form";
@@ -17,6 +18,17 @@ export default function NewEmployeePage(): React.ReactNode {
   const { data: depts } = useDepartments();
   const { data: desigs } = useDesignations();
   const { data: locs } = useLocations();
+  const { data: emps } = useEmployees({
+    pageSize: 100,
+    status: "active",
+    sortBy: "displayName",
+  });
+
+  const managers = (emps?.items ?? []).map((e) => ({
+    id: e.id,
+    displayName: e.displayName,
+    employeeCode: e.employeeCode,
+  }));
 
   const handleSubmit = async (values: CreateEmployeeFormValues) => {
     try {
@@ -39,6 +51,7 @@ export default function NewEmployeePage(): React.ReactNode {
       departments={depts?.items ?? []}
       designations={desigs?.items ?? []}
       locations={locs?.items ?? []}
+      managers={managers}
     />
   );
 }

@@ -47,6 +47,7 @@ export interface EmployeeListItem {
   workMode: WorkMode;
   profilePhotoUrl: string | null;
   joinedOn: string | null;
+  managerId: string | null;
   department: OrgItem | null;
   designation: OrgItem | null;
   location: OrgItem | null;
@@ -113,6 +114,7 @@ export interface EmployeeListParams {
   departmentId?: string;
   designationId?: string;
   locationId?: string;
+  managerId?: string;
   employmentType?: EmploymentType;
   sortBy?: "displayName" | "employeeCode" | "createdAt" | "joinedOn";
   sortDir?: "asc" | "desc";

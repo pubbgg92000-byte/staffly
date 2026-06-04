@@ -24,6 +24,7 @@ function friendlyError(msg: string | undefined): string | undefined {
 }
 
 type OrgItem = { id: string; name: string };
+type ManagerOpt = { id: string; displayName: string; employeeCode: string };
 type Mode = "create" | "edit";
 
 const STATUS_OPTS = [
@@ -56,6 +57,7 @@ interface EmployeeFormProps {
   departments: OrgItem[];
   designations: OrgItem[];
   locations: OrgItem[];
+  managers: ManagerOpt[];
 }
 
 export function EmployeeForm({
@@ -67,6 +69,7 @@ export function EmployeeForm({
   departments,
   designations,
   locations,
+  managers,
 }: EmployeeFormProps): React.ReactNode {
   const router = useRouter();
   const schema =
@@ -87,6 +90,7 @@ export function EmployeeForm({
       departmentId: "",
       designationId: "",
       locationId: "",
+      managerId: "",
       employmentType: "full_time",
       workMode: "onsite",
     },
@@ -235,6 +239,17 @@ export function EmployeeForm({
                 {locations.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="managerId">Reporting Manager</Label>
+              <Select id="managerId" {...form.register("managerId")}>
+                <option value="">—</option>
+                {managers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.displayName} · {m.employeeCode}
                   </option>
                 ))}
               </Select>

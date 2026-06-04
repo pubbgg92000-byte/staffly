@@ -132,6 +132,25 @@ export {
   leaveKeys,
 } from "./api/leave";
 
+// API — org-structure
+export {
+  useOrgDepartments,
+  useOrgDesignations,
+  useOrgLocations,
+  useCreateDepartment,
+  useUpdateDepartment,
+  useDeleteDepartment,
+  useCreateDesignation,
+  useUpdateDesignation,
+  useDeleteDesignation,
+  useCreateLocation,
+  useUpdateLocation,
+  useDeleteLocation,
+  useOrgEmployeesByManager,
+  useMyEmployee,
+  orgKeys,
+} from "./api/org-structure";
+
 // API — documents
 export {
   useDocumentCategories,

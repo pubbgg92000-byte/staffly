@@ -171,9 +171,44 @@ export class EmployeesService {
       workMode: true,
       profilePhotoUrl: true,
       joinedOn: true,
+      managerId: true,
       department: { select: { id: true, name: true } },
       designation: { select: { id: true, name: true } },
       location: { select: { id: true, name: true } },
     };
+  }
+
+  async findByUserId(userId: string): Promise<unknown> {
+    const row = await this.prisma.db.employee.findFirst({
+      where: { userId, deletedAt: null },
+      include: {
+        department: {
+          select: {
+            id: true,
+            name: true,
+            parentId: true,
+            headEmployeeId: true,
+            // Included so the employee /me page can label the parent dept
+            // when the user is in a "team" (a sub-department).
+            parent: { select: { id: true, name: true } },
+          },
+        },
+        designation: { select: { id: true, name: true, level: true } },
+        location: {
+          select: { id: true, name: true, city: true, country: true },
+        },
+        manager: {
+          select: {
+            id: true,
+            displayName: true,
+            employeeCode: true,
+            workEmail: true,
+            designation: { select: { name: true } },
+          },
+        },
+      },
+    });
+    if (!row) throw new NotFoundException({ code: "employee.not_found" });
+    return row;
   }
 }
