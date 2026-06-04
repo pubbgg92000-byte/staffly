@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 import {
   PageHeader,
   WidgetCard,
@@ -158,7 +159,7 @@ export default function EmployeeDashboardPage(): React.ReactNode {
           label="Pending tasks"
           value={data ? pendingTotal : "…"}
           icon={<CheckCircle2 className="h-4 w-4" />}
-          href="/me/announcements"
+          href="/announcements"
         />
         <StatCard
           label="Leave available (days)"
@@ -182,29 +183,31 @@ export default function EmployeeDashboardPage(): React.ReactNode {
         >
           <ul className="divide-y">
             {data?.announcements.map((a) => (
-              <li
-                key={a.id}
-                className="flex items-start justify-between gap-2 py-2 text-sm"
-              >
-                <div className="flex items-center gap-1.5 min-w-0">
-                  {a.pinned ? (
-                    <Pin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  ) : null}
-                  <p className="line-clamp-2 font-medium">{a.title}</p>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <Badge
-                    variant={PRIORITY_VARIANT[a.priority] ?? "default"}
-                    className="text-xs"
-                  >
-                    {a.priority}
-                  </Badge>
-                  {a.publishedAt ? (
-                    <span className="text-xs text-muted-foreground">
-                      {fmtDate(a.publishedAt)}
-                    </span>
-                  ) : null}
-                </div>
+              <li key={a.id}>
+                <Link
+                  href={`/announcements/${a.id}`}
+                  className="flex items-start justify-between gap-2 py-2 text-sm hover:opacity-80"
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {a.pinned ? (
+                      <Pin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    ) : null}
+                    <p className="line-clamp-2 font-medium">{a.title}</p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <Badge
+                      variant={PRIORITY_VARIANT[a.priority] ?? "default"}
+                      className="text-xs"
+                    >
+                      {a.priority}
+                    </Badge>
+                    {a.publishedAt ? (
+                      <span className="text-xs text-muted-foreground">
+                        {fmtDate(a.publishedAt)}
+                      </span>
+                    ) : null}
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>

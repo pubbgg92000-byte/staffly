@@ -33,9 +33,30 @@ const FRIENDLY_ERRORS: Record<string, string> = {
     "Expiry must be after the scheduled publish time.",
 };
 
-function friendlyMsg(code: string | undefined): string | undefined {
+function friendlyMsg(err: unknown): string | undefined {
+  const code =
+    err && typeof err === "object" && "code" in err
+      ? String((err as { code: unknown }).code)
+      : undefined;
   if (!code) return undefined;
-  return FRIENDLY_ERRORS[code] ?? code;
+  return FRIENDLY_ERRORS[code] ?? undefined;
+}
+
+/** Convert datetime-local string ("YYYY-MM-DDTHH:MM") to full ISO 8601 UTC. */
+function toISO(s: string | undefined): string | undefined {
+  if (!s) return undefined;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
+/** Convert plain text (multi-line) to <p>-wrapped HTML for the bodyHtml contract. */
+function textToHtml(text: string): string {
+  return text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => `<p>${l}</p>`)
+    .join("");
 }
 
 function formValuesToAudiences(values: AnnouncementFormValues): AudienceItem[] {
@@ -82,6 +103,8 @@ export default function NewAnnouncementPage(): React.ReactNode {
     sample: { id: string; displayName: string; employeeCode: string }[];
   } | null>(null);
 
+  // The form uses a plain-text "bodyText" field; it is converted to <p> HTML
+  // at submit time to satisfy the bodyHtml backend contract.
   const form = useForm<AnnouncementFormValues>({
     resolver: zodResolver(AnnouncementSchema),
     defaultValues: {
@@ -117,7 +140,6 @@ export default function NewAnnouncementPage(): React.ReactNode {
     [preview],
   );
 
-  // Debounced audience preview on form changes
   useEffect(() => {
     const sub = form.watch((values) => {
       const timer = setTimeout(() => {
@@ -133,23 +155,19 @@ export default function NewAnnouncementPage(): React.ReactNode {
     try {
       const ann = await create.mutateAsync({
         title: values.title,
-        bodyHtml: values.bodyHtml,
+        bodyHtml: textToHtml(values.bodyHtml),
         priority: values.priority,
         pinned: values.pinned,
         requiresAcknowledgment: values.requiresAcknowledgment,
-        scheduledFor: values.scheduledFor,
-        expiresAt: values.expiresAt,
+        scheduledFor: toISO(values.scheduledFor),
+        expiresAt: toISO(values.expiresAt),
         audiences: formValuesToAudiences(values),
       });
       toast.success("Draft saved");
       router.push(`/announcements/${ann.id}`);
     } catch (err) {
       setServerError(
-        friendlyMsg(
-          err && typeof err === "object" && "code" in err
-            ? String((err as { code: unknown }).code)
-            : undefined,
-        ) ?? extractErrorMessage(err, "Failed to save announcement"),
+        friendlyMsg(err) ?? extractErrorMessage(err, "Failed to save draft"),
       );
     }
   });
@@ -159,11 +177,11 @@ export default function NewAnnouncementPage(): React.ReactNode {
     try {
       const ann = await create.mutateAsync({
         title: values.title,
-        bodyHtml: values.bodyHtml,
+        bodyHtml: textToHtml(values.bodyHtml),
         priority: values.priority,
         pinned: values.pinned,
         requiresAcknowledgment: values.requiresAcknowledgment,
-        expiresAt: values.expiresAt,
+        expiresAt: toISO(values.expiresAt),
         audiences: formValuesToAudiences(values),
       });
       await publish.mutateAsync({ id: ann.id });
@@ -171,11 +189,8 @@ export default function NewAnnouncementPage(): React.ReactNode {
       router.push(`/announcements/${ann.id}`);
     } catch (err) {
       setServerError(
-        friendlyMsg(
-          err && typeof err === "object" && "code" in err
-            ? String((err as { code: unknown }).code)
-            : undefined,
-        ) ?? extractErrorMessage(err, "Failed to publish announcement"),
+        friendlyMsg(err) ??
+          extractErrorMessage(err, "Failed to publish announcement"),
       );
     }
   });
@@ -183,7 +198,7 @@ export default function NewAnnouncementPage(): React.ReactNode {
   const handleSchedule = form.handleSubmit(async (values) => {
     if (!values.scheduledFor) {
       form.setError("scheduledFor", {
-        message: "Pick a schedule time to schedule this announcement",
+        message: "Pick a date and time to schedule this announcement",
       });
       return;
     }
@@ -191,26 +206,23 @@ export default function NewAnnouncementPage(): React.ReactNode {
     try {
       const ann = await create.mutateAsync({
         title: values.title,
-        bodyHtml: values.bodyHtml,
+        bodyHtml: textToHtml(values.bodyHtml),
         priority: values.priority,
         pinned: values.pinned,
         requiresAcknowledgment: values.requiresAcknowledgment,
-        expiresAt: values.expiresAt,
+        expiresAt: toISO(values.expiresAt),
         audiences: formValuesToAudiences(values),
       });
       await publish.mutateAsync({
         id: ann.id,
-        scheduledFor: values.scheduledFor,
+        scheduledFor: toISO(values.scheduledFor),
       });
       toast.success("Announcement scheduled");
       router.push(`/announcements/${ann.id}`);
     } catch (err) {
       setServerError(
-        friendlyMsg(
-          err && typeof err === "object" && "code" in err
-            ? String((err as { code: unknown }).code)
-            : undefined,
-        ) ?? extractErrorMessage(err, "Failed to schedule announcement"),
+        friendlyMsg(err) ??
+          extractErrorMessage(err, "Failed to schedule announcement"),
       );
     }
   });
@@ -226,7 +238,7 @@ export default function NewAnnouncementPage(): React.ReactNode {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="max-w-2xl space-y-6">
       <Link
         href="/announcements"
         className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -248,7 +260,7 @@ export default function NewAnnouncementPage(): React.ReactNode {
 
       <div className="space-y-8">
         {/* Basic info */}
-        <section className="rounded-lg border bg-card p-5 space-y-4">
+        <section className="space-y-4 rounded-lg border bg-card p-5">
           <h2 className="text-sm font-semibold">Content</h2>
 
           <div className="space-y-1.5">
@@ -262,14 +274,17 @@ export default function NewAnnouncementPage(): React.ReactNode {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="bodyHtml">Body (HTML) *</Label>
+            <Label htmlFor="bodyHtml">Message *</Label>
             <textarea
               id="bodyHtml"
               rows={8}
-              className="flex min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm font-mono focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              placeholder="<p>Your announcement content…</p>"
+              className="flex min-h-[180px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              placeholder="Write your announcement here. Each paragraph will be preserved."
               {...form.register("bodyHtml")}
             />
+            <p className="text-xs text-muted-foreground">
+              Plain text. Press Enter for a new paragraph.
+            </p>
             <FieldError name="bodyHtml" />
           </div>
 
@@ -284,7 +299,7 @@ export default function NewAnnouncementPage(): React.ReactNode {
             </div>
 
             <div className="flex items-end gap-3">
-              <label className="flex items-center gap-2 text-sm pb-2">
+              <label className="flex items-center gap-2 pb-2 text-sm">
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded border-input"
@@ -292,7 +307,7 @@ export default function NewAnnouncementPage(): React.ReactNode {
                 />
                 Pinned
               </label>
-              <label className="flex items-center gap-2 text-sm pb-2">
+              <label className="flex items-center gap-2 pb-2 text-sm">
                 <input
                   type="checkbox"
                   className="h-4 w-4 rounded border-input"
@@ -305,7 +320,7 @@ export default function NewAnnouncementPage(): React.ReactNode {
         </section>
 
         {/* Scheduling */}
-        <section className="rounded-lg border bg-card p-5 space-y-4">
+        <section className="space-y-4 rounded-lg border bg-card p-5">
           <h2 className="text-sm font-semibold">Scheduling</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -330,7 +345,7 @@ export default function NewAnnouncementPage(): React.ReactNode {
         </section>
 
         {/* Audience */}
-        <section className="rounded-lg border bg-card p-5 space-y-4">
+        <section className="space-y-4 rounded-lg border bg-card p-5">
           <h2 className="text-sm font-semibold">Audience</h2>
 
           <div className="space-y-1.5">
@@ -412,7 +427,6 @@ export default function NewAnnouncementPage(): React.ReactNode {
             </div>
           ) : null}
 
-          {/* Live preview */}
           {previewResult ? (
             <div className="flex items-start gap-2 rounded-md bg-muted/40 p-3 text-sm">
               <Users className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />

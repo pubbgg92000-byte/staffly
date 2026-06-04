@@ -7,20 +7,19 @@ import {
   Clock,
   Calendar,
   FileText,
-  MoreHorizontal,
+  Megaphone,
 } from "lucide-react";
 
 /**
- * Phase 1 nav — Dashboard only is live. Attendance/Leave/Documents/More
- * are visible in the bottom-tab navigation per docs/06 §22 but currently
- * route to placeholder 404s; they slot in during later phases.
+ * Bottom-tab nav. "More" placeholder replaced with "Announcements" once
+ * the announcements feed was shipped in v0.17.
  */
 const nav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/attendance", label: "Attendance", icon: Clock },
   { href: "/leave", label: "Leave", icon: Calendar },
   { href: "/documents", label: "Documents", icon: FileText },
-  { href: "/more", label: "More", icon: MoreHorizontal },
+  { href: "/announcements", label: "Announcements", icon: Megaphone },
 ];
 
 export default function AppGroupLayout({

@@ -20,6 +20,7 @@ import {
   Skeleton,
   StatusBadge,
   type StatusTone,
+  extractErrorMessage,
   toast,
   useAcknowledgements,
   useAnnouncement,
@@ -87,9 +88,28 @@ const FRIENDLY_ERRORS: Record<string, string> = {
     "This announcement is archived and cannot be edited.",
 };
 
-function friendlyMsg(code: string | undefined): string | undefined {
+function friendlyMsg(err: unknown): string | undefined {
+  const code =
+    err && typeof err === "object" && "code" in err
+      ? String((err as { code: unknown }).code)
+      : undefined;
   if (!code) return undefined;
-  return FRIENDLY_ERRORS[code] ?? code;
+  return FRIENDLY_ERRORS[code] ?? undefined;
+}
+
+/** Convert datetime-local string to full ISO 8601 UTC. */
+function toISO(s: string | undefined): string | undefined {
+  if (!s) return undefined;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
+/** Strip <p> tags back to newline-separated plain text for the edit textarea. */
+function htmlToText(html: string): string {
+  return html
+    .replace(/<\/p>\s*<p>/g, "\n")
+    .replace(/<\/?p>/g, "")
+    .trim();
 }
 
 function fmtDateTime(iso: string | null): string {
@@ -165,7 +185,7 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
       const firstAud = ann.audiences[0];
       form.reset({
         title: ann.title,
-        bodyHtml: ann.bodyHtml,
+        bodyHtml: htmlToText(ann.bodyHtml),
         priority: ann.priority,
         pinned: ann.pinned,
         requiresAcknowledgment: ann.requiresAcknowledgment,
@@ -220,12 +240,18 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
         id: ann.id,
         body: {
           title: values.title,
-          bodyHtml: values.bodyHtml,
+          // values.bodyHtml is plain text in the edit form — convert back to HTML
+          bodyHtml: values.bodyHtml
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean)
+            .map((l) => `<p>${l}</p>`)
+            .join(""),
           priority: values.priority,
           pinned: values.pinned,
           requiresAcknowledgment: values.requiresAcknowledgment,
-          scheduledFor: values.scheduledFor ?? undefined,
-          expiresAt: values.expiresAt ?? undefined,
+          scheduledFor: toISO(values.scheduledFor),
+          expiresAt: toISO(values.expiresAt),
           audiences: formValuesToAudiences(values),
         },
       });
@@ -233,11 +259,9 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
       setEditOpen(false);
       refetch();
     } catch (err) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? String((err as { code: unknown }).code)
-          : undefined;
-      toast.error(friendlyMsg(code) ?? "Failed to update");
+      toast.error(
+        friendlyMsg(err) ?? extractErrorMessage(err, "Failed to update"),
+      );
     }
   });
 
@@ -248,11 +272,9 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
       toast.success("Announcement published");
       refetch();
     } catch (err) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? String((err as { code: unknown }).code)
-          : undefined;
-      toast.error(friendlyMsg(code) ?? "Failed to publish");
+      toast.error(
+        friendlyMsg(err) ?? extractErrorMessage(err, "Failed to publish"),
+      );
     }
   };
 
@@ -267,11 +289,9 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
       setScheduleMode(false);
       refetch();
     } catch (err) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? String((err as { code: unknown }).code)
-          : undefined;
-      toast.error(friendlyMsg(code) ?? "Failed to schedule");
+      toast.error(
+        friendlyMsg(err) ?? extractErrorMessage(err, "Failed to schedule"),
+      );
     }
   };
 
@@ -282,11 +302,9 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
       toast.success("Announcement archived");
       router.push("/announcements");
     } catch (err) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? String((err as { code: unknown }).code)
-          : undefined;
-      toast.error(friendlyMsg(code) ?? "Failed to archive");
+      toast.error(
+        friendlyMsg(err) ?? extractErrorMessage(err, "Failed to archive"),
+      );
     }
   };
 
@@ -522,7 +540,7 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="e-body">Body (HTML)</Label>
+                  <Label htmlFor="e-body">Message</Label>
                   <textarea
                     id="e-body"
                     rows={8}
