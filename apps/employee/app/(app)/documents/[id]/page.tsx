@@ -11,10 +11,17 @@ import {
   Skeleton,
   toast,
   useAcknowledgeDocument,
+  useMyDocumentDownloadUrl,
   useMyDocuments,
 } from "@staffly/ui";
 import type { MyDocumentItem } from "@staffly/types";
-import { ArrowLeft, CheckCircle2, FileText } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Download,
+  ExternalLink,
+  FileText,
+} from "lucide-react";
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -46,6 +53,7 @@ function fmtSize(bytes: string | number): string {
 export default function EmployeeDocumentDetailPage(): React.ReactNode {
   const { id } = useParams<{ id: string }>();
   const acknowledge = useAcknowledgeDocument();
+  const downloadUrl = useMyDocumentDownloadUrl();
 
   // Fetch from employee feed — load all documents to find this one
   // (employees don't have document.read permission for GET /documents/:id)
@@ -152,19 +160,58 @@ export default function EmployeeDocumentDetailPage(): React.ReactNode {
         </div>
       ) : null}
 
-      {/* File info (no download for employees in v0.18) */}
+      {/* File — open + download */}
       {doc.currentVersion ? (
         <div className="rounded-lg border bg-card p-5">
           <h2 className="mb-3 text-sm font-semibold">File</h2>
-          <div className="flex items-center gap-3">
-            <FileText className="h-8 w-8 text-muted-foreground" />
-            <div>
-              <p className="font-medium">{doc.currentVersion.fileName}</p>
-              <p className="text-xs text-muted-foreground">
-                {doc.currentVersion.mimeType} ·{" "}
-                {fmtSize(doc.currentVersion.sizeBytes)} · v
-                {doc.currentVersion.versionNo}
-              </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <FileText className="h-8 w-8 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="font-medium">{doc.currentVersion.fileName}</p>
+                <p className="text-xs text-muted-foreground">
+                  {doc.currentVersion.mimeType} ·{" "}
+                  {fmtSize(doc.currentVersion.sizeBytes)} · v
+                  {doc.currentVersion.versionNo}
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={downloadUrl.isPending}
+                onClick={async () => {
+                  try {
+                    const result = await downloadUrl.mutateAsync(id);
+                    window.open(result.url, "_blank", "noopener,noreferrer");
+                  } catch {
+                    toast.error("Could not open file. Try again.");
+                  }
+                }}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Open
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={downloadUrl.isPending}
+                onClick={async () => {
+                  try {
+                    const result = await downloadUrl.mutateAsync(id);
+                    const a = document.createElement("a");
+                    a.href = result.url;
+                    a.download = result.fileName;
+                    a.click();
+                  } catch {
+                    toast.error("Could not download file. Try again.");
+                  }
+                }}
+              >
+                <Download className="h-4 w-4" />
+                Download
+              </Button>
             </div>
           </div>
         </div>

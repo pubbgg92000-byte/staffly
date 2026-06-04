@@ -481,3 +481,17 @@ export function useGetDownloadUrl(): ReturnType<
     },
   });
 }
+
+/**
+ * Fetches a short-lived download URL for a document the current employee is
+ * entitled to view (audience-checked server-side). Uses document.acknowledge
+ * permission so no extra perm is required on the employee role.
+ */
+export function useMyDocumentDownloadUrl(): ReturnType<
+  typeof useMutation<DownloadUrlResult, ApiError, string>
+> {
+  return useMutation<DownloadUrlResult, ApiError, string>({
+    mutationFn: (id) =>
+      api.get<DownloadUrlResult>(`/me/documents/${id}/download-url`),
+  });
+}

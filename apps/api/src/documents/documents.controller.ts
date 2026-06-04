@@ -118,6 +118,19 @@ export class DocumentsController {
     );
   }
 
+  // Declared after me/documents (static) and before documents/:id (param)
+  @Get("me/documents/:id/download-url")
+  @RequirePermission("document.acknowledge")
+  myDocumentDownloadUrl(
+    @CurrentUser() user: RequestUser,
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<unknown> {
+    return this.docs.myDocumentDownloadUrl(
+      { userId: user.userId, organizationId: user.organizationId },
+      id,
+    );
+  }
+
   @Post("documents/audience/preview")
   @HttpCode(HttpStatus.OK)
   @RequirePermission("document.create")

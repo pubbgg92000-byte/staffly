@@ -173,6 +173,7 @@ export {
   useAcknowledgeDocument,
   useDocumentAudiencePreview,
   useGetDownloadUrl,
+  useMyDocumentDownloadUrl,
   documentKeys,
 } from "./api/documents";
 

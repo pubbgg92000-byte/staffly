@@ -692,6 +692,79 @@ export class DocumentsService {
     return pageOf(items, total, q);
   }
 
+  /**
+   * Download URL for a document the calling employee is entitled to view.
+   * Reuses the same audience filter as myDocuments — if the document doesn't
+   * appear in the employee's feed it's treated as not found (403-equivalent).
+   */
+  async myDocumentDownloadUrl(
+    actor: ActorCtx,
+    documentId: string,
+  ): Promise<{ url: string; expiresIn: number; fileName: string }> {
+    const employee = await this.prisma.db.employee.findFirst({
+      where: { userId: actor.userId, deletedAt: null },
+      select: {
+        id: true,
+        departmentId: true,
+        designationId: true,
+        locationId: true,
+        employmentType: true,
+      },
+    });
+    if (!employee) throw new NotFoundException({ code: "employee.not_found" });
+
+    const audienceMatch: Prisma.DocumentAudienceWhereInput = {
+      OR: [
+        { audienceType: "all_employees" },
+        ...(employee.departmentId
+          ? [
+              {
+                audienceType: "department" as const,
+                departmentId: employee.departmentId,
+              },
+            ]
+          : []),
+        ...(employee.designationId
+          ? [
+              {
+                audienceType: "designation" as const,
+                designationId: employee.designationId,
+              },
+            ]
+          : []),
+        ...(employee.locationId
+          ? [
+              {
+                audienceType: "location" as const,
+                locationId: employee.locationId,
+              },
+            ]
+          : []),
+        {
+          audienceType: "employment_type",
+          employmentType: employee.employmentType,
+        },
+        { audienceType: "specific_employees", employeeId: employee.id },
+      ],
+    };
+
+    const doc = await this.prisma.db.document.findFirst({
+      where: {
+        id: documentId,
+        deletedAt: null,
+        publishedAt: { not: null },
+        archivedAt: null,
+        OR: [
+          { isPersonal: true, subjectEmployeeId: employee.id },
+          { isPersonal: false, audiences: { some: audienceMatch } },
+        ],
+      },
+    });
+    if (!doc) throw new NotFoundException({ code: "document.not_found" });
+
+    return this.getDownloadUrlForVersion(documentId);
+  }
+
   // ─── Internals ──────────────────────────────────────────────────────
 
   private async writeVersion(
