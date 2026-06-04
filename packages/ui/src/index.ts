@@ -132,6 +132,21 @@ export {
   leaveKeys,
 } from "./api/leave";
 
+// API — announcements
+export {
+  useAnnouncements,
+  useAnnouncement,
+  useMyAnnouncements,
+  useAcknowledgements,
+  useCreateAnnouncement,
+  useUpdateAnnouncement,
+  usePublishAnnouncement,
+  useArchiveAnnouncement,
+  useAcknowledgeAnnouncement,
+  usePreviewAudience,
+  announcementKeys,
+} from "./api/announcements";
+
 // API — holidays
 export {
   useHolidayCalendars,

@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Scale,
   PartyPopper,
+  Megaphone,
 } from "lucide-react";
 
 /**
@@ -51,6 +52,12 @@ const nav: NavItem[] = [
     label: "Holidays",
     icon: PartyPopper,
     permission: "holiday.read",
+  },
+  {
+    href: "/announcements",
+    label: "Announcements",
+    icon: Megaphone,
+    permission: "announcement.read",
   },
 ];
 
