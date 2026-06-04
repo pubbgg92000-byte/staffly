@@ -8,7 +8,6 @@ import type {
   AcknowledgementsListParams,
   AcknowledgementsListResponse,
   Announcement,
-  AnnouncementFeedItem,
   AnnouncementsListParams,
   AnnouncementsListResponse,
   AudienceItem,

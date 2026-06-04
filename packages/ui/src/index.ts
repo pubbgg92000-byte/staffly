@@ -132,6 +132,28 @@ export {
   leaveKeys,
 } from "./api/leave";
 
+// API — documents
+export {
+  useDocumentCategories,
+  useDocuments,
+  useDocument,
+  useMyDocuments,
+  useDocumentAcknowledgements,
+  usePendingAck,
+  usePresignUpload,
+  uploadToPresignedUrl,
+  useCreateDocument,
+  useUpdateDocument,
+  useReplaceFile,
+  usePublishDocument,
+  useArchiveDocument,
+  useDeleteDocument,
+  useAcknowledgeDocument,
+  useDocumentAudiencePreview,
+  useGetDownloadUrl,
+  documentKeys,
+} from "./api/documents";
+
 // API — announcements
 export {
   useAnnouncements,

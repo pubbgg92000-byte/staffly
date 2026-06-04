@@ -10,6 +10,7 @@ import {
   Scale,
   PartyPopper,
   Megaphone,
+  FileText,
 } from "lucide-react";
 
 /**
@@ -58,6 +59,12 @@ const nav: NavItem[] = [
     label: "Announcements",
     icon: Megaphone,
     permission: "announcement.read",
+  },
+  {
+    href: "/documents",
+    label: "Documents",
+    icon: FileText,
+    permission: "document.read",
   },
 ];
 
