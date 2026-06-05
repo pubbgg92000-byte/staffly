@@ -20,8 +20,7 @@ import { ArrowLeft, Pencil, Trash2, User } from "lucide-react";
 import { useState } from "react";
 
 const FRIENDLY: Record<string, string> = {
-  "employee.last_super_admin":
-    "Cannot offboard the last active super_admin.",
+  "employee.last_super_admin": "Cannot offboard the last active super_admin.",
   "employee.not_found": "That employee no longer exists.",
 };
 
@@ -98,7 +97,8 @@ export default function EmployeeDetailPage(): React.ReactNode {
       router.push("/employees");
     } catch (err) {
       toast.error(
-        friendly(err) ?? extractErrorMessage(err, "Failed to offboard employee"),
+        friendly(err) ??
+          extractErrorMessage(err, "Failed to offboard employee"),
       );
       setOffboardOpen(false);
     }
@@ -143,10 +143,7 @@ export default function EmployeeDetailPage(): React.ReactNode {
             </Link>
           </Button>
           {canOffboard ? (
-            <Button
-              variant="destructive"
-              onClick={() => setOffboardOpen(true)}
-            >
+            <Button variant="destructive" onClick={() => setOffboardOpen(true)}>
               <Trash2 className="h-4 w-4" />
               Offboard
             </Button>

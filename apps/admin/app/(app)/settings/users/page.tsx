@@ -168,8 +168,9 @@ function UsersListContent(): React.ReactNode {
   const [editTarget, setEditTarget] = useState<RbacUserListItem | null>(null);
   const [deactivateTarget, setDeactivateTarget] =
     useState<RbacUserListItem | null>(null);
-  const [activateTarget, setActivateTarget] =
-    useState<RbacUserListItem | null>(null);
+  const [activateTarget, setActivateTarget] = useState<RbacUserListItem | null>(
+    null,
+  );
 
   const deactivate = useDeactivateUser();
   const activate = useActivateUser();
@@ -410,7 +411,9 @@ function UsersListContent(): React.ReactNode {
         tone="destructive"
         typeToConfirm="DEACTIVATE"
         title={`Deactivate ${
-          deactivateTarget?.employee?.displayName ?? deactivateTarget?.email ?? ""
+          deactivateTarget?.employee?.displayName ??
+          deactivateTarget?.email ??
+          ""
         }?`}
         description="They will not be able to sign in until reactivated. Existing sessions are not currently revoked."
         confirmLabel="Deactivate"

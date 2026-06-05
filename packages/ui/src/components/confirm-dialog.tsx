@@ -72,9 +72,7 @@ export function ConfirmDialog({
     }
   }, [open]);
 
-  const matchesSentinel = typeToConfirm
-    ? typed === typeToConfirm
-    : true;
+  const matchesSentinel = typeToConfirm ? typed === typeToConfirm : true;
   const canConfirm = matchesSentinel && !pending;
 
   const handleConfirm = async (): Promise<void> => {
@@ -88,11 +86,7 @@ export function ConfirmDialog({
   };
 
   const ToneIcon =
-    tone === "destructive"
-      ? Trash2
-      : tone === "warning"
-        ? AlertTriangle
-        : null;
+    tone === "destructive" ? Trash2 : tone === "warning" ? AlertTriangle : null;
 
   const variant = tone === "destructive" ? "destructive" : "default";
 
