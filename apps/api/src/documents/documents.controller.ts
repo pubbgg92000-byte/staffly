@@ -95,6 +95,15 @@ export class DocumentsController {
     return this.categories.remove(id);
   }
 
+  @Post("documents/categories/:id/restore")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("document.category.write")
+  restoreCategory(
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<unknown> {
+    return this.categories.restore(id);
+  }
+
   // ─── Presign + employee feed (BEFORE :id catch-alls) ────────────────
 
   @Post("documents/files/presign-upload")
@@ -220,6 +229,19 @@ export class DocumentsController {
     );
   }
 
+  @Post("documents/:id/unarchive")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("document.update")
+  unarchive(
+    @CurrentUser() user: RequestUser,
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<unknown> {
+    return this.docs.unarchive(
+      { userId: user.userId, organizationId: user.organizationId },
+      id,
+    );
+  }
+
   @Delete("documents/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission("document.delete")
@@ -228,6 +250,19 @@ export class DocumentsController {
     @Param("id", new ParseUUIDPipe()) id: string,
   ): Promise<void> {
     return this.docs.softDelete(
+      { userId: user.userId, organizationId: user.organizationId },
+      id,
+    );
+  }
+
+  @Post("documents/:id/restore")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("document.delete")
+  restore(
+    @CurrentUser() user: RequestUser,
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<unknown> {
+    return this.docs.restore(
       { userId: user.userId, organizationId: user.organizationId },
       id,
     );

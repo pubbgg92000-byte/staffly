@@ -29,7 +29,9 @@ export class DepartmentsService {
   ) {}
 
   async list(q: PaginationQueryT): Promise<Page<unknown>> {
-    const where: Prisma.DepartmentWhereInput = { deletedAt: null };
+    const where: Prisma.DepartmentWhereInput = q.includeArchived
+      ? {}
+      : { deletedAt: null };
     if (q.search) where.name = { contains: q.search, mode: "insensitive" };
     const sortBy =
       q.sortBy && ["name", "createdAt"].includes(q.sortBy) ? q.sortBy : "name";
@@ -113,6 +115,35 @@ export class DepartmentsService {
       resourceId: id,
       before,
     });
+  }
+
+  async restore(id: string): Promise<unknown> {
+    const before = await this.prisma.db.department.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+    if (!before) throw new NotFoundException({ code: "department.not_found" });
+    try {
+      const row = await this.prisma.db.department.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+      await this.audit.record({
+        action: "department.restore",
+        resourceType: "department",
+        resourceId: id,
+        before,
+        after: row,
+      });
+      return row;
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        // Same code we use on create — an active row already holds the name/code.
+        throw new ConflictException({
+          code: "department.conflict_name_or_code",
+        });
+      }
+      throw e;
+    }
   }
 }
 

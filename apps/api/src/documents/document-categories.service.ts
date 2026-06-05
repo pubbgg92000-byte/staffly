@@ -30,7 +30,9 @@ export class DocumentCategoriesService {
   ) {}
 
   async list(q: CategoryListQueryT): Promise<Page<unknown>> {
-    const where: Prisma.DocumentCategoryWhereInput = { deletedAt: null };
+    const where: Prisma.DocumentCategoryWhereInput = q.includeArchived
+      ? {}
+      : { deletedAt: null };
     if (q.search) where.name = { contains: q.search, mode: "insensitive" };
     if (q.isActive !== undefined) where.isActive = q.isActive;
     if (q.isPersonal !== undefined) where.isPersonal = q.isPersonal;
@@ -147,5 +149,34 @@ export class DocumentCategoriesService {
       resourceId: id,
       before,
     });
+  }
+
+  async restore(id: string): Promise<unknown> {
+    const before = await this.prisma.db.documentCategory.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+    if (!before)
+      throw new NotFoundException({ code: "document.category.not_found" });
+    try {
+      const row = await this.prisma.db.documentCategory.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+      await this.audit.record({
+        action: "document.category.restore",
+        resourceType: "document_category",
+        resourceId: id,
+        before,
+        after: row,
+      });
+      return row;
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        throw new ConflictException({
+          code: "document.category.conflict_name_or_code",
+        });
+      }
+      throw e;
+    }
   }
 }

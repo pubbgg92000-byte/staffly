@@ -97,7 +97,9 @@ export class DocumentsService {
   // ─── Read ───────────────────────────────────────────────────────────
 
   async list(q: DocumentListQueryT): Promise<Page<unknown>> {
-    const where: Prisma.DocumentWhereInput = { deletedAt: null };
+    const where: Prisma.DocumentWhereInput = q.includeDeleted
+      ? {}
+      : { deletedAt: null };
     if (q.categoryId) where.categoryId = q.categoryId;
     if (q.isRequired !== undefined) where.isRequired = q.isRequired;
     if (q.isPersonal !== undefined) where.isPersonal = q.isPersonal;
@@ -135,8 +137,11 @@ export class DocumentsService {
   }
 
   async get(id: string): Promise<unknown> {
+    // Detail does NOT filter deletedAt so the FE can render an archived or
+    // soft-deleted document with a Restore / Unarchive action. List visibility
+    // is controlled by `includeDeleted` / `status` filters.
     const row = await this.prisma.db.document.findFirst({
-      where: { id, deletedAt: null },
+      where: { id },
       include: {
         category: true,
         currentVersion: true,
@@ -427,6 +432,47 @@ export class DocumentsService {
       resourceId: id,
       before,
     });
+  }
+
+  async unarchive(actor: ActorCtx, id: string): Promise<unknown> {
+    // Archive ≠ delete for documents. Unarchive clears archivedAt; restore
+    // clears deletedAt. Both are recoverable; this is the lighter of the two.
+    const before = await this.prisma.db.document.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!before) throw new NotFoundException({ code: "document.not_found" });
+    if (!before.archivedAt) return before;
+    const row = await this.prisma.db.document.update({
+      where: { id },
+      data: { archivedAt: null, updatedBy: actor.userId },
+    });
+    await this.audit.record({
+      action: "document.unarchive",
+      resourceType: "document",
+      resourceId: id,
+      before,
+      after: row,
+    });
+    return row;
+  }
+
+  async restore(actor: ActorCtx, id: string): Promise<unknown> {
+    const before = await this.prisma.db.document.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+    if (!before) throw new NotFoundException({ code: "document.not_found" });
+    const row = await this.prisma.db.document.update({
+      where: { id },
+      data: { deletedAt: null, updatedBy: actor.userId },
+    });
+    await this.audit.record({
+      action: "document.restore",
+      resourceType: "document",
+      resourceId: id,
+      before,
+      after: row,
+    });
+    return row;
   }
 
   // ─── Download (presigned GET) ───────────────────────────────────────

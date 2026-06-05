@@ -24,7 +24,9 @@ export class LeaveTypesService {
   ) {}
 
   async list(q: PaginationQueryT): Promise<Page<unknown>> {
-    const where: Prisma.LeaveTypeWhereInput = { deletedAt: null };
+    const where: Prisma.LeaveTypeWhereInput = q.includeArchived
+      ? {}
+      : { deletedAt: null };
     if (q.search) where.name = { contains: q.search, mode: "insensitive" };
     const [items, total] = await Promise.all([
       this.prisma.db.leaveType.findMany({
@@ -107,5 +109,33 @@ export class LeaveTypesService {
       resourceId: id,
       before,
     });
+  }
+
+  async restore(id: string): Promise<unknown> {
+    const before = await this.prisma.db.leaveType.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+    if (!before) throw new NotFoundException({ code: "leave.type.not_found" });
+    try {
+      const row = await this.prisma.db.leaveType.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+      await this.audit.record({
+        action: "leave.type.restore",
+        resourceType: "leave_type",
+        resourceId: id,
+        before,
+        after: row,
+      });
+      return row;
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        throw new ConflictException({
+          code: "leave.type.conflict_name_or_code",
+        });
+      }
+      throw e;
+    }
   }
 }

@@ -15,9 +15,11 @@ import { EmployeesService } from "./employees.service";
 import {
   CreateEmployeeBody,
   EmployeeListQuery,
+  RestoreEmployeeBody,
   UpdateEmployeeBody,
   type CreateEmployeeBodyT,
   type EmployeeListQueryT,
+  type RestoreEmployeeBodyT,
   type UpdateEmployeeBodyT,
 } from "./dto";
 import { ZodBody } from "../common/zod-validation.pipe";
@@ -75,5 +77,15 @@ export class EmployeesController {
   @RequirePermission("employee.delete")
   remove(@Param("id", new ParseUUIDPipe()) id: string): Promise<void> {
     return this.employees.remove(id);
+  }
+
+  @Post(":id/restore")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("employee.delete")
+  restore(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Body(new ZodBody(RestoreEmployeeBody)) body: RestoreEmployeeBodyT,
+  ): Promise<unknown> {
+    return this.employees.restore(id, body);
   }
 }

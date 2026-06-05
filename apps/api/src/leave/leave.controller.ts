@@ -81,6 +81,13 @@ export class LeaveController {
     return this.types.remove(id);
   }
 
+  @Post("types/:id/restore")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("leave.policy.write")
+  restoreType(@Param("id", new ParseUUIDPipe()) id: string): Promise<unknown> {
+    return this.types.restore(id);
+  }
+
   // ─── Requests ─ static paths declared BEFORE :id captures ────────────
 
   @Post("requests")

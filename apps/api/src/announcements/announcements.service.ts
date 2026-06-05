@@ -317,6 +317,31 @@ export class AnnouncementsService {
     return row;
   }
 
+  async restore(actor: ActorCtx, id: string): Promise<unknown> {
+    // Announcements archive via status flip, not deletedAt. Restore reverses
+    // it by sending the row back to `draft` — admin can re-publish from there.
+    const before = await this.prisma.db.announcement.findFirst({
+      where: { id, deletedAt: null },
+    });
+    if (!before)
+      throw new NotFoundException({ code: "announcement.not_found" });
+    if (before.status !== "archived") {
+      throw new ConflictException({ code: "announcement.not_archived" });
+    }
+    const row = await this.prisma.db.announcement.update({
+      where: { id },
+      data: { status: "draft", updatedBy: actor.userId },
+    });
+    await this.audit.record({
+      action: "announcement.restore",
+      resourceType: "announcement",
+      resourceId: id,
+      before,
+      after: row,
+    });
+    return row;
+  }
+
   // ─── Acknowledgements ───────────────────────────────────────────────
 
   /**

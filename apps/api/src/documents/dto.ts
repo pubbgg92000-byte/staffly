@@ -88,6 +88,7 @@ export const CategoryListQuery = z.object({
     .union([z.literal("true"), z.literal("false")])
     .transform((v) => v === "true")
     .optional(),
+  includeArchived: z.coerce.boolean().optional(),
 });
 export type CategoryListQueryT = z.infer<typeof CategoryListQuery>;
 
@@ -194,6 +195,10 @@ export const DocumentListQuery = z.object({
     .enum(["createdAt", "publishedAt", "expiresAt", "title"])
     .default("createdAt"),
   sortDir: z.enum(["asc", "desc"]).default("desc"),
+  // Documents have two reversible states — `archivedAt` (existing `status`
+  // filter already surfaces those) and `deletedAt` (soft-deleted, hidden by
+  // default). `includeDeleted` opt-in surfaces the latter.
+  includeDeleted: z.coerce.boolean().optional(),
 });
 export type DocumentListQueryT = z.infer<typeof DocumentListQuery>;
 

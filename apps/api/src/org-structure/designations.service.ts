@@ -24,7 +24,9 @@ export class DesignationsService {
   ) {}
 
   async list(q: PaginationQueryT): Promise<Page<unknown>> {
-    const where: Prisma.DesignationWhereInput = { deletedAt: null };
+    const where: Prisma.DesignationWhereInput = q.includeArchived
+      ? {}
+      : { deletedAt: null };
     if (q.search) where.name = { contains: q.search, mode: "insensitive" };
     const sortBy =
       q.sortBy && ["name", "level", "createdAt"].includes(q.sortBy)
@@ -108,5 +110,31 @@ export class DesignationsService {
       resourceId: id,
       before,
     });
+  }
+
+  async restore(id: string): Promise<unknown> {
+    const before = await this.prisma.db.designation.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+    if (!before) throw new NotFoundException({ code: "designation.not_found" });
+    try {
+      const row = await this.prisma.db.designation.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+      await this.audit.record({
+        action: "designation.restore",
+        resourceType: "designation",
+        resourceId: id,
+        before,
+        after: row,
+      });
+      return row;
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        throw new ConflictException({ code: "designation.conflict_name" });
+      }
+      throw e;
+    }
   }
 }

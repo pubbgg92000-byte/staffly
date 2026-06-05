@@ -88,6 +88,13 @@ export class RbacController {
     return this.roles.remove(id);
   }
 
+  @Post("roles/:id/restore")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("rbac.write")
+  restoreRole(@Param("id", new ParseUUIDPipe()) id: string): Promise<unknown> {
+    return this.roles.restore(id);
+  }
+
   // ─── Permissions catalog ─────────────────────────────────────────────────
 
   @Get("permissions")

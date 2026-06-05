@@ -34,7 +34,9 @@ export class HolidayCalendarsService {
   ) {}
 
   async list(q: PaginationQueryT): Promise<Page<unknown>> {
-    const where: Prisma.HolidayCalendarWhereInput = { deletedAt: null };
+    const where: Prisma.HolidayCalendarWhereInput = q.includeArchived
+      ? {}
+      : { deletedAt: null };
     if (q.search) where.name = { contains: q.search, mode: "insensitive" };
     const sortBy =
       q.sortBy && ["name", "createdAt", "isDefault"].includes(q.sortBy)
@@ -52,8 +54,10 @@ export class HolidayCalendarsService {
   }
 
   async get(id: string): Promise<unknown> {
+    // Detail does NOT filter deletedAt so the FE can render an archived
+    // calendar with a Restore action.
     const row = await this.prisma.db.holidayCalendar.findFirst({
-      where: { id, deletedAt: null },
+      where: { id },
       include: {
         holidays: { orderBy: { date: "asc" } },
       },
@@ -102,7 +106,13 @@ export class HolidayCalendarsService {
   }
 
   async update(id: string, body: UpdateHolidayCalendarBodyT): Promise<unknown> {
-    const before = (await this.get(id)) as { isDefault: boolean };
+    const before = (await this.get(id)) as {
+      isDefault: boolean;
+      deletedAt: Date | null;
+    };
+    if (before.deletedAt) {
+      throw new NotFoundException({ code: "holiday.calendar.not_found" });
+    }
     try {
       const row = await this.prisma.db.$transaction(
         async (tx: Prisma.TransactionClient) => {
@@ -202,5 +212,34 @@ export class HolidayCalendarsService {
       resourceId: id,
       before,
     });
+  }
+
+  async restore(id: string): Promise<unknown> {
+    const before = await this.prisma.db.holidayCalendar.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+    if (!before)
+      throw new NotFoundException({ code: "holiday.calendar.not_found" });
+    try {
+      const row = await this.prisma.db.holidayCalendar.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+      await this.audit.record({
+        action: "holiday.calendar.restore",
+        resourceType: "holiday_calendar",
+        resourceId: id,
+        before,
+        after: row,
+      });
+      return row;
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        throw new ConflictException({
+          code: "holiday.calendar.conflict_name_or_code",
+        });
+      }
+      throw e;
+    }
   }
 }

@@ -84,6 +84,15 @@ export class OrgStructureController {
     return this.departments.remove(id);
   }
 
+  @Post("departments/:id/restore")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("org.structure.write")
+  restoreDepartment(
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<unknown> {
+    return this.departments.restore(id);
+  }
+
   // ─── Designations ───────────────────────────────────────────────────────
   @Get("designations")
   @RequirePermission("org.structure.read")
@@ -127,6 +136,15 @@ export class OrgStructureController {
     return this.designations.remove(id);
   }
 
+  @Post("designations/:id/restore")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("org.structure.write")
+  restoreDesignation(
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<unknown> {
+    return this.designations.restore(id);
+  }
+
   // ─── Locations ──────────────────────────────────────────────────────────
   @Get("locations")
   @RequirePermission("org.structure.read")
@@ -164,5 +182,14 @@ export class OrgStructureController {
   @RequirePermission("org.structure.write")
   removeLocation(@Param("id", new ParseUUIDPipe()) id: string): Promise<void> {
     return this.locations.remove(id);
+  }
+
+  @Post("locations/:id/restore")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("org.structure.write")
+  restoreLocation(
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<unknown> {
+    return this.locations.restore(id);
   }
 }

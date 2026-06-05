@@ -14,6 +14,7 @@ import type {
   CreateEmployeeBodyT,
   UpdateEmployeeBodyT,
   EmployeeListQueryT,
+  RestoreEmployeeBodyT,
 } from "./dto";
 
 function displayName(
@@ -35,7 +36,9 @@ export class EmployeesService {
   ) {}
 
   async list(q: EmployeeListQueryT): Promise<Page<unknown>> {
-    const where: Prisma.EmployeeWhereInput = { deletedAt: null };
+    const where: Prisma.EmployeeWhereInput = q.includeArchived
+      ? {}
+      : { deletedAt: null };
     if (q.status) where.status = q.status;
     if (q.departmentId) where.departmentId = q.departmentId;
     if (q.designationId) where.designationId = q.designationId;
@@ -63,8 +66,11 @@ export class EmployeesService {
   }
 
   async get(id: string): Promise<unknown> {
+    // Detail does NOT filter deletedAt so the FE can show an archived
+    // employee with a Restore action. List visibility is controlled by
+    // `includeArchived`. Update guards re-check `deletedAt` itself.
     const row = await this.prisma.db.employee.findFirst({
-      where: { id, deletedAt: null },
+      where: { id },
       include: {
         department: { select: { id: true, name: true } },
         designation: { select: { id: true, name: true } },
@@ -114,7 +120,13 @@ export class EmployeesService {
       firstName: string;
       middleName: string | null;
       lastName: string;
+      deletedAt: Date | null;
     };
+    // get() now returns archived rows so the detail page can show them; an
+    // archived employee can't be edited without restoring first.
+    if (before.deletedAt) {
+      throw new NotFoundException({ code: "employee.not_found" });
+    }
     const data: Prisma.EmployeeUpdateInput = { ...body };
     if (body.firstName || body.middleName !== undefined || body.lastName) {
       data.displayName = displayName(
@@ -200,6 +212,63 @@ export class EmployeesService {
     });
   }
 
+  async restore(id: string, body: RestoreEmployeeBodyT): Promise<unknown> {
+    const employee = await this.prisma.db.employee.findFirst({
+      where: { id, deletedAt: { not: null } },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        displayName: true,
+        employeeCode: true,
+        deletedAt: true,
+      },
+    });
+    if (!employee) throw new NotFoundException({ code: "employee.not_found" });
+
+    // Default to reactivating the linked user when restoring. Admin can opt
+    // out with `{ reactivateUser: false }` if the user was deactivated for
+    // cause before offboarding.
+    const reactivateUser = body.reactivateUser ?? true;
+    let userReactivated = false;
+
+    try {
+      await this.prisma.db.$transaction(async (tx) => {
+        await tx.employee.update({
+          where: { id },
+          data: { deletedAt: null, status: "active" },
+        });
+        if (reactivateUser && employee.userId) {
+          // Only flip from disabled → active. If user is invited / already
+          // active, leave it alone.
+          const upd = await tx.user.updateMany({
+            where: { id: employee.userId, status: "disabled" },
+            data: { status: "active" },
+          });
+          userReactivated = upd.count > 0;
+        }
+      });
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        throw new ConflictException({
+          code: "employee.conflict_code_or_email",
+        });
+      }
+      throw e;
+    }
+
+    await this.audit.record({
+      action: "employee.restore",
+      resourceType: "employee",
+      resourceId: id,
+      before: employee,
+      after: { status: "active", userReactivated, reactivateUser },
+    });
+
+    const restored = (await this.get(id)) as Record<string, unknown>;
+    return { ...restored, userReactivated };
+  }
+
   private cardSelect(): Prisma.EmployeeSelect {
     return {
       id: true,
@@ -214,6 +283,7 @@ export class EmployeesService {
       profilePhotoUrl: true,
       joinedOn: true,
       managerId: true,
+      deletedAt: true,
       department: { select: { id: true, name: true } },
       designation: { select: { id: true, name: true } },
       location: { select: { id: true, name: true } },

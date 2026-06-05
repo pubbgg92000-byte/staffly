@@ -79,5 +79,11 @@ export const EmployeeListQuery = z.object({
     .enum(["displayName", "employeeCode", "createdAt", "joinedOn"])
     .default("displayName"),
   sortDir: z.enum(["asc", "desc"]).default("asc"),
+  includeArchived: z.coerce.boolean().optional(),
 });
 export type EmployeeListQueryT = z.infer<typeof EmployeeListQuery>;
+
+export const RestoreEmployeeBody = z.object({
+  reactivateUser: z.boolean().optional(),
+});
+export type RestoreEmployeeBodyT = z.infer<typeof RestoreEmployeeBody>;

@@ -6,6 +6,7 @@ export const PaginationQuery = z.object({
   search: z.string().trim().min(1).max(120).optional(),
   sortBy: z.string().trim().min(1).max(40).optional(),
   sortDir: z.enum(["asc", "desc"]).default("asc"),
+  includeArchived: z.coerce.boolean().optional(),
 });
 export type PaginationQueryT = z.infer<typeof PaginationQuery>;
 

@@ -96,6 +96,15 @@ export class HolidaysController {
     return this.calendars.remove(id);
   }
 
+  @Post("holiday-calendars/:id/restore")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("holiday.write")
+  restoreCalendar(
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<unknown> {
+    return this.calendars.restore(id);
+  }
+
   @Post("holiday-calendars/:id/set-default")
   @RequirePermission("holiday.write")
   setDefault(@Param("id", new ParseUUIDPipe()) id: string): Promise<unknown> {

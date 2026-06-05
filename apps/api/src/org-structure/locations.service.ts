@@ -24,7 +24,9 @@ export class LocationsService {
   ) {}
 
   async list(q: PaginationQueryT): Promise<Page<unknown>> {
-    const where: Prisma.LocationWhereInput = { deletedAt: null };
+    const where: Prisma.LocationWhereInput = q.includeArchived
+      ? {}
+      : { deletedAt: null };
     if (q.search) {
       where.OR = [
         { name: { contains: q.search, mode: "insensitive" } },
@@ -113,5 +115,31 @@ export class LocationsService {
       resourceId: id,
       before,
     });
+  }
+
+  async restore(id: string): Promise<unknown> {
+    const before = await this.prisma.db.location.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+    if (!before) throw new NotFoundException({ code: "location.not_found" });
+    try {
+      const row = await this.prisma.db.location.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+      await this.audit.record({
+        action: "location.restore",
+        resourceType: "location",
+        resourceId: id,
+        before,
+        after: row,
+      });
+      return row;
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        throw new ConflictException({ code: "location.conflict_name" });
+      }
+      throw e;
+    }
   }
 }

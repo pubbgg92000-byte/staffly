@@ -35,7 +35,9 @@ export class RolesService {
   ) {}
 
   async list(q: RoleListQueryT): Promise<Page<unknown>> {
-    const where: Prisma.RoleWhereInput = { deletedAt: null };
+    const where: Prisma.RoleWhereInput = q.includeArchived
+      ? {}
+      : { deletedAt: null };
     if (q.search) where.name = { contains: q.search, mode: "insensitive" };
 
     const [items, total] = await Promise.all([
@@ -51,6 +53,7 @@ export class RolesService {
           isSystem: true,
           createdAt: true,
           updatedAt: true,
+          deletedAt: true,
           _count: { select: { userRoles: true, rolePermissions: true } },
         },
       }),
@@ -65,6 +68,7 @@ export class RolesService {
       isSystem: r.isSystem,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
+      deletedAt: r.deletedAt,
       userCount: r._count.userRoles,
       permissionCount: r._count.rolePermissions,
     }));
@@ -73,8 +77,11 @@ export class RolesService {
   }
 
   async get(id: string): Promise<unknown> {
+    // Detail does NOT filter deletedAt so the FE can render an archived role
+    // with a Restore action. The list endpoint controls visibility via
+    // `includeArchived`; detail is opt-in by id.
     const row = await this.prisma.db.role.findFirst({
-      where: { id, deletedAt: null },
+      where: { id },
       select: {
         id: true,
         key: true,
@@ -83,6 +90,7 @@ export class RolesService {
         isSystem: true,
         createdAt: true,
         updatedAt: true,
+        deletedAt: true,
         rolePermissions: {
           select: { permissionKey: true, scope: true },
           orderBy: { permissionKey: "asc" },
@@ -235,6 +243,39 @@ export class RolesService {
       resourceId: id,
       before: row,
     });
+  }
+
+  async restore(id: string): Promise<unknown> {
+    const before = await this.prisma.db.role.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+    if (!before) throw new NotFoundException({ code: "role.not_found" });
+    if (before.isSystem) {
+      // Mirrors role.system_undeletable — system roles can't be archived to
+      // begin with, but if one is somehow soft-deleted (older data, manual DB
+      // edit), still refuse to restore via this endpoint.
+      throw new BadRequestException({ code: "role.system_unrestorable" });
+    }
+    try {
+      await this.prisma.db.role.update({
+        where: { id },
+        data: { deletedAt: null },
+      });
+      await this.audit.record({
+        action: "role.restore",
+        resourceType: "role",
+        resourceId: id,
+        before,
+      });
+      return this.get(id);
+    } catch (e) {
+      if (isUniqueViolation(e)) {
+        // A new role with the same key was created after this one was
+        // archived. Surface with the same code the create path uses.
+        throw new ConflictException({ code: "role.conflict_key" });
+      }
+      throw e;
+    }
   }
 
   private async validatePermissionKeys(keys: string[]): Promise<void> {

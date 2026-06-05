@@ -131,6 +131,19 @@ export class AnnouncementsController {
     );
   }
 
+  @Post("announcements/:id/restore")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("announcement.update")
+  restore(
+    @CurrentUser() user: RequestUser,
+    @Param("id", new ParseUUIDPipe()) id: string,
+  ): Promise<unknown> {
+    return this.svc.restore(
+      { userId: user.userId, organizationId: user.organizationId },
+      id,
+    );
+  }
+
   @Delete("announcements/:id")
   @HttpCode(HttpStatus.NO_CONTENT)
   @RequirePermission("announcement.delete")
