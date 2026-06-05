@@ -13,7 +13,10 @@ const TONE: Record<EmployeeStatus, StatusTone> = {
   active: "success",
   on_leave: "info",
   suspended: "warning",
-  offboarded: "destructive",
+  // Offboarded employees are soft-deleted and recoverable, not a hard error
+  // state — use the archived tone (dashed muted) to distinguish from
+  // suspended ("warning") and active errors ("destructive").
+  offboarded: "archived",
 };
 
 const LABEL: Record<EmployeeStatus, string> = {

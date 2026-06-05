@@ -24,6 +24,8 @@ export interface DocumentCategory {
   isSystem: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Set when soft-deleted. Surfaced only with `includeArchived: true`. */
+  deletedAt: string | null;
 }
 
 export interface DocumentCategoryListParams {
@@ -32,6 +34,7 @@ export interface DocumentCategoryListParams {
   search?: string;
   isActive?: boolean;
   isPersonal?: boolean;
+  includeArchived?: boolean;
 }
 
 export interface DocumentCategoryListResponse {
@@ -96,6 +99,9 @@ export interface Document {
   publishedAt: string | null;
   expiresAt: string | null;
   archivedAt: string | null;
+  /** Set when soft-deleted. Surfaced via `includeDeleted: true` on list, or
+   * always on detail (the detail endpoint no longer filters deletedAt). */
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
   category: DocumentCategorySummary;
@@ -124,6 +130,8 @@ export interface DocumentListParams {
   search?: string;
   sortBy?: "createdAt" | "publishedAt" | "expiresAt" | "title";
   sortDir?: "asc" | "desc";
+  /** Surface soft-deleted documents (separate from `status === "archived"`). */
+  includeDeleted?: boolean;
 }
 
 export interface DocumentListResponse {

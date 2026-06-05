@@ -28,6 +28,8 @@ export interface RoleListItem {
   isSystem: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Set when the role is archived. Only present when listing with `includeArchived: true`. */
+  deletedAt: string | null;
   userCount: number;
   permissionCount: number;
 }
@@ -45,6 +47,8 @@ export interface RoleDetail {
   isSystem: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Set when the role is archived. */
+  deletedAt: string | null;
   userCount: number;
   permissions: RolePermission[];
 }
@@ -58,6 +62,7 @@ export interface RoleListParams {
   page?: number;
   pageSize?: number;
   search?: string;
+  includeArchived?: boolean;
 }
 
 export interface CreateRoleInput {

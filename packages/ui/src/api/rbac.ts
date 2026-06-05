@@ -45,6 +45,7 @@ function rolesQp(params?: RoleListParams): string {
   if (params.page) sp.set("page", String(params.page));
   if (params.pageSize) sp.set("pageSize", String(params.pageSize));
   if (params.search) sp.set("search", params.search);
+  if (params.includeArchived) sp.set("includeArchived", "true");
   const qs = sp.toString();
   return qs ? `?${qs}` : "";
 }
@@ -124,6 +125,18 @@ export function useDeleteRole(): ReturnType<
   const qc = useQueryClient();
   return useMutation<void, ApiError, string>({
     mutationFn: (id) => api.delete(`/roles/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["rbac", "roles"] });
+    },
+  });
+}
+
+export function useRestoreRole(): ReturnType<
+  typeof useMutation<RoleDetail, ApiError, string>
+> {
+  const qc = useQueryClient();
+  return useMutation<RoleDetail, ApiError, string>({
+    mutationFn: (id) => api.post<RoleDetail>(`/roles/${id}/restore`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["rbac", "roles"] });
     },

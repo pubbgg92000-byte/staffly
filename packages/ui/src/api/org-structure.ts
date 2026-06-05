@@ -141,6 +141,18 @@ export function useDeleteDepartment(): ReturnType<
   });
 }
 
+export function useRestoreDepartment(): ReturnType<
+  typeof useMutation<OrgDepartment, ApiError, string>
+> {
+  const qc = useQueryClient();
+  return useMutation<OrgDepartment, ApiError, string>({
+    mutationFn: (id) => api.post<OrgDepartment>(`/departments/${id}/restore`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: orgKeys.all });
+    },
+  });
+}
+
 // ─── Designations ─────────────────────────────────────────────────────
 
 export function useCreateDesignation(): ReturnType<
@@ -188,6 +200,18 @@ export function useDeleteDesignation(): ReturnType<
   });
 }
 
+export function useRestoreDesignation(): ReturnType<
+  typeof useMutation<OrgDesignation, ApiError, string>
+> {
+  const qc = useQueryClient();
+  return useMutation<OrgDesignation, ApiError, string>({
+    mutationFn: (id) => api.post<OrgDesignation>(`/designations/${id}/restore`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: orgKeys.all });
+    },
+  });
+}
+
 // ─── Locations ─────────────────────────────────────────────────────────
 
 export function useCreateLocation(): ReturnType<
@@ -229,6 +253,18 @@ export function useDeleteLocation(): ReturnType<
   const qc = useQueryClient();
   return useMutation<void, ApiError, string>({
     mutationFn: (id) => api.delete(`/locations/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: orgKeys.all });
+    },
+  });
+}
+
+export function useRestoreLocation(): ReturnType<
+  typeof useMutation<OrgLocation, ApiError, string>
+> {
+  const qc = useQueryClient();
+  return useMutation<OrgLocation, ApiError, string>({
+    mutationFn: (id) => api.post<OrgLocation>(`/locations/${id}/restore`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: orgKeys.all });
     },

@@ -38,6 +38,7 @@ function calendarsQs(params?: HolidayCalendarsListParams): string {
   if (params.page) sp.set("page", String(params.page));
   if (params.pageSize) sp.set("pageSize", String(params.pageSize));
   if (params.search) sp.set("search", params.search);
+  if (params.includeArchived) sp.set("includeArchived", "true");
   const qs = sp.toString();
   return qs ? `?${qs}` : "";
 }
@@ -217,6 +218,18 @@ export function useDeleteHolidayCalendar(): ReturnType<
   const qc = useQueryClient();
   return useMutation<void, ApiError, string>({
     mutationFn: (id) => api.delete(`/holiday-calendars/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: holidayKeys.all });
+    },
+  });
+}
+
+export function useRestoreHolidayCalendar(): ReturnType<
+  typeof useMutation<unknown, ApiError, string>
+> {
+  const qc = useQueryClient();
+  return useMutation<unknown, ApiError, string>({
+    mutationFn: (id) => api.post(`/holiday-calendars/${id}/restore`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: holidayKeys.all });
     },

@@ -238,6 +238,19 @@ export function useArchiveAnnouncement(): ReturnType<
   });
 }
 
+export function useRestoreAnnouncement(): ReturnType<
+  typeof useMutation<Announcement, ApiError, string>
+> {
+  const qc = useQueryClient();
+  return useMutation<Announcement, ApiError, string>({
+    mutationFn: (id) =>
+      api.post<Announcement>(`/announcements/${id}/restore`, {}),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: announcementKeys.all });
+    },
+  });
+}
+
 export function useAcknowledgeAnnouncement(): ReturnType<
   typeof useMutation<unknown, ApiError, string>
 > {

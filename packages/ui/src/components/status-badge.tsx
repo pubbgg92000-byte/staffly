@@ -11,7 +11,8 @@ export type StatusTone =
   | "warning"
   | "destructive"
   | "info"
-  | "muted";
+  | "muted"
+  | "archived";
 
 export function StatusBadge({
   tone = "muted",

@@ -47,6 +47,9 @@ export interface EmployeeListItem {
   workMode: WorkMode;
   profilePhotoUrl: string | null;
   joinedOn: string | null;
+  /** Set when the employee is archived/offboarded. List endpoint only
+   * returns archived rows when `includeArchived: true`. */
+  deletedAt: string | null;
   managerId: string | null;
   department: OrgItem | null;
   designation: OrgItem | null;
@@ -118,4 +121,5 @@ export interface EmployeeListParams {
   employmentType?: EmploymentType;
   sortBy?: "displayName" | "employeeCode" | "createdAt" | "joinedOn";
   sortDir?: "asc" | "desc";
+  includeArchived?: boolean;
 }

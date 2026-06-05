@@ -28,6 +28,8 @@ export interface HolidayCalendar {
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Set when soft-deleted. Surfaced only with `includeArchived: true`. */
+  deletedAt: string | null;
 }
 
 export interface HolidayCalendarDetail extends HolidayCalendar {
@@ -38,6 +40,7 @@ export interface HolidayCalendarsListParams {
   page?: number;
   pageSize?: number;
   search?: string;
+  includeArchived?: boolean;
 }
 
 export interface HolidayCalendarsListResponse {

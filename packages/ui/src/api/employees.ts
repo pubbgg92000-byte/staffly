@@ -35,6 +35,7 @@ function qp(params?: EmployeeListParams): string {
   if (params.employmentType) sp.set("employmentType", params.employmentType);
   if (params.sortBy) sp.set("sortBy", params.sortBy);
   if (params.sortDir) sp.set("sortDir", params.sortDir);
+  if (params.includeArchived) sp.set("includeArchived", "true");
   const qs = sp.toString();
   return qs ? `?${qs}` : "";
 }
@@ -118,6 +119,29 @@ export function useDeleteEmployee(): ReturnType<
     mutationFn: (id) => api.delete(`/employees/${id}`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["employees"] });
+    },
+  });
+}
+
+export function useRestoreEmployee(): ReturnType<
+  typeof useMutation<
+    unknown,
+    ApiError,
+    { id: string; reactivateUser?: boolean }
+  >
+> {
+  const qc = useQueryClient();
+  return useMutation<
+    unknown,
+    ApiError,
+    { id: string; reactivateUser?: boolean }
+  >({
+    mutationFn: ({ id, reactivateUser }) =>
+      api.post(`/employees/${id}/restore`, { reactivateUser }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["employees"] });
+      // Linked user may have been reactivated as a cascade.
+      void qc.invalidateQueries({ queryKey: ["rbac", "users"] });
     },
   });
 }

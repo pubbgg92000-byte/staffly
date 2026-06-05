@@ -49,6 +49,7 @@ function categoriesQs(params?: DocumentCategoryListParams): string {
     sp.set("isActive", String(params.isActive));
   if (params.isPersonal !== undefined)
     sp.set("isPersonal", String(params.isPersonal));
+  if (params.includeArchived) sp.set("includeArchived", "true");
   const qs = sp.toString();
   return qs ? `?${qs}` : "";
 }
@@ -71,6 +72,7 @@ function listQs(params?: DocumentListParams): string {
   if (params.search) sp.set("search", params.search);
   if (params.sortBy) sp.set("sortBy", params.sortBy);
   if (params.sortDir) sp.set("sortDir", params.sortDir);
+  if (params.includeDeleted) sp.set("includeDeleted", "true");
   const qs = sp.toString();
   return qs ? `?${qs}` : "";
 }
@@ -262,6 +264,18 @@ export function useDeleteCategory(): ReturnType<
   });
 }
 
+export function useRestoreCategory(): ReturnType<
+  typeof useMutation<unknown, ApiError, string>
+> {
+  const qc = useQueryClient();
+  return useMutation<unknown, ApiError, string>({
+    mutationFn: (id) => api.post(`/documents/categories/${id}/restore`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["documents", "categories"] });
+    },
+  });
+}
+
 // ─── Mutations ──────────────────────────────────────────────────────────
 
 export function usePresignUpload(): ReturnType<
@@ -396,12 +410,41 @@ export function useArchiveDocument(): ReturnType<
   });
 }
 
+export function useUnarchiveDocument(): ReturnType<
+  typeof useMutation<DocumentDetail, ApiError, string>
+> {
+  const qc = useQueryClient();
+  return useMutation<DocumentDetail, ApiError, string>({
+    mutationFn: (id) =>
+      api.post<DocumentDetail>(`/documents/${id}/unarchive`, {}),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: documentKeys.all });
+      void qc.invalidateQueries({ queryKey: dashboardKeys.admin });
+      void qc.invalidateQueries({ queryKey: dashboardKeys.employee });
+    },
+  });
+}
+
 export function useDeleteDocument(): ReturnType<
   typeof useMutation<void, ApiError, string>
 > {
   const qc = useQueryClient();
   return useMutation<void, ApiError, string>({
     mutationFn: (id) => api.delete(`/documents/${id}`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: documentKeys.all });
+      void qc.invalidateQueries({ queryKey: dashboardKeys.admin });
+    },
+  });
+}
+
+export function useRestoreDocument(): ReturnType<
+  typeof useMutation<DocumentDetail, ApiError, string>
+> {
+  const qc = useQueryClient();
+  return useMutation<DocumentDetail, ApiError, string>({
+    mutationFn: (id) =>
+      api.post<DocumentDetail>(`/documents/${id}/restore`, {}),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: documentKeys.all });
       void qc.invalidateQueries({ queryKey: dashboardKeys.admin });

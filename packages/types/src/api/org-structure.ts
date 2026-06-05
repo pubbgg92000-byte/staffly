@@ -15,6 +15,8 @@ export interface OrgDepartment {
   description: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Set when soft-deleted. Surfaced only with `includeArchived: true`. */
+  deletedAt: string | null;
 }
 
 export interface OrgDesignation {
@@ -25,6 +27,8 @@ export interface OrgDesignation {
   description: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Set when soft-deleted. Surfaced only with `includeArchived: true`. */
+  deletedAt: string | null;
 }
 
 export interface OrgLocation {
@@ -41,6 +45,8 @@ export interface OrgLocation {
   timezone: string;
   createdAt: string;
   updatedAt: string;
+  /** Set when soft-deleted. Surfaced only with `includeArchived: true`. */
+  deletedAt: string | null;
 }
 
 export interface CreateDepartmentInput {

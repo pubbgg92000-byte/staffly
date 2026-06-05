@@ -18,6 +18,8 @@ const badgeVariants = cva(
         warning: "border-transparent bg-warning/15 text-warning",
         info: "border-transparent bg-info/15 text-info",
         muted: "border-transparent bg-muted text-muted-foreground",
+        archived:
+          "border-dashed border-muted-foreground/40 bg-muted/40 text-muted-foreground",
       },
     },
     defaultVariants: { variant: "default" },
