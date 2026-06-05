@@ -148,6 +148,18 @@ export class RolesService {
     });
     if (!row) throw new NotFoundException({ code: "role.not_found" });
 
+    // System roles are immutable: their key, name, description, and permission
+    // set are locked. Customers can clone them into a custom role to tweak.
+    if (row.isSystem) {
+      const hasFieldEdit =
+        body.name !== undefined ||
+        body.description !== undefined ||
+        body.permissions !== undefined;
+      if (hasFieldEdit) {
+        throw new BadRequestException({ code: "role.system_immutable" });
+      }
+    }
+
     if (body.permissions !== undefined) {
       await this.validatePermissionKeys(body.permissions);
     }

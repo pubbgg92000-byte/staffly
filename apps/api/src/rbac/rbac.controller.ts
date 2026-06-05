@@ -116,6 +116,25 @@ export class RbacController {
     return this.users.assignRole(userId, body, actor.userId);
   }
 
+  @Post("users/:id/deactivate")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("rbac.write")
+  deactivateUser(
+    @Param("id", new ParseUUIDPipe()) userId: string,
+    @CurrentUser() actor: RequestUser,
+  ): Promise<unknown> {
+    return this.users.deactivate(userId, actor.userId);
+  }
+
+  @Post("users/:id/activate")
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission("rbac.write")
+  activateUser(
+    @Param("id", new ParseUUIDPipe()) userId: string,
+  ): Promise<unknown> {
+    return this.users.activate(userId);
+  }
+
   // ─── Invites ─────────────────────────────────────────────────────────────
 
   @Post("invites")

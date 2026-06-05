@@ -19,6 +19,11 @@ import { AuditModule } from "../audit/audit.module";
     UsersService,
     InvitesService,
   ],
-  exports: [OrgBootstrapService, PermissionsService, PermissionGuard],
+  exports: [
+    OrgBootstrapService,
+    PermissionsService,
+    PermissionGuard,
+    UsersService,
+  ],
 })
 export class RbacModule {}

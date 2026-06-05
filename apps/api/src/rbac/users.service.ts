@@ -125,6 +125,12 @@ export class UsersService {
       throw new BadRequestException({ code: "role.super_admin_protected" });
     }
 
+    // Last-super_admin guard: if this user is currently the only active
+    // super_admin in the org, refuse to swap them to anything else. Without
+    // this, an admin with rbac.write could lock the org out of all
+    // super-only operations.
+    await this.ensureNotLastSuperAdmin(userId, orgId, "last_super_admin");
+
     // Enforce single-role assignment: remove all current roles, add the new one.
     await this.prisma.db.$transaction(async (tx) => {
       await tx.userRole.deleteMany({
@@ -148,5 +154,108 @@ export class UsersService {
     });
 
     return { userId, role: { id: role.id, key: role.key, name: role.name } };
+  }
+
+  async deactivate(userId: string, actorUserId: string): Promise<unknown> {
+    const orgId = requireOrg();
+    const user = await this.prisma.db.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, email: true, status: true },
+    });
+    if (!user) throw new NotFoundException({ code: "user.not_found" });
+
+    if (userId === actorUserId) {
+      // No self-lockout. An admin cannot disable their own account from this
+      // endpoint; they'd lose the ability to undo it.
+      throw new BadRequestException({ code: "user.self_deactivate" });
+    }
+
+    if (user.status === "disabled") {
+      // Idempotent: already disabled.
+      return { userId, status: "disabled" as const };
+    }
+
+    await this.ensureNotLastSuperAdmin(userId, orgId, "last_super_admin");
+
+    await this.prisma.db.user.update({
+      where: { id: userId },
+      data: { status: "disabled" },
+    });
+
+    await this.audit.record({
+      action: "user.deactivate",
+      resourceType: "user",
+      resourceId: userId,
+      before: { status: user.status },
+      after: { status: "disabled" },
+    });
+
+    return { userId, status: "disabled" as const };
+  }
+
+  async activate(userId: string): Promise<unknown> {
+    const user = await this.prisma.db.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, email: true, status: true },
+    });
+    if (!user) throw new NotFoundException({ code: "user.not_found" });
+
+    if (user.status === "active") {
+      // Idempotent: already active.
+      return { userId, status: "active" as const };
+    }
+
+    await this.prisma.db.user.update({
+      where: { id: userId },
+      data: { status: "active" },
+    });
+
+    await this.audit.record({
+      action: "user.activate",
+      resourceType: "user",
+      resourceId: userId,
+      before: { status: user.status },
+      after: { status: "active" },
+    });
+
+    return { userId, status: "active" as const };
+  }
+
+  /**
+   * Throws if the given user is currently the only active super_admin in the
+   * org. Called from any path that would remove the super_admin role or
+   * disable the user — including role reassignment, deactivation, and the
+   * employee offboarding flow.
+   *
+   * `code` lets the caller pick a more specific error code if needed; the
+   * default `"last_super_admin"` is sufficient for most cases.
+   */
+  async ensureNotLastSuperAdmin(
+    userId: string,
+    orgId: string,
+    code: string = "last_super_admin",
+  ): Promise<void> {
+    // Is this user currently a super_admin?
+    const userIsSuperAdmin = await this.prisma.db.userRole.findFirst({
+      where: {
+        userId,
+        organizationId: orgId,
+        role: { key: "super_admin", deletedAt: null },
+      },
+      select: { userId: true },
+    });
+    if (!userIsSuperAdmin) return;
+
+    // Count *active* super_admins in the org (status=active, not deleted).
+    const activeSuperAdmins = await this.prisma.db.userRole.count({
+      where: {
+        organizationId: orgId,
+        role: { key: "super_admin", deletedAt: null },
+        user: { status: "active", deletedAt: null },
+      },
+    });
+    if (activeSuperAdmins <= 1) {
+      throw new BadRequestException({ code });
+    }
   }
 }

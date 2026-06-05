@@ -6,6 +6,7 @@ import {
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../infra/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { UsersService } from "../rbac/users.service";
 import { pageOf, skipTake, type Page } from "../common/pagination";
 import { isUniqueViolation } from "../org-structure/departments.service";
 import { currentOrganizationId } from "../tenant/tenant-context";
@@ -30,6 +31,7 @@ export class EmployeesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly users: UsersService,
   ) {}
 
   async list(q: EmployeeListQueryT): Promise<Page<unknown>> {
@@ -145,16 +147,56 @@ export class EmployeesService {
   }
 
   async remove(id: string): Promise<void> {
-    const before = await this.get(id);
-    await this.prisma.db.employee.update({
-      where: { id },
-      data: { deletedAt: new Date(), status: "offboarded" },
+    const orgId = currentOrganizationId();
+    if (!orgId) {
+      throw new Error("remove called without an active tenant context");
+    }
+    // Read the raw row (not the get() projection) so we have userId for the
+    // cascade and the last-super_admin guard.
+    const employee = await this.prisma.db.employee.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        displayName: true,
+        employeeCode: true,
+      },
     });
+    if (!employee) throw new NotFoundException({ code: "employee.not_found" });
+
+    if (employee.userId) {
+      // Refuse to offboard the last active super_admin — that would lock the
+      // org out of all super-only operations. The guard throws with the code
+      // we pass in, surfacing as `employee.last_super_admin` to the caller.
+      await this.users.ensureNotLastSuperAdmin(
+        employee.userId,
+        orgId,
+        "employee.last_super_admin",
+      );
+    }
+
+    await this.prisma.db.$transaction(async (tx) => {
+      await tx.employee.update({
+        where: { id },
+        data: { deletedAt: new Date(), status: "offboarded" },
+      });
+      // Cascade: when an employee is offboarded, the linked user account
+      // should no longer be able to sign in. Idempotent — leaves already
+      // disabled users untouched.
+      if (employee.userId) {
+        await tx.user.updateMany({
+          where: { id: employee.userId, status: { not: "disabled" } },
+          data: { status: "disabled" },
+        });
+      }
+    });
+
     await this.audit.record({
       action: "employee.delete",
       resourceType: "employee",
       resourceId: id,
-      before,
+      before: employee,
     });
   }
 
