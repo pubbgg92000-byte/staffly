@@ -8,12 +8,7 @@ import Link from "next/link";
 import {
   Badge,
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  ConfirmDialog,
   EmptyState,
   Input,
   Label,
@@ -38,6 +33,8 @@ const FRIENDLY: Record<string, string> = {
   "role.unknown_permissions":
     "One or more selected permissions are not valid. Refresh and try again.",
   "role.system_undeletable": "System roles cannot be deleted.",
+  "role.system_immutable":
+    "System roles can't be edited. Clone to a custom role to change permissions.",
   "role.in_use":
     "This role still has users assigned. Reassign them before deleting.",
 };
@@ -257,36 +254,17 @@ export default function RoleDetailPage(): React.ReactNode {
         ) : null}
       </form>
 
-      {/* Delete confirmation */}
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Delete &ldquo;{role.name}&rdquo;?</DialogTitle>
-            <DialogDescription>
-              This will soft-delete the role. It cannot be deleted if any users
-              are currently assigned to it.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeleteOpen(false)}
-              disabled={del.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={onDelete}
-              disabled={del.isPending}
-            >
-              {del.isPending ? "Deleting…" : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        tone="destructive"
+        typeToConfirm={role.name}
+        title={`Delete "${role.name}"?`}
+        description="This will soft-delete the role. It cannot be deleted if any users are currently assigned to it."
+        confirmLabel="Delete"
+        pendingLabel="Deleting…"
+        onConfirm={onDelete}
+      />
     </div>
   );
 }

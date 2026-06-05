@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Badge,
   Button,
+  ConfirmDialog,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -255,38 +256,25 @@ function RevokeDialog({
       toast.error(
         friendly(err) ?? extractErrorMessage(err, "Failed to revoke invite"),
       );
+      onOpenChange(false);
     }
   };
 
   return (
-    <Dialog open={!!invite} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Revoke invite?</DialogTitle>
-          <DialogDescription>
-            The invite link for {invite?.email} will stop working immediately.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={revoke.isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={onConfirm}
-            disabled={revoke.isPending}
-          >
-            {revoke.isPending ? "Revoking…" : "Revoke"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={!!invite}
+      onOpenChange={onOpenChange}
+      tone="destructive"
+      title="Revoke invite?"
+      description={
+        invite
+          ? `The invite link for ${invite.email} will stop working immediately.`
+          : undefined
+      }
+      confirmLabel="Revoke"
+      pendingLabel="Revoking…"
+      onConfirm={onConfirm}
+    />
   );
 }
 

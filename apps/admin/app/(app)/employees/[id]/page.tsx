@@ -3,27 +3,35 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Button,
-  Skeleton,
-  PageHeader,
-  EmployeeStatusBadge,
   Avatar,
   AvatarFallback,
+  Button,
+  ConfirmDialog,
+  EmployeeStatusBadge,
+  PageHeader,
   Separator,
+  Skeleton,
+  extractErrorMessage,
   toast,
-  useEmployee,
   useDeleteEmployee,
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
+  useEmployee,
 } from "@staffly/ui";
 import { ArrowLeft, Pencil, Trash2, User } from "lucide-react";
 import { useState } from "react";
+
+const FRIENDLY: Record<string, string> = {
+  "employee.last_super_admin":
+    "Cannot offboard the last active super_admin.",
+  "employee.not_found": "That employee no longer exists.",
+};
+
+function friendly(err: unknown): string | undefined {
+  const code =
+    err && typeof err === "object" && "code" in err
+      ? String((err as { code: unknown }).code)
+      : undefined;
+  return code ? (FRIENDLY[code] ?? undefined) : undefined;
+}
 
 function initials(name: string): string {
   return name
@@ -82,14 +90,16 @@ export default function EmployeeDetailPage(): React.ReactNode {
     );
   }
 
-  const handleOffboard = async () => {
+  const handleOffboard = async (): Promise<void> => {
     try {
       await deleteEmp.mutateAsync(id);
       toast.success(`${emp.displayName} has been offboarded`);
       setOffboardOpen(false);
       router.push("/employees");
-    } catch {
-      toast.error("Failed to offboard employee");
+    } catch (err) {
+      toast.error(
+        friendly(err) ?? extractErrorMessage(err, "Failed to offboard employee"),
+      );
       setOffboardOpen(false);
     }
   };
@@ -133,35 +143,13 @@ export default function EmployeeDetailPage(): React.ReactNode {
             </Link>
           </Button>
           {canOffboard ? (
-            <Dialog open={offboardOpen} onOpenChange={setOffboardOpen}>
-              <DialogTrigger asChild>
-                <Button variant="destructive">
-                  <Trash2 className="h-4 w-4" />
-                  Offboard
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Offboard {emp.displayName}?</DialogTitle>
-                  <DialogDescription>
-                    This will mark the employee as offboarded and deactivate
-                    their account. This action cannot be undone.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <DialogClose asChild>
-                    <Button variant="outline">Cancel</Button>
-                  </DialogClose>
-                  <Button
-                    variant="destructive"
-                    onClick={handleOffboard}
-                    disabled={deleteEmp.isPending}
-                  >
-                    {deleteEmp.isPending ? "Offboarding…" : "Confirm Offboard"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button
+              variant="destructive"
+              onClick={() => setOffboardOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              Offboard
+            </Button>
           ) : null}
         </div>
       </div>
@@ -205,6 +193,18 @@ export default function EmployeeDetailPage(): React.ReactNode {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={offboardOpen}
+        onOpenChange={setOffboardOpen}
+        tone="destructive"
+        typeToConfirm={emp.employeeCode}
+        title={`Offboard ${emp.displayName}?`}
+        description="Marks the employee as offboarded and disables the linked user account — they will no longer be able to sign in. Cannot be undone via this page."
+        confirmLabel="Offboard"
+        pendingLabel="Offboarding…"
+        onConfirm={handleOffboard}
+      />
     </div>
   );
 }

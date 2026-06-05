@@ -7,6 +7,7 @@ import {
   AvatarFallback,
   Badge,
   Button,
+  ConfirmDialog,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -21,10 +22,13 @@ import {
   Skeleton,
   extractErrorMessage,
   toast,
+  useActivateUser,
   useAssignUserRole,
+  useDeactivateUser,
   usePermissionCheck,
   useRbacUsers,
   useRoles,
+  useSession,
 } from "@staffly/ui";
 import type { RbacUserListItem } from "@staffly/types";
 import { Search, ShieldOff, UserCog } from "lucide-react";
@@ -34,6 +38,8 @@ const FRIENDLY: Record<string, string> = {
     "The super_admin role can only be assigned at organization bootstrap.",
   "role.not_found": "That role no longer exists. Refresh and try again.",
   "user.not_found": "That user no longer exists.",
+  last_super_admin: "Cannot deactivate the last active super_admin.",
+  "user.self_deactivate": "You cannot deactivate your own account.",
 };
 
 function friendly(err: unknown): string | undefined {
@@ -153,15 +159,24 @@ function UsersListContent(): React.ReactNode {
   const router = useRouter();
   const sp = useSearchParams();
   const { has, isLoading: permsLoading } = usePermissionCheck();
+  const { data: session } = useSession();
 
   const searchParam = sp.get("search") ?? "";
   const pageParam = Math.max(1, Number(sp.get("page")) || 1);
 
   const [search, setSearch] = useState(searchParam);
   const [editTarget, setEditTarget] = useState<RbacUserListItem | null>(null);
+  const [deactivateTarget, setDeactivateTarget] =
+    useState<RbacUserListItem | null>(null);
+  const [activateTarget, setActivateTarget] =
+    useState<RbacUserListItem | null>(null);
+
+  const deactivate = useDeactivateUser();
+  const activate = useActivateUser();
 
   const canRead = has("rbac.read");
   const canWrite = has("rbac.write");
+  const meUserId = session?.user.id;
 
   const { data, isLoading, isError, refetch } = useRbacUsers({
     page: pageParam,
@@ -310,13 +325,32 @@ function UsersListContent(): React.ReactNode {
                       </td>
                       <td className="px-4 py-3 text-right">
                         {canWrite && role?.key !== "super_admin" ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditTarget(u)}
-                          >
-                            Change role
-                          </Button>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setEditTarget(u)}
+                            >
+                              Change role
+                            </Button>
+                            {u.status === "disabled" ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setActivateTarget(u)}
+                              >
+                                Activate
+                              </Button>
+                            ) : u.id !== meUserId ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeactivateTarget(u)}
+                              >
+                                Deactivate
+                              </Button>
+                            ) : null}
+                          </div>
                         ) : null}
                       </td>
                     </tr>
@@ -368,6 +402,58 @@ function UsersListContent(): React.ReactNode {
       <ChangeRoleDialog
         user={editTarget}
         onOpenChange={(o) => !o && setEditTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={!!deactivateTarget}
+        onOpenChange={(o) => !o && setDeactivateTarget(null)}
+        tone="destructive"
+        typeToConfirm="DEACTIVATE"
+        title={`Deactivate ${
+          deactivateTarget?.employee?.displayName ?? deactivateTarget?.email ?? ""
+        }?`}
+        description="They will not be able to sign in until reactivated. Existing sessions are not currently revoked."
+        confirmLabel="Deactivate"
+        pendingLabel="Deactivating…"
+        onConfirm={async () => {
+          if (!deactivateTarget) return;
+          try {
+            await deactivate.mutateAsync(deactivateTarget.id);
+            toast.success("User deactivated");
+            setDeactivateTarget(null);
+          } catch (err) {
+            toast.error(
+              friendly(err) ??
+                extractErrorMessage(err, "Failed to deactivate user"),
+            );
+            setDeactivateTarget(null);
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!activateTarget}
+        onOpenChange={(o) => !o && setActivateTarget(null)}
+        title={`Reactivate ${
+          activateTarget?.employee?.displayName ?? activateTarget?.email ?? ""
+        }?`}
+        description="They will be able to sign in again."
+        confirmLabel="Reactivate"
+        pendingLabel="Reactivating…"
+        onConfirm={async () => {
+          if (!activateTarget) return;
+          try {
+            await activate.mutateAsync(activateTarget.id);
+            toast.success("User reactivated");
+            setActivateTarget(null);
+          } catch (err) {
+            toast.error(
+              friendly(err) ??
+                extractErrorMessage(err, "Failed to reactivate user"),
+            );
+            setActivateTarget(null);
+          }
+        }}
       />
     </div>
   );

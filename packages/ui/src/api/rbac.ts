@@ -208,6 +208,30 @@ export function useAssignUserRole(): ReturnType<
   });
 }
 
+export function useDeactivateUser(): ReturnType<
+  typeof useMutation<unknown, ApiError, string>
+> {
+  const qc = useQueryClient();
+  return useMutation<unknown, ApiError, string>({
+    mutationFn: (userId) => api.post(`/users/${userId}/deactivate`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["rbac", "users"] });
+    },
+  });
+}
+
+export function useActivateUser(): ReturnType<
+  typeof useMutation<unknown, ApiError, string>
+> {
+  const qc = useQueryClient();
+  return useMutation<unknown, ApiError, string>({
+    mutationFn: (userId) => api.post(`/users/${userId}/activate`),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["rbac", "users"] });
+    },
+  });
+}
+
 // ─── Invites ──────────────────────────────────────────────────────────────────
 
 function invitesQp(params?: InviteListParams): string {

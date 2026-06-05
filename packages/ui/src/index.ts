@@ -203,6 +203,8 @@ export {
   usePermissions,
   useRbacUsers,
   useAssignUserRole,
+  useDeactivateUser,
+  useActivateUser,
   useInvites,
   useCreateInvite,
   useRevokeInvite,
@@ -236,6 +238,10 @@ export { StatusBadge, type StatusTone } from "./components/status-badge";
 export { StatCard } from "./components/stat-card";
 export { WidgetCard } from "./components/widget-card";
 export { EmptyState } from "./components/empty-state";
+export {
+  ConfirmDialog,
+  type ConfirmTone,
+} from "./components/confirm-dialog";
 export { PasswordInput } from "./components/password-input";
 export { PasswordStrengthMeter } from "./components/password-strength-meter";
 export { OtpInput, type OtpInputProps } from "./components/otp-input";
