@@ -24,7 +24,7 @@ const STATUS_TONE: Record<AnnouncementStatus, StatusTone> = {
   draft: "muted",
   scheduled: "warning",
   published: "success",
-  archived: "destructive",
+  archived: "archived",
 };
 
 const PRIORITY_TONE: Record<AnnouncementPriority, StatusTone> = {

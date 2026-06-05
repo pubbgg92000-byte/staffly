@@ -31,7 +31,7 @@ const STATUS_OPTIONS = [
 const STATUS_TONE: Record<string, StatusTone> = {
   draft: "muted",
   published: "success",
-  archived: "destructive",
+  archived: "archived",
 };
 
 function docStatus(
@@ -59,6 +59,7 @@ function DocumentsContent(): React.ReactNode {
   const searchParam = sp.get("search") ?? "";
   const statusParam = sp.get("status") ?? "";
   const categoryParam = sp.get("categoryId") ?? "";
+  const includeDeleted = sp.get("includeDeleted") === "1";
   const pageParam = Math.max(1, Number(sp.get("page")) || 1);
 
   const [search, setSearch] = useState(searchParam);
@@ -69,6 +70,7 @@ function DocumentsContent(): React.ReactNode {
     search: searchParam || undefined,
     status: (statusParam as DocumentListParams["status"]) || undefined,
     categoryId: categoryParam || undefined,
+    includeDeleted: includeDeleted || undefined,
   };
 
   const { data, isLoading, isError, refetch } = useDocuments(listParams);
@@ -179,6 +181,17 @@ function DocumentsContent(): React.ReactNode {
             ))}
           </Select>
         </div>
+        <label className="flex items-center gap-2 text-sm whitespace-nowrap sm:pb-2.5">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-input"
+            checked={includeDeleted}
+            onChange={(e) =>
+              updateParams({ includeDeleted: e.target.checked ? "1" : "" })
+            }
+          />
+          Show deleted
+        </label>
       </div>
 
       {/* Table */}
@@ -247,6 +260,11 @@ function DocumentsContent(): React.ReactNode {
                           {doc.isPersonal ? (
                             <Badge variant="outline" className="text-xs">
                               Personal
+                            </Badge>
+                          ) : null}
+                          {doc.deletedAt ? (
+                            <Badge variant="archived" className="text-xs">
+                              Deleted
                             </Badge>
                           ) : null}
                         </div>

@@ -6,13 +6,6 @@ import Link from "next/link";
 import {
   Badge,
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
   EmptyState,
   Input,
   Label,
@@ -33,12 +26,22 @@ import {
   usePendingAck,
   usePublishDocument,
   useReplaceFile,
+  useRestoreDocument,
+  useUnarchiveDocument,
   useUpdateDocument,
   uploadToPresignedUrl,
   usePresignUpload,
+  ConfirmDialog,
 } from "@staffly/ui";
 import type { DocumentVersion } from "@staffly/types";
-import { ArrowLeft, Download, FileText, Trash2, Upload } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  FileText,
+  Trash2,
+  Undo2,
+  Upload,
+} from "lucide-react";
 
 const AUDIENCE_LABELS: Record<string, string> = {
   all_employees: "All employees",
@@ -137,7 +140,9 @@ export default function AdminDocumentDetailPage(): React.ReactNode {
 
   const publish = usePublishDocument();
   const archive = useArchiveDocument();
+  const unarchive = useUnarchiveDocument();
   const deleteDoc = useDeleteDocument();
+  const restore = useRestoreDocument();
   const update = useUpdateDocument();
   const replace = useReplaceFile();
   const presign = usePresignUpload();
@@ -145,6 +150,8 @@ export default function AdminDocumentDetailPage(): React.ReactNode {
 
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [unarchiveOpen, setUnarchiveOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDesc, setEditDesc] = useState("");
   const [editDueBy, setEditDueBy] = useState("");
@@ -185,6 +192,19 @@ export default function AdminDocumentDetailPage(): React.ReactNode {
     }
   };
 
+  const handleUnarchive = async (): Promise<void> => {
+    if (!doc) return;
+    try {
+      await unarchive.mutateAsync(doc.id);
+      toast.success("Document unarchived");
+      setUnarchiveOpen(false);
+      refetch();
+    } catch {
+      toast.error("Failed to unarchive");
+      setUnarchiveOpen(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!doc) return;
     try {
@@ -194,6 +214,19 @@ export default function AdminDocumentDetailPage(): React.ReactNode {
     } catch {
       toast.error("Failed to delete");
       setDeleteOpen(false);
+    }
+  };
+
+  const handleRestore = async (): Promise<void> => {
+    if (!doc) return;
+    try {
+      await restore.mutateAsync(doc.id);
+      toast.success("Document restored");
+      setRestoreOpen(false);
+      refetch();
+    } catch {
+      toast.error("Failed to restore");
+      setRestoreOpen(false);
     }
   };
 
@@ -315,6 +348,7 @@ export default function AdminDocumentDetailPage(): React.ReactNode {
             <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
             <h1 className="text-xl font-semibold">{doc.title}</h1>
             <StatusBadge tone={STATUS_TONE[status]}>{status}</StatusBadge>
+            {doc.deletedAt ? <Badge variant="archived">Deleted</Badge> : null}
             {doc.isRequired ? <Badge variant="warning">Required</Badge> : null}
             {doc.isPersonal ? <Badge variant="outline">Personal</Badge> : null}
           </div>
@@ -371,6 +405,18 @@ export default function AdminDocumentDetailPage(): React.ReactNode {
             <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="h-4 w-4" />
               Delete
+            </Button>
+          ) : null}
+          {isArchived && !doc.deletedAt ? (
+            <Button onClick={() => setUnarchiveOpen(true)}>
+              <Undo2 className="h-4 w-4" />
+              Unarchive
+            </Button>
+          ) : null}
+          {doc.deletedAt ? (
+            <Button onClick={() => setRestoreOpen(true)}>
+              <Undo2 className="h-4 w-4" />
+              Restore
             </Button>
           ) : null}
         </div>
@@ -606,30 +652,37 @@ export default function AdminDocumentDetailPage(): React.ReactNode {
         </SheetPortal>
       </Sheet>
 
-      {/* Delete confirmation */}
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete this document?</DialogTitle>
-            <DialogDescription>
-              This permanently removes the document and all its versions. This
-              action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleteDoc.isPending}
-            >
-              {deleteDoc.isPending ? "Deleting…" : "Delete document"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Delete confirmation — soft-delete; recoverable via "Show deleted" + Restore. */}
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        tone="destructive"
+        title="Delete this document?"
+        description="Soft-deletes the document. You can recover it from the documents list by toggling 'Show deleted'."
+        confirmLabel="Delete document"
+        pendingLabel="Deleting…"
+        onConfirm={handleDelete}
+      />
+
+      <ConfirmDialog
+        open={unarchiveOpen}
+        onOpenChange={setUnarchiveOpen}
+        title="Unarchive this document?"
+        description="The document returns to a publishable state. Its audience and version history are preserved."
+        confirmLabel="Unarchive"
+        pendingLabel="Unarchiving…"
+        onConfirm={handleUnarchive}
+      />
+
+      <ConfirmDialog
+        open={restoreOpen}
+        onOpenChange={setRestoreOpen}
+        title="Restore this document?"
+        description="Brings the document back into the documents list. Acknowledgement history is preserved."
+        confirmLabel="Restore"
+        pendingLabel="Restoring…"
+        onConfirm={handleRestore}
+      />
     </div>
   );
 }

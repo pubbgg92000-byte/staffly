@@ -19,11 +19,12 @@ import {
   useDeleteRole,
   usePermissionCheck,
   usePermissions,
+  useRestoreRole,
   useRole,
   useUpdateRole,
 } from "@staffly/ui";
 import { RoleSchema, type RoleFormValues } from "@staffly/types";
-import { ArrowLeft, Shield, ShieldOff, Trash2 } from "lucide-react";
+import { ArrowLeft, Shield, ShieldOff, Trash2, Undo2 } from "lucide-react";
 import { PermissionMatrix } from "../../_components/permission-matrix";
 
 const FRIENDLY: Record<string, string> = {
@@ -57,8 +58,10 @@ export default function RoleDetailPage(): React.ReactNode {
   const { data: catalog, isLoading: catalogLoading } = usePermissions();
   const update = useUpdateRole(id);
   const del = useDeleteRole();
+  const restore = useRestoreRole();
   const [serverError, setServerError] = useState<string | undefined>();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
 
   const canRead = has("rbac.read");
   const canWrite = has("rbac.write");
@@ -111,9 +114,12 @@ export default function RoleDetailPage(): React.ReactNode {
   }
 
   const isSuperAdmin = role.key === "super_admin";
+  const isArchived = Boolean(role.deletedAt);
   // System roles: matrix is locked but name/description are editable.
-  const matrixReadOnly = !canWrite || role.isSystem;
-  const canDelete = canWrite && !role.isSystem;
+  // Archived roles: everything is locked until restored.
+  const matrixReadOnly = !canWrite || role.isSystem || isArchived;
+  const canDelete = canWrite && !role.isSystem && !isArchived;
+  const canRestore = canWrite && !role.isSystem && isArchived;
 
   const onSubmit = form.handleSubmit(async (values) => {
     setServerError(undefined);
@@ -149,6 +155,19 @@ export default function RoleDetailPage(): React.ReactNode {
     }
   };
 
+  const onRestore = async (): Promise<void> => {
+    try {
+      await restore.mutateAsync(role.id);
+      toast.success("Role restored");
+      setRestoreOpen(false);
+    } catch (err) {
+      toast.error(
+        friendly(err) ?? extractErrorMessage(err, "Failed to restore role"),
+      );
+      setRestoreOpen(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Link
@@ -164,9 +183,15 @@ export default function RoleDetailPage(): React.ReactNode {
         actions={
           <div className="flex items-center gap-2">
             {role.isSystem ? <Badge variant="secondary">System</Badge> : null}
+            {isArchived ? <Badge variant="archived">Archived</Badge> : null}
             <Badge variant="outline" className="tabular-nums">
               {role.userCount} {role.userCount === 1 ? "user" : "users"}
             </Badge>
+            {canRestore ? (
+              <Button size="sm" onClick={() => setRestoreOpen(true)}>
+                <Undo2 className="h-4 w-4" /> Restore
+              </Button>
+            ) : null}
             {canDelete ? (
               <Button
                 variant="outline"
@@ -190,7 +215,11 @@ export default function RoleDetailPage(): React.ReactNode {
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="name">Name</Label>
-            <Input id="name" disabled={!canWrite} {...form.register("name")} />
+            <Input
+              id="name"
+              disabled={!canWrite || isArchived}
+              {...form.register("name")}
+            />
             <p className="text-xs text-muted-foreground">
               Key:{" "}
               <code className="rounded bg-muted px-1.5 py-0.5 font-mono">
@@ -207,7 +236,7 @@ export default function RoleDetailPage(): React.ReactNode {
             <Label htmlFor="description">Description</Label>
             <Input
               id="description"
-              disabled={!canWrite}
+              disabled={!canWrite || isArchived}
               {...form.register("description")}
             />
           </div>
@@ -242,7 +271,7 @@ export default function RoleDetailPage(): React.ReactNode {
           )}
         </div>
 
-        {canWrite ? (
+        {canWrite && !isArchived ? (
           <div className="flex justify-end gap-2">
             <Button
               type="submit"
@@ -264,6 +293,16 @@ export default function RoleDetailPage(): React.ReactNode {
         confirmLabel="Delete"
         pendingLabel="Deleting…"
         onConfirm={onDelete}
+      />
+
+      <ConfirmDialog
+        open={restoreOpen}
+        onOpenChange={setRestoreOpen}
+        title={`Restore "${role.name}"?`}
+        description="The role will be available again for assignment. Its permission set is preserved."
+        confirmLabel="Restore"
+        pendingLabel="Restoring…"
+        onConfirm={onRestore}
       />
     </div>
   );

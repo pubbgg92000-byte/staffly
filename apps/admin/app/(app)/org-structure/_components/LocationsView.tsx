@@ -2,15 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  Badge,
   Button,
+  ConfirmDialog,
   EmptyState,
   Input,
   Skeleton,
   toast,
   useDeleteLocation,
   useOrgLocations,
+  useRestoreLocation,
 } from "@staffly/ui";
-import { MapPin, Plus, Search } from "lucide-react";
+import { MapPin, Plus, Search, Undo2 } from "lucide-react";
 import type { OrgLocation } from "@staffly/types";
 import { LocationDialog } from "./LocationDialog";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
@@ -19,12 +22,14 @@ import { fmtDate } from "./shared";
 interface Props {
   search: string;
   page: number;
+  includeArchived: boolean;
   onParamsChange: (updates: Record<string, string>) => void;
 }
 
 export function LocationsView({
   search,
   page,
+  includeArchived,
   onParamsChange,
 }: Props): React.ReactNode {
   const [localSearch, setLocalSearch] = useState(search);
@@ -38,12 +43,15 @@ export function LocationsView({
 
   const params: Record<string, unknown> = { page, pageSize: 20 };
   if (search) params.search = search;
+  if (includeArchived) params.includeArchived = true;
   const { data, isLoading } = useOrgLocations(params);
   const deleteLoc = useDeleteLocation();
+  const restoreLoc = useRestoreLocation();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<OrgLocation | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<OrgLocation | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<OrgLocation | null>(null);
 
   const items = data?.items ?? [];
   const meta = data?.meta;
@@ -62,6 +70,18 @@ export function LocationsView({
       toast.error("Failed to delete location");
     }
   }, [deleteTarget, deleteLoc]);
+
+  const handleRestore = useCallback(async () => {
+    if (!restoreTarget) return;
+    try {
+      await restoreLoc.mutateAsync(restoreTarget.id);
+      toast.success("Location restored");
+      setRestoreTarget(null);
+    } catch {
+      toast.error("Couldn't restore — name may be in use by an active row");
+      setRestoreTarget(null);
+    }
+  }, [restoreTarget, restoreLoc]);
 
   return (
     <div className="space-y-4">
@@ -138,47 +158,71 @@ export function LocationsView({
               </tr>
             </thead>
             <tbody className="divide-y">
-              {items.map((l) => (
-                <tr key={l.id} className="hover:bg-accent/40">
-                  <td className="px-4 py-3 font-medium">{l.name}</td>
-                  <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                    {l.code ?? "—"}
-                  </td>
-                  <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                    {l.city ?? "—"}
-                  </td>
-                  <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
-                    {l.country ?? "—"}
-                  </td>
-                  <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
-                    {l.timezone}
-                  </td>
-                  <td className="hidden px-4 py-3 tabular-nums text-muted-foreground xl:table-cell">
-                    {fmtDate(l.createdAt)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditTarget(l);
-                          setDialogOpen(true);
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeleteTarget(l)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {items.map((l) => {
+                const isArchived = Boolean(l.deletedAt);
+                return (
+                  <tr key={l.id} className="hover:bg-accent/40">
+                    <td className="px-4 py-3 font-medium">
+                      <span className="inline-flex items-center gap-2">
+                        {l.name}
+                        {isArchived ? (
+                          <Badge variant="archived" className="text-xs">
+                            Archived
+                          </Badge>
+                        ) : null}
+                      </span>
+                    </td>
+                    <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                      {l.code ?? "—"}
+                    </td>
+                    <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+                      {l.city ?? "—"}
+                    </td>
+                    <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
+                      {l.country ?? "—"}
+                    </td>
+                    <td className="hidden px-4 py-3 text-muted-foreground lg:table-cell">
+                      {l.timezone}
+                    </td>
+                    <td className="hidden px-4 py-3 tabular-nums text-muted-foreground xl:table-cell">
+                      {fmtDate(l.createdAt)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        {isArchived ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setRestoreTarget(l)}
+                          >
+                            <Undo2 className="h-3.5 w-3.5" /> Restore
+                          </Button>
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditTarget(l);
+                                setDialogOpen(true);
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDeleteTarget(l)}
+                            >
+                              Delete
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -226,6 +270,20 @@ export function LocationsView({
         noun="location"
         onConfirm={handleDelete}
         isPending={deleteLoc.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!restoreTarget}
+        onOpenChange={(o) => !o && setRestoreTarget(null)}
+        title={
+          restoreTarget
+            ? `Restore "${restoreTarget.name}"?`
+            : "Restore location?"
+        }
+        description="The location will be available again for assignment to employees."
+        confirmLabel="Restore"
+        pendingLabel="Restoring…"
+        onConfirm={handleRestore}
       />
     </div>
   );

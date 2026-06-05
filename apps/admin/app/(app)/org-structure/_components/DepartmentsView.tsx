@@ -6,18 +6,21 @@ import { useMemo, useState } from "react";
 import {
   Badge,
   Button,
+  ConfirmDialog,
   EmptyState,
   Skeleton,
   toast,
   useEmployees,
   useDeleteDepartment,
   useOrgDepartments,
+  useRestoreDepartment,
 } from "@staffly/ui";
 import {
   Building2,
   ChevronDown,
   ChevronRight,
   Plus,
+  Undo2,
   Users,
 } from "lucide-react";
 import type { OrgDepartment, OrgDepartmentWithChildren } from "@staffly/types";
@@ -25,16 +28,37 @@ import { DepartmentDialog } from "./DepartmentDialog";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import { buildDeptTree } from "./shared";
 
-export function DepartmentsView(): React.ReactNode {
+interface Props {
+  includeArchived: boolean;
+}
+
+export function DepartmentsView({ includeArchived }: Props): React.ReactNode {
   // Departments are visualized as a tree, so we fetch all of them (paged
   // upstream by 200) and build the tree client-side. For orgs >200 depts
   // we'd need a streaming approach — defer until that's a real problem.
+  // Live tree query — always excludes archived so the tree shape is stable.
   const { data, isLoading } = useOrgDepartments({ pageSize: 200 });
+  // Archived list — separate query, only fetched when the toggle is on. We
+  // render archived rows as a flat list under the tree because mixing them
+  // into a hierarchical structure would create orphan-parent edge cases.
+  const { data: archivedData } = useOrgDepartments(
+    includeArchived
+      ? { pageSize: 200, includeArchived: true }
+      : { pageSize: 200 },
+  );
   const { data: empList } = useEmployees({ pageSize: 100 });
   const deleteDept = useDeleteDepartment();
+  const restoreDept = useRestoreDepartment();
 
   const items = useMemo<OrgDepartment[]>(() => data?.items ?? [], [data]);
   const tree = useMemo(() => buildDeptTree(items), [items]);
+  const archivedRows = useMemo<OrgDepartment[]>(
+    () =>
+      includeArchived
+        ? (archivedData?.items ?? []).filter((d) => d.deletedAt)
+        : [],
+    [includeArchived, archivedData],
+  );
   const employeeOpts = useMemo(
     () =>
       (empList?.items ?? []).map((e) => ({
@@ -49,6 +73,9 @@ export function DepartmentsView(): React.ReactNode {
   const [editTarget, setEditTarget] = useState<OrgDepartment | null>(null);
   const [parentPreset, setParentPreset] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<OrgDepartment | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<OrgDepartment | null>(
+    null,
+  );
 
   const openCreate = (parentId: string | null) => {
     setEditTarget(null);
@@ -69,6 +96,18 @@ export function DepartmentsView(): React.ReactNode {
       setDeleteTarget(null);
     } catch {
       toast.error("Failed to delete department");
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!restoreTarget) return;
+    try {
+      await restoreDept.mutateAsync(restoreTarget.id);
+      toast.success("Department restored");
+      setRestoreTarget(null);
+    } catch {
+      toast.error("Couldn't restore — name may be in use by an active row");
+      setRestoreTarget(null);
     }
   };
 
@@ -151,12 +190,64 @@ export function DepartmentsView(): React.ReactNode {
         employees={employeeOpts}
       />
 
+      {archivedRows.length > 0 ? (
+        <div className="space-y-2 pt-4">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Archived
+          </h3>
+          {archivedRows.map((d) => (
+            <div
+              key={d.id}
+              className="flex items-center gap-2 rounded-lg border border-dashed bg-muted/20 px-3 py-2.5 text-muted-foreground"
+            >
+              {d.parentId ? (
+                <Users className="h-4 w-4" />
+              ) : (
+                <Building2 className="h-4 w-4" />
+              )}
+              <div className="flex-1 truncate">
+                <span className="font-medium">{d.name}</span>
+                {d.code ? (
+                  <Badge variant="outline" className="ml-2">
+                    {d.code}
+                  </Badge>
+                ) : null}
+                <Badge variant="archived" className="ml-2 text-xs">
+                  Archived
+                </Badge>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setRestoreTarget(d)}
+              >
+                <Undo2 className="h-3.5 w-3.5" /> Restore
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <DeleteConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
         noun={deleteTarget?.parentId ? "team" : "department"}
         onConfirm={handleDelete}
         isPending={deleteDept.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!restoreTarget}
+        onOpenChange={(o) => !o && setRestoreTarget(null)}
+        title={
+          restoreTarget
+            ? `Restore "${restoreTarget.name}"?`
+            : "Restore department?"
+        }
+        description="The department reappears in the tree. Employees that were previously assigned keep their references."
+        confirmLabel="Restore"
+        pendingLabel="Restoring…"
+        onConfirm={handleRestore}
       />
     </div>
   );

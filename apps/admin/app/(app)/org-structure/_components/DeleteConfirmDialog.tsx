@@ -1,24 +1,22 @@
 "use client";
 
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@staffly/ui";
+import { ConfirmDialog } from "@staffly/ui";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   noun: string;
   description?: string;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   isPending: boolean;
 }
 
+/**
+ * Thin wrapper over the shared ConfirmDialog. Kept as a named local component
+ * so the three org-structure views can call it with their `noun` semantics
+ * (department / team / designation / location) without inlining ConfirmDialog
+ * props each time.
+ */
 export function DeleteConfirmDialog({
   open,
   onOpenChange,
@@ -28,34 +26,18 @@ export function DeleteConfirmDialog({
   isPending,
 }: Props): React.ReactNode {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Delete this {noun}?</DialogTitle>
-          <DialogDescription>
-            {description ??
-              `This will soft-delete the ${noun}. Employees assigned to it keep their references.`}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={onConfirm}
-            disabled={isPending}
-          >
-            {isPending ? "Deleting…" : "Delete"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      tone="destructive"
+      title={`Delete this ${noun}?`}
+      description={
+        description ??
+        `This will soft-delete the ${noun}. Employees assigned to it keep their references.`
+      }
+      confirmLabel="Delete"
+      pendingLabel={isPending ? "Deleting…" : undefined}
+      onConfirm={onConfirm}
+    />
   );
 }

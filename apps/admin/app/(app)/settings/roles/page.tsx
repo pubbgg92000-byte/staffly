@@ -32,6 +32,7 @@ function RolesListContent(): React.ReactNode {
   const { has, isLoading: permsLoading } = usePermissionCheck();
 
   const searchParam = sp.get("search") ?? "";
+  const includeArchived = sp.get("includeArchived") === "1";
   const pageParam = Math.max(1, Number(sp.get("page")) || 1);
 
   const [search, setSearch] = useState(searchParam);
@@ -43,6 +44,7 @@ function RolesListContent(): React.ReactNode {
     page: pageParam,
     pageSize: 20,
     search: searchParam || undefined,
+    includeArchived: includeArchived || undefined,
   });
 
   const updateParams = useCallback(
@@ -125,6 +127,17 @@ function RolesListContent(): React.ReactNode {
             />
           </div>
         </div>
+        <label className="flex items-center gap-2 text-sm whitespace-nowrap sm:pb-2.5">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-input"
+            checked={includeArchived}
+            onChange={(e) =>
+              updateParams({ includeArchived: e.target.checked ? "1" : "" })
+            }
+          />
+          Show archived
+        </label>
       </div>
 
       {/* Table */}
@@ -166,35 +179,45 @@ function RolesListContent(): React.ReactNode {
                     </td>
                   </tr>
                 ))
-              : items.map((role) => (
-                  <tr
-                    key={role.id}
-                    className="cursor-pointer hover:bg-accent/40"
-                    onClick={() => router.push(`/settings/roles/${role.id}`)}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <span className="font-medium">{role.name}</span>
-                        {role.isSystem ? (
-                          <Badge variant="secondary" className="text-xs">
-                            System
-                          </Badge>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="hidden max-w-md truncate px-4 py-3 text-muted-foreground md:table-cell">
-                      {role.description ?? "—"}
-                    </td>
-                    <td className="px-4 py-3 tabular-nums">{role.userCount}</td>
-                    <td className="px-4 py-3 tabular-nums">
-                      {role.permissionCount}
-                    </td>
-                    <td className="hidden px-4 py-3 tabular-nums text-muted-foreground lg:table-cell">
-                      {fmtDate(role.createdAt)}
-                    </td>
-                  </tr>
-                ))}
+              : items.map((role) => {
+                  const isArchived = Boolean(role.deletedAt);
+                  return (
+                    <tr
+                      key={role.id}
+                      className="cursor-pointer hover:bg-accent/40"
+                      onClick={() => router.push(`/settings/roles/${role.id}`)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Shield className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="font-medium">{role.name}</span>
+                          {role.isSystem ? (
+                            <Badge variant="secondary" className="text-xs">
+                              System
+                            </Badge>
+                          ) : null}
+                          {isArchived ? (
+                            <Badge variant="archived" className="text-xs">
+                              Archived
+                            </Badge>
+                          ) : null}
+                        </div>
+                      </td>
+                      <td className="hidden max-w-md truncate px-4 py-3 text-muted-foreground md:table-cell">
+                        {role.description ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums">
+                        {role.userCount}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums">
+                        {role.permissionCount}
+                      </td>
+                      <td className="hidden px-4 py-3 tabular-nums text-muted-foreground lg:table-cell">
+                        {fmtDate(role.createdAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
           </tbody>
         </table>
       </div>

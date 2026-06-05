@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Button,
+  ConfirmDialog,
   Input,
   Select,
   Label,
@@ -15,11 +16,13 @@ import {
   Badge,
   Avatar,
   AvatarFallback,
+  extractErrorMessage,
   toast,
   useEmployees,
   useDepartments,
+  useRestoreEmployee,
 } from "@staffly/ui";
-import { Plus, Search, Users } from "lucide-react";
+import { Plus, Search, Undo2, Users } from "lucide-react";
 
 function initials(name: string): string {
   return name
@@ -36,8 +39,23 @@ const STATUS_OPTIONS = [
   { value: "invited", label: "Invited" },
   { value: "on_leave", label: "On Leave" },
   { value: "suspended", label: "Suspended" },
-  { value: "offboarded", label: "Offboarded" },
+  // "offboarded" intentionally omitted from this select — those rows have
+  // deletedAt set and are surfaced via the "Show archived" toggle instead.
 ];
+
+const FRIENDLY: Record<string, string> = {
+  "employee.not_found": "Employee no longer exists. Refresh the page.",
+  "employee.conflict_code_or_email":
+    "Another employee already has this code or email. Edit the existing one first.",
+};
+
+function friendly(err: unknown): string | undefined {
+  const code =
+    err && typeof err === "object" && "code" in err
+      ? String((err as { code: unknown }).code)
+      : undefined;
+  return code ? (FRIENDLY[code] ?? undefined) : undefined;
+}
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -55,9 +73,19 @@ function EmployeesListContent(): React.ReactNode {
   const searchParam = sp.get("search") ?? "";
   const statusParam = sp.get("status") ?? "";
   const deptParam = sp.get("departmentId") ?? "";
+  const includeArchived = sp.get("includeArchived") === "1";
   const pageParam = Math.max(1, Number(sp.get("page")) || 1);
 
   const [search, setSearch] = useState(searchParam);
+  const [restoreTarget, setRestoreTarget] = useState<{
+    id: string;
+    displayName: string;
+    hasDisabledUser: boolean;
+  } | null>(null);
+  // Sub-checkbox state for the restore dialog. Defaults true when the linked
+  // user is currently disabled; the dialog re-syncs on open.
+  const [restoreReactivateUser, setRestoreReactivateUser] = useState(true);
+  const restore = useRestoreEmployee();
 
   const { data, isLoading, isError, refetch } = useEmployees({
     page: pageParam,
@@ -65,6 +93,7 @@ function EmployeesListContent(): React.ReactNode {
     search: searchParam || undefined,
     status: (statusParam as never) || undefined,
     departmentId: deptParam || undefined,
+    includeArchived: includeArchived || undefined,
   });
 
   const { data: depts } = useDepartments();
@@ -173,6 +202,17 @@ function EmployeesListContent(): React.ReactNode {
             ))}
           </Select>
         </div>
+        <label className="flex items-center gap-2 text-sm whitespace-nowrap sm:pb-2.5">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-input"
+            checked={includeArchived}
+            onChange={(e) =>
+              updateParams({ includeArchived: e.target.checked ? "1" : "" })
+            }
+          />
+          Show archived
+        </label>
       </div>
 
       {/* Table */}
@@ -224,54 +264,78 @@ function EmployeesListContent(): React.ReactNode {
                     </td>
                   </tr>
                 ))
-              : items.map((emp) => (
-                  <tr
-                    key={emp.id}
-                    className="hover:bg-accent/40 cursor-pointer"
-                    onClick={() => router.push(`/employees/${emp.id}`)}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="text-xs">
-                            {initials(emp.displayName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">
-                            {emp.displayName}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {emp.employeeCode} · {emp.workEmail}
-                          </p>
+              : items.map((emp) => {
+                  const isArchived = Boolean(emp.deletedAt);
+                  return (
+                    <tr
+                      key={emp.id}
+                      className="hover:bg-accent/40 cursor-pointer"
+                      onClick={() => router.push(`/employees/${emp.id}`)}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs">
+                              {initials(emp.displayName)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">
+                              {emp.displayName}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {emp.employeeCode} · {emp.workEmail}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <EmployeeStatusBadge status={emp.status} />
-                    </td>
-                    <td className="hidden px-4 py-3 md:table-cell">
-                      {emp.department?.name ?? "—"}
-                    </td>
-                    <td className="hidden px-4 py-3 lg:table-cell">
-                      <Badge variant="outline">
-                        {emp.employmentType.replace("_", " ")}
-                      </Badge>
-                    </td>
-                    <td className="hidden px-4 py-3 lg:table-cell text-muted-foreground">
-                      {fmtDate(emp.joinedOn)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/employees/${emp.id}`}
-                        className="text-xs font-medium text-primary hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3">
+                        <EmployeeStatusBadge status={emp.status} />
+                      </td>
+                      <td className="hidden px-4 py-3 md:table-cell">
+                        {emp.department?.name ?? "—"}
+                      </td>
+                      <td className="hidden px-4 py-3 lg:table-cell">
+                        <Badge variant="outline">
+                          {emp.employmentType.replace("_", " ")}
+                        </Badge>
+                      </td>
+                      <td className="hidden px-4 py-3 lg:table-cell text-muted-foreground">
+                        {fmtDate(emp.joinedOn)}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {isArchived ? (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRestoreTarget({
+                                id: emp.id,
+                                displayName: emp.displayName,
+                                // The list payload doesn't carry user status;
+                                // server-side cascade handles it. We default
+                                // the sub-checkbox to on for offboarded rows.
+                                hasDisabledUser: true,
+                              });
+                              setRestoreReactivateUser(true);
+                            }}
+                          >
+                            <Undo2 className="h-3.5 w-3.5" /> Restore
+                          </button>
+                        ) : (
+                          <Link
+                            href={`/employees/${emp.id}`}
+                            className="text-xs font-medium text-primary hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            View
+                          </Link>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
           </tbody>
         </table>
       </div>
@@ -282,12 +346,12 @@ function EmployeesListContent(): React.ReactNode {
           icon={<Users className="h-8 w-8" />}
           title="No employees found"
           description={
-            searchParam || statusParam || deptParam
+            searchParam || statusParam || deptParam || includeArchived
               ? "Try adjusting your search or filters."
               : "Add your first employee to get started."
           }
           action={
-            !searchParam && !statusParam && !deptParam ? (
+            !searchParam && !statusParam && !deptParam && !includeArchived ? (
               <Link href="/employees/new">
                 <Button>
                   <Plus className="h-4 w-4" />
@@ -326,6 +390,52 @@ function EmployeesListContent(): React.ReactNode {
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={!!restoreTarget}
+        onOpenChange={(o) => !o && setRestoreTarget(null)}
+        title={
+          restoreTarget
+            ? `Restore ${restoreTarget.displayName}?`
+            : "Restore employee?"
+        }
+        description={
+          <>
+            Marks the employee as active again. Their work history is preserved.
+            <label className="mt-3 flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-input"
+                checked={restoreReactivateUser}
+                onChange={(e) => setRestoreReactivateUser(e.target.checked)}
+              />
+              <span>
+                Also reactivate the linked user account so they can sign in
+                again.
+              </span>
+            </label>
+          </>
+        }
+        confirmLabel="Restore"
+        pendingLabel="Restoring…"
+        onConfirm={async () => {
+          if (!restoreTarget) return;
+          try {
+            await restore.mutateAsync({
+              id: restoreTarget.id,
+              reactivateUser: restoreReactivateUser,
+            });
+            toast.success(`${restoreTarget.displayName} restored`);
+            setRestoreTarget(null);
+          } catch (err) {
+            toast.error(
+              friendly(err) ??
+                extractErrorMessage(err, "Failed to restore employee"),
+            );
+            setRestoreTarget(null);
+          }
+        }}
+      />
     </div>
   );
 }

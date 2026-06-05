@@ -6,13 +6,7 @@ import Link from "next/link";
 import {
   Badge,
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogClose,
+  ConfirmDialog,
   EmptyState,
   Input,
   Label,
@@ -26,6 +20,7 @@ import {
   useDeleteHolidayCalendar,
   useHolidayCalendar,
   useHolidaysInCalendar,
+  useRestoreHolidayCalendar,
   useSetDefaultCalendar,
 } from "@staffly/ui";
 import type { Holiday, HolidayType } from "@staffly/types";
@@ -37,6 +32,7 @@ import {
   Plus,
   Star,
   Trash2,
+  Undo2,
 } from "lucide-react";
 import { CalendarDialog } from "../_components/calendar-dialog";
 import { HolidayDialog } from "../_components/holiday-dialog";
@@ -137,10 +133,12 @@ function HolidayCalendarDetailContent(): React.ReactNode {
   const [holidayDialogOpen, setHolidayDialogOpen] = useState(false);
   const [editingHoliday, setEditingHoliday] = useState<Holiday | null>(null);
   const [deleteCalOpen, setDeleteCalOpen] = useState(false);
+  const [restoreCalOpen, setRestoreCalOpen] = useState(false);
   const [deletingHoliday, setDeletingHoliday] = useState<Holiday | null>(null);
 
   const setDefault = useSetDefaultCalendar();
   const deleteCal = useDeleteHolidayCalendar();
+  const restoreCal = useRestoreHolidayCalendar();
   const deleteHol = useDeleteHoliday();
 
   useEffect(() => {
@@ -187,6 +185,22 @@ function HolidayCalendarDetailContent(): React.ReactNode {
           : undefined;
       toast.error(friendlyMsg(code) ?? "Failed to delete calendar");
       setDeleteCalOpen(false);
+    }
+  };
+
+  const handleRestoreCalendar = async (): Promise<void> => {
+    if (!calendar) return;
+    try {
+      await restoreCal.mutateAsync(calendar.id);
+      toast.success("Calendar restored");
+      setRestoreCalOpen(false);
+    } catch (err) {
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? String((err as { code: unknown }).code)
+          : undefined;
+      toast.error(friendlyMsg(code) ?? "Failed to restore calendar");
+      setRestoreCalOpen(false);
     }
   };
 
@@ -246,6 +260,9 @@ function HolidayCalendarDetailContent(): React.ReactNode {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-semibold">{calendar.name}</h1>
+            {calendar.deletedAt ? (
+              <Badge variant="archived">Archived</Badge>
+            ) : null}
             {calendar.isDefault ? (
               <Badge variant="success">Default</Badge>
             ) : null}
@@ -260,29 +277,38 @@ function HolidayCalendarDetailContent(): React.ReactNode {
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setEditCalOpen(true)}>
-            <Pencil className="h-4 w-4" />
-            Edit
-          </Button>
-          {!calendar.isDefault ? (
-            <Button
-              variant="outline"
-              onClick={handleSetDefault}
-              disabled={setDefault.isPending}
-            >
-              <Star className="h-4 w-4" />
-              Set as default
+          {calendar.deletedAt ? (
+            <Button onClick={() => setRestoreCalOpen(true)}>
+              <Undo2 className="h-4 w-4" />
+              Restore
             </Button>
-          ) : null}
-          {!calendar.isDefault ? (
-            <Button
-              variant="destructive"
-              onClick={() => setDeleteCalOpen(true)}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </Button>
-          ) : null}
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => setEditCalOpen(true)}>
+                <Pencil className="h-4 w-4" />
+                Edit
+              </Button>
+              {!calendar.isDefault ? (
+                <Button
+                  variant="outline"
+                  onClick={handleSetDefault}
+                  disabled={setDefault.isPending}
+                >
+                  <Star className="h-4 w-4" />
+                  Set as default
+                </Button>
+              ) : null}
+              {!calendar.isDefault ? (
+                <Button
+                  variant="destructive"
+                  onClick={() => setDeleteCalOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </Button>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
 
@@ -502,58 +528,43 @@ function HolidayCalendarDetailContent(): React.ReactNode {
       />
 
       {/* Delete-calendar confirmation */}
-      <Dialog open={deleteCalOpen} onOpenChange={setDeleteCalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete this calendar?</DialogTitle>
-            <DialogDescription>
-              This deletes the calendar and all its holidays. Locations using
-              this calendar will need to be reassigned.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteCalendar}
-              disabled={deleteCal.isPending}
-            >
-              {deleteCal.isPending ? "Deleting…" : "Delete calendar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDialog
+        open={deleteCalOpen}
+        onOpenChange={setDeleteCalOpen}
+        tone="destructive"
+        title="Delete this calendar?"
+        description="This deletes the calendar and all its holidays. Locations using this calendar will need to be reassigned."
+        confirmLabel="Delete calendar"
+        pendingLabel="Deleting…"
+        onConfirm={handleDeleteCalendar}
+      />
+
+      {/* Restore-calendar confirmation */}
+      <ConfirmDialog
+        open={restoreCalOpen}
+        onOpenChange={setRestoreCalOpen}
+        title="Restore this calendar?"
+        description="The calendar reappears in the list. Existing location assignments still reference it."
+        confirmLabel="Restore"
+        pendingLabel="Restoring…"
+        onConfirm={handleRestoreCalendar}
+      />
 
       {/* Delete-holiday confirmation */}
-      <Dialog
+      <ConfirmDialog
         open={!!deletingHoliday}
         onOpenChange={(o) => !o && setDeletingHoliday(null)}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete this holiday?</DialogTitle>
-            <DialogDescription>
-              {deletingHoliday
-                ? `${deletingHoliday.name} on ${fmtDate(deletingHoliday.date)} will be removed.`
-                : ""}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeletingHoliday(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDeleteHoliday}
-              disabled={deleteHol.isPending}
-            >
-              {deleteHol.isPending ? "Deleting…" : "Delete holiday"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        tone="destructive"
+        title="Delete this holiday?"
+        description={
+          deletingHoliday
+            ? `${deletingHoliday.name} on ${fmtDate(deletingHoliday.date)} will be removed.`
+            : undefined
+        }
+        confirmLabel="Delete holiday"
+        pendingLabel="Deleting…"
+        onConfirm={handleDeleteHoliday}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import Link from "next/link";
 import {
   Badge,
   Button,
+  ConfirmDialog,
   Dialog,
   DialogClose,
   DialogContent,
@@ -24,6 +25,7 @@ import {
   useCreateCategory,
   useDeleteCategory,
   useDocumentCategories,
+  useRestoreCategory,
   useUpdateCategory,
 } from "@staffly/ui";
 import {
@@ -31,7 +33,7 @@ import {
   type CategoryFormValues,
   type DocumentCategory,
 } from "@staffly/types";
-import { ArrowLeft, FolderOpen, Plus } from "lucide-react";
+import { ArrowLeft, FolderOpen, Plus, Undo2 } from "lucide-react";
 
 const FRIENDLY: Record<string, string> = {
   "document.category.conflict_name_or_code":
@@ -223,74 +225,54 @@ function CategoryDialog({
   );
 }
 
-// ─── Delete confirmation ──────────────────────────────────────────────────
-
-function DeleteDialog({
-  category,
-  onOpenChange,
-}: {
-  category: DocumentCategory | null;
-  onOpenChange: (o: boolean) => void;
-}): React.ReactNode {
-  const del = useDeleteCategory();
-
-  const handleDelete = async () => {
-    if (!category) return;
-    try {
-      await del.mutateAsync(category.id);
-      toast.success("Category deleted");
-      onOpenChange(false);
-    } catch (err) {
-      toast.error(
-        friendly(err) ?? extractErrorMessage(err, "Failed to delete category"),
-      );
-    }
-  };
-
-  return (
-    <Dialog open={!!category} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Delete &ldquo;{category?.name}&rdquo;?</DialogTitle>
-          <DialogDescription>
-            This will soft-delete the category. It cannot be deleted if
-            documents are still assigned to it.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={del.isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={del.isPending}
-          >
-            {del.isPending ? "Deleting…" : "Delete"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────
 
 export default function DocumentCategoriesPage(): React.ReactNode {
-  const { data, isLoading } = useDocumentCategories({ pageSize: 100 });
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const { data, isLoading } = useDocumentCategories({
+    pageSize: 100,
+    includeArchived: includeArchived || undefined,
+  });
+  const del = useDeleteCategory();
+  const restore = useRestoreCategory();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<DocumentCategory | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DocumentCategory | null>(
     null,
   );
+  const [restoreTarget, setRestoreTarget] = useState<DocumentCategory | null>(
+    null,
+  );
 
   const items = data?.items ?? [];
+
+  const handleDelete = async (): Promise<void> => {
+    if (!deleteTarget) return;
+    try {
+      await del.mutateAsync(deleteTarget.id);
+      toast.success("Category deleted");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(
+        friendly(err) ?? extractErrorMessage(err, "Failed to delete category"),
+      );
+      setDeleteTarget(null);
+    }
+  };
+
+  const handleRestore = async (): Promise<void> => {
+    if (!restoreTarget) return;
+    try {
+      await restore.mutateAsync(restoreTarget.id);
+      toast.success("Category restored");
+      setRestoreTarget(null);
+    } catch (err) {
+      toast.error(
+        friendly(err) ?? extractErrorMessage(err, "Failed to restore category"),
+      );
+      setRestoreTarget(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -306,14 +288,25 @@ export default function DocumentCategoriesPage(): React.ReactNode {
           title="Document categories"
           subtitle="Categorize documents for filtering, audience scoping, and compliance."
         />
-        <Button
-          onClick={() => {
-            setEditTarget(null);
-            setDialogOpen(true);
-          }}
-        >
-          <Plus className="h-4 w-4" /> Add category
-        </Button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-input"
+              checked={includeArchived}
+              onChange={(e) => setIncludeArchived(e.target.checked)}
+            />
+            Show archived
+          </label>
+          <Button
+            onClick={() => {
+              setEditTarget(null);
+              setDialogOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" /> Add category
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -356,70 +349,92 @@ export default function DocumentCategoriesPage(): React.ReactNode {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {items.map((cat) => (
-                <tr key={cat.id} className="hover:bg-accent/40">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="h-3 w-3 shrink-0 rounded-full"
-                        style={{ backgroundColor: cat.color }}
-                      />
-                      <span className="font-medium">{cat.name}</span>
-                      {cat.isSystem ? (
-                        <Badge variant="secondary" className="text-xs">
-                          System
-                        </Badge>
-                      ) : null}
-                    </div>
-                  </td>
-                  <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
-                    {cat.code ?? "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant="outline">
-                      {cat.isPersonal ? "Personal" : "Distributed"}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3">
-                    {cat.isActive ? (
-                      <Badge
-                        variant="outline"
-                        className="text-green-700 dark:text-green-400"
-                      >
-                        Active
+              {items.map((cat) => {
+                const isArchived = Boolean(cat.deletedAt);
+                return (
+                  <tr key={cat.id} className="hover:bg-accent/40">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-3 w-3 shrink-0 rounded-full"
+                          style={{ backgroundColor: cat.color }}
+                        />
+                        <span className="font-medium">{cat.name}</span>
+                        {cat.isSystem ? (
+                          <Badge variant="secondary" className="text-xs">
+                            System
+                          </Badge>
+                        ) : null}
+                        {isArchived ? (
+                          <Badge variant="archived" className="text-xs">
+                            Archived
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
+                      {cat.code ?? "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant="outline">
+                        {cat.isPersonal ? "Personal" : "Distributed"}
                       </Badge>
-                    ) : (
-                      <Badge variant="destructive">Inactive</Badge>
-                    )}
-                  </td>
-                  <td className="hidden max-w-xs truncate px-4 py-3 text-muted-foreground lg:table-cell">
-                    {cat.description ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditTarget(cat);
-                          setDialogOpen(true);
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      {!cat.isSystem ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteTarget(cat)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {cat.isActive ? (
+                        <Badge
+                          variant="outline"
+                          className="text-green-700 dark:text-green-400"
                         >
-                          Delete
-                        </Button>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive">Inactive</Badge>
+                      )}
+                    </td>
+                    <td className="hidden max-w-xs truncate px-4 py-3 text-muted-foreground lg:table-cell">
+                      {cat.description ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-1">
+                        {isArchived ? (
+                          !cat.isSystem ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setRestoreTarget(cat)}
+                            >
+                              <Undo2 className="h-3.5 w-3.5" /> Restore
+                            </Button>
+                          ) : null
+                        ) : (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditTarget(cat);
+                                setDialogOpen(true);
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            {!cat.isSystem ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeleteTarget(cat)}
+                              >
+                                Delete
+                              </Button>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -434,9 +449,31 @@ export default function DocumentCategoriesPage(): React.ReactNode {
         edit={editTarget}
       />
 
-      <DeleteDialog
-        category={deleteTarget}
+      <ConfirmDialog
+        open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
+        tone="destructive"
+        title={
+          deleteTarget ? `Delete "${deleteTarget.name}"?` : "Delete category?"
+        }
+        description="This will soft-delete the category. It cannot be deleted if documents are still assigned to it."
+        confirmLabel="Delete"
+        pendingLabel="Deleting…"
+        onConfirm={handleDelete}
+      />
+
+      <ConfirmDialog
+        open={!!restoreTarget}
+        onOpenChange={(o) => !o && setRestoreTarget(null)}
+        title={
+          restoreTarget
+            ? `Restore "${restoreTarget.name}"?`
+            : "Restore category?"
+        }
+        description="The category will be available again for assignment to documents."
+        confirmLabel="Restore"
+        pendingLabel="Restoring…"
+        onConfirm={handleRestore}
       />
     </div>
   );

@@ -29,6 +29,7 @@ function HolidaysListContent(): React.ReactNode {
   const sp = useSearchParams();
 
   const searchParam = sp.get("search") ?? "";
+  const includeArchived = sp.get("includeArchived") === "1";
   const pageParam = Math.max(1, Number(sp.get("page")) || 1);
 
   const [search, setSearch] = useState(searchParam);
@@ -38,6 +39,7 @@ function HolidaysListContent(): React.ReactNode {
     page: pageParam,
     pageSize: 20,
     search: searchParam || undefined,
+    includeArchived: includeArchived || undefined,
   });
 
   const updateParams = useCallback(
@@ -85,18 +87,31 @@ function HolidaysListContent(): React.ReactNode {
         }
       />
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Label htmlFor="search" className="sr-only">
-          Search
-        </Label>
-        <Input
-          id="search"
-          placeholder="Search calendars…"
-          className="pl-8"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Label htmlFor="search" className="sr-only">
+            Search
+          </Label>
+          <Input
+            id="search"
+            placeholder="Search calendars…"
+            className="pl-8"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-input"
+            checked={includeArchived}
+            onChange={(e) =>
+              updateParams({ includeArchived: e.target.checked ? "1" : "" })
+            }
+          />
+          Show archived
+        </label>
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
@@ -143,7 +158,16 @@ function HolidaysListContent(): React.ReactNode {
                     className="cursor-pointer hover:bg-accent/40"
                     onClick={() => router.push(`/holidays/${cal.id}`)}
                   >
-                    <td className="px-4 py-3 font-medium">{cal.name}</td>
+                    <td className="px-4 py-3 font-medium">
+                      <span className="inline-flex items-center gap-2">
+                        {cal.name}
+                        {cal.deletedAt ? (
+                          <Badge variant="archived" className="text-xs">
+                            Archived
+                          </Badge>
+                        ) : null}
+                      </span>
+                    </td>
                     <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                       {cal.code ?? "—"}
                     </td>

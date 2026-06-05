@@ -20,6 +20,7 @@ import {
   Skeleton,
   StatusBadge,
   type StatusTone,
+  ConfirmDialog,
   extractErrorMessage,
   toast,
   useAcknowledgements,
@@ -31,6 +32,7 @@ import {
   useLocations,
   usePreviewAudience,
   usePublishAnnouncement,
+  useRestoreAnnouncement,
   useUpdateAnnouncement,
 } from "@staffly/ui";
 import {
@@ -46,7 +48,7 @@ const STATUS_TONE: Record<AnnouncementStatus, StatusTone> = {
   draft: "muted",
   scheduled: "warning",
   published: "success",
-  archived: "destructive",
+  archived: "archived",
 };
 
 const PRIORITY_TONE: Record<AnnouncementPriority, StatusTone> = {
@@ -143,6 +145,7 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
   });
   const publish = usePublishAnnouncement();
   const archive = useArchiveAnnouncement();
+  const restore = useRestoreAnnouncement();
   const update = useUpdateAnnouncement();
   const preview = usePreviewAudience();
 
@@ -326,6 +329,22 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
     }
   };
 
+  const [restoreOpen, setRestoreOpen] = useState(false);
+
+  const handleRestore = async (): Promise<void> => {
+    if (!ann) return;
+    try {
+      await restore.mutateAsync(ann.id);
+      toast.success("Announcement restored to draft");
+      setRestoreOpen(false);
+    } catch (err) {
+      toast.error(
+        friendlyMsg(err) ?? extractErrorMessage(err, "Failed to restore"),
+      );
+      setRestoreOpen(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -356,6 +375,7 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
   const canEdit = ann.status !== "archived";
   const canPublish = ann.status === "draft" || ann.status === "scheduled";
   const canArchive = ann.status !== "archived";
+  const canRestore = ann.status === "archived";
 
   const FieldError = ({ name }: { name: keyof AnnouncementFormValues }) => {
     const err = form.formState.errors[name];
@@ -460,6 +480,11 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
               disabled={archive.isPending}
             >
               {archive.isPending ? "Archiving…" : "Archive"}
+            </Button>
+          ) : null}
+          {canRestore ? (
+            <Button onClick={() => setRestoreOpen(true)}>
+              Restore to draft
             </Button>
           ) : null}
         </div>
@@ -735,6 +760,16 @@ export default function AdminAnnouncementDetailPage(): React.ReactNode {
           </SheetContent>
         </SheetPortal>
       </Sheet>
+
+      <ConfirmDialog
+        open={restoreOpen}
+        onOpenChange={setRestoreOpen}
+        title="Restore this announcement?"
+        description="The announcement returns to draft. You can re-publish it from there. Acknowledgement history is preserved."
+        confirmLabel="Restore to draft"
+        pendingLabel="Restoring…"
+        onConfirm={handleRestore}
+      />
     </div>
   );
 }
