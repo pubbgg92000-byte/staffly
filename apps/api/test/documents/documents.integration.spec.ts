@@ -302,7 +302,8 @@ describe("document categories CRUD", () => {
       .get("/documents/categories")
       .set("Cookie", cookieHeader(cookies))
       .expect(200);
-    expect(list.body.meta.total).toBe(1);
+    // OrgBootstrap seeds 5 default system categories at signup; we created 1 more.
+    expect(list.body.meta.total).toBe(6);
 
     const patched = await request(app.getHttpServer())
       .patch(`/documents/categories/${created.body.id}`)
