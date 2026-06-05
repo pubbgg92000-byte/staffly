@@ -12,6 +12,9 @@ import {
   Megaphone,
   FileText,
   Building2,
+  Shield,
+  UserCog,
+  Mail,
 } from "lucide-react";
 
 /**
@@ -72,6 +75,24 @@ const nav: NavItem[] = [
     label: "Org Structure",
     icon: Building2,
     permission: "org.structure.read",
+  },
+  {
+    href: "/settings/roles",
+    label: "Roles",
+    icon: Shield,
+    permission: "rbac.read",
+  },
+  {
+    href: "/settings/users",
+    label: "Users",
+    icon: UserCog,
+    permission: "rbac.read",
+  },
+  {
+    href: "/settings/invites",
+    label: "Invites",
+    icon: Mail,
+    permission: "employee.invite",
   },
 ];
 

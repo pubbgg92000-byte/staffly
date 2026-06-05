@@ -22,6 +22,7 @@ export {
   useResetPassword,
   useInvitePeek,
   useAcceptInvite,
+  usePermissionCheck,
   sessionKeys,
 } from "./api/session";
 export {
@@ -191,6 +192,23 @@ export {
   usePreviewAudience,
   announcementKeys,
 } from "./api/announcements";
+
+// API — rbac
+export {
+  useRoles,
+  useRole,
+  useCreateRole,
+  useUpdateRole,
+  useDeleteRole,
+  usePermissions,
+  useRbacUsers,
+  useAssignUserRole,
+  useInvites,
+  useCreateInvite,
+  useRevokeInvite,
+  useResendInvite,
+  rbacKeys,
+} from "./api/rbac";
 
 // API — holidays
 export {

@@ -73,7 +73,9 @@ export function useSignIn(): ReturnType<
             organizationId: res.organization.id,
             defaultPortal: res.defaultPortal,
           },
+          permissions: [],
         } satisfies MeResponse);
+        void qc.invalidateQueries({ queryKey: sessionKeys.me });
       }
     },
   });
@@ -93,7 +95,9 @@ export function useVerifyTwoFactor(): ReturnType<
           organizationId: res.organization.id,
           defaultPortal: res.defaultPortal,
         },
+        permissions: [],
       } satisfies MeResponse);
+      void qc.invalidateQueries({ queryKey: sessionKeys.me });
     },
   });
 }
@@ -154,7 +158,9 @@ export function useAcceptInvite(): ReturnType<
           organizationId: res.organization.id,
           defaultPortal: res.defaultPortal,
         },
+        permissions: [],
       } satisfies MeResponse);
+      void qc.invalidateQueries({ queryKey: sessionKeys.me });
     },
   });
 }
@@ -170,4 +176,27 @@ export function useSignOut(): ReturnType<
       qc.clear();
     },
   });
+}
+
+/**
+ * React hook returning a `has(permission)` checker for the current user.
+ *
+ * `super_admin` short-circuits to `true` for any check — defensive belt; the
+ * backend already expands the `"*"` sentinel into a full permission list, so
+ * `data?.permissions` will contain every permission, but the role check keeps
+ * us safe if the server response ever omits the array.
+ */
+export function usePermissionCheck(): {
+  has: (permission: string) => boolean;
+  isLoading: boolean;
+} {
+  const { data, isLoading } = useSession();
+  const perms = data?.permissions;
+  const isSuperAdmin = data?.user.role === "super_admin";
+  const has = (permission: string): boolean => {
+    if (isSuperAdmin) return true;
+    if (!perms) return false;
+    return perms.includes(permission);
+  };
+  return { has, isLoading };
 }

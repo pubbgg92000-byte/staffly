@@ -6,8 +6,35 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { NavItem } from "./types";
 import { Brand } from "../components/brand";
 import { cn } from "../lib/cn";
+import { usePermissionCheck } from "../api/session";
 
 const STORAGE_KEY = "sf:sidebar:collapsed";
+
+/**
+ * Filters nav items by `item.permission` against the current user's
+ * permission set. Items with no `permission` field are always visible.
+ *
+ * Children are filtered recursively; a group with all-hidden children is
+ * removed too.
+ */
+function useFilteredNav(items: NavItem[]): NavItem[] {
+  const { has, isLoading } = usePermissionCheck();
+  return React.useMemo(() => {
+    // While the session is loading, hide any permission-gated items to avoid
+    // a brief flash of nav entries the user may not actually have access to.
+    if (isLoading) {
+      return items.filter((it) => !it.permission);
+    }
+    const filter = (list: NavItem[]): NavItem[] =>
+      list
+        .filter((it) => !it.permission || has(it.permission))
+        .map((it) =>
+          it.children ? { ...it, children: filter(it.children) } : it,
+        )
+        .filter((it) => !it.children || it.children.length > 0);
+    return filter(items);
+  }, [items, has, isLoading]);
+}
 
 /**
  * Desktop sidebar: collapsible (256 px expanded, 64 px collapsed). Persists
@@ -27,6 +54,7 @@ export function Sidebar({
   pathname: string;
   portalLabel?: string;
 }): React.ReactNode {
+  const visibleItems = useFilteredNav(items);
   const [collapsed, setCollapsed] = React.useState(false);
 
   React.useEffect(() => {
@@ -73,7 +101,7 @@ export function Sidebar({
         </button>
       </div>
       <nav className="flex-1 space-y-1 px-2 py-3">
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <SidebarLink
             key={item.href}
             item={item}
@@ -138,13 +166,14 @@ export function SidebarMobileNav({
   pathname: string;
   portalLabel?: string;
 }): React.ReactNode {
+  const visibleItems = useFilteredNav(items);
   return (
     <div className="flex h-full flex-col">
       <div className="mb-4 flex items-center">
         <Brand size="md" portalLabel={portalLabel} />
       </div>
       <nav className="flex-1 space-y-1">
-        {items.map((item) => (
+        {visibleItems.map((item) => (
           <SidebarLink
             key={item.href}
             item={item}

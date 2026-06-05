@@ -80,6 +80,7 @@ export interface MeResult {
     organizationId: string;
     defaultPortal: AdminPortal;
   };
+  permissions: string[];
 }
 
 export interface InvitePeek {
@@ -315,6 +316,7 @@ export class AuthService {
     }
     const roles = await this.permissions.loadUserRoles(userId);
     const role = highestRole(roles) ?? "employee";
+    const perms = await this.permissions.loadUserPermissions(userId);
     return {
       user: {
         id: user.id,
@@ -323,6 +325,7 @@ export class AuthService {
         organizationId: user.organizationId,
         defaultPortal: defaultPortalForRole(role),
       },
+      permissions: [...perms].sort(),
     };
   }
 

@@ -70,6 +70,7 @@ export interface MeResponse {
     organizationId: string;
     defaultPortal: DefaultPortal;
   };
+  permissions: string[];
 }
 
 /** Roles that get the admin portal as their default destination. */
