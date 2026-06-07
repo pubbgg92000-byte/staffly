@@ -312,6 +312,7 @@
       "permissions": [
         "dashboard.view",
         "org.settings.read",
+        "org.settings.write",
         "org.structure.read",
         "org.structure.write",
         "employee.read",

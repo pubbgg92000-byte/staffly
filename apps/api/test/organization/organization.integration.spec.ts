@@ -202,6 +202,31 @@ async function createEmployeeSession(
   return extractCookies(accepted.headers["set-cookie"]);
 }
 
+/** Invite + accept an hr_admin-role user; return their session cookies. */
+async function createHrAdminSession(
+  adminCookies: AuthCookies,
+): Promise<AuthCookies> {
+  n += 1;
+  const email = `hr-${n}-${Date.now()}@test.local`;
+  const inv = await authedPost("/invites", adminCookies, {
+    email,
+    roleKey: "hr_admin",
+  });
+  if (inv.status !== 201) {
+    throw new Error(`invite failed: ${JSON.stringify(inv.body)}`);
+  }
+  const token = (inv.body.inviteUrl as string).split("token=")[1];
+  const accepted = await request(app.getHttpServer())
+    .post("/auth/accept-invite")
+    .send({
+      token,
+      password: "hunter22hunter22",
+      firstName: "HR",
+      lastName: "Admin",
+    });
+  return extractCookies(accepted.headers["set-cookie"]);
+}
+
 beforeAll(async () => {
   container = await new PostgreSqlContainer("postgres:18-alpine")
     .withDatabase("staffly_test")
@@ -353,6 +378,20 @@ describe("PATCH /organization", () => {
     const emp = await createEmployeeSession(admin);
     const res = await authedPatch("/organization", emp, { name: "Sneaky" });
     expect(res.status).toBe(403);
+  });
+
+  it("allows an hr_admin to read and edit the organization profile", async () => {
+    const { cookies: admin } = await signupOrg();
+    const hr = await createHrAdminSession(admin);
+    const read = await authedGet("/organization", hr);
+    expect(read.status).toBe(200);
+    const write = await authedPatch("/organization", hr, {
+      name: "Acme by HR",
+      billingEmail: "hr-ops@acme.test",
+    });
+    expect(write.status).toBe(200);
+    expect(write.body.name).toBe("Acme by HR");
+    expect(write.body.billingEmail).toBe("hr-ops@acme.test");
   });
 });
 
