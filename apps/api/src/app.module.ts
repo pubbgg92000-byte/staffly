@@ -13,6 +13,7 @@ import { HolidaysModule } from "./holidays/holidays.module";
 import { AnnouncementsModule } from "./announcements/announcements.module";
 import { DocumentsModule } from "./documents/documents.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
+import { NotificationsModule } from "./notifications/notifications.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { CsrfGuard } from "./auth/guards/csrf.guard";
 import { PermissionGuard } from "./rbac/permission.guard";
@@ -33,6 +34,7 @@ import { GlobalExceptionFilter } from "./common/http-exception.filter";
     AnnouncementsModule,
     DocumentsModule,
     DashboardModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
   providers: [

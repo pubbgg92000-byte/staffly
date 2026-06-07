@@ -21,6 +21,7 @@ export * from "./api/documents";
 export * from "./api/org-structure";
 export * from "./api/rbac";
 export * from "./api/audit";
+export * from "./api/notifications";
 export * from "./forms/employees";
 export * from "./forms/attendance";
 export * from "./forms/leave";

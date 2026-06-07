@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetTrigger } from "../components/ui/sheet";
 import { Brand } from "../components/brand";
 import { SidebarMobileNav } from "./sidebar";
 import { UserMenu } from "./user-menu";
+import { NotificationBell } from "./notification-bell";
 import type { NavItem } from "./types";
 
 /**
@@ -45,6 +46,7 @@ export function Topbar({
         <Brand size="sm" portalLabel={portalLabel} />
       </div>
       <div className="ml-auto flex items-center gap-2">
+        <NotificationBell />
         <UserMenu />
       </div>
     </header>

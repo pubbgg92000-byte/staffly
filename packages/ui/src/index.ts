@@ -224,6 +224,20 @@ export {
 // API — audit
 export { useAuditLogs, useAuditLog, auditKeys } from "./api/audit";
 
+// API — notifications
+export {
+  useNotifications,
+  useUnreadCount,
+  useMarkNotificationRead,
+  useMarkAllRead,
+  notificationKeys,
+} from "./api/notifications";
+export {
+  renderNotification,
+  priorityLabel,
+  type NotificationDisplay,
+} from "./lib/notification-templates";
+
 // API — holidays
 export {
   useHolidayCalendars,
@@ -251,6 +265,7 @@ export { StatusBadge, type StatusTone } from "./components/status-badge";
 export { StatCard } from "./components/stat-card";
 export { WidgetCard } from "./components/widget-card";
 export { EmptyState } from "./components/empty-state";
+export { NotificationsInbox } from "./components/notifications-inbox";
 export { ConfirmDialog, type ConfirmTone } from "./components/confirm-dialog";
 export { PasswordInput } from "./components/password-input";
 export { PasswordStrengthMeter } from "./components/password-strength-meter";
@@ -273,4 +288,5 @@ export { Sidebar, SidebarMobileNav } from "./layouts/sidebar";
 export { Topbar } from "./layouts/topbar";
 export { BottomTabNav } from "./layouts/bottom-tab-nav";
 export { UserMenu } from "./layouts/user-menu";
+export { NotificationBell } from "./layouts/notification-bell";
 export type { NavItem } from "./layouts/types";

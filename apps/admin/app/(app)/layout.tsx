@@ -16,6 +16,7 @@ import {
   UserCog,
   Mail,
   ScrollText,
+  Bell,
 } from "lucide-react";
 
 /**
@@ -29,6 +30,8 @@ const nav: NavItem[] = [
     icon: LayoutDashboard,
     permission: "dashboard.view",
   },
+  // Auth-only (self-scoped) — no permission gate; every user has notifications.
+  { href: "/notifications", label: "Notifications", icon: Bell },
   {
     href: "/employees",
     label: "Employees",
