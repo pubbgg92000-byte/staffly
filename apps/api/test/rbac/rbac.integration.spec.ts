@@ -369,7 +369,7 @@ describe("PATCH /roles/:id", () => {
     expect(permKeys).not.toContain("announcement.read");
   });
 
-  it("allows updating name of a system role", async () => {
+  it("blocks updating name/description/permissions of a system role", async () => {
     const { cookies } = await signup();
     const list = await authedGet("/roles?search=manager", cookies);
     const mgr = list.body.items.find(
@@ -379,9 +379,8 @@ describe("PATCH /roles/:id", () => {
     const res = await authedPatch(`/roles/${mgr.id}`, cookies, {
       name: "Team Lead",
     });
-    expect(res.status).toBe(200);
-    expect(res.body.name).toBe("Team Lead");
-    expect(res.body.isSystem).toBe(true);
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("role.system_immutable");
   });
 });
 
@@ -394,8 +393,16 @@ describe("DELETE /roles/:id", () => {
     const del = await authedDelete(`/roles/${id}`, cookies);
     expect(del.status).toBe(204);
 
+    // Detail stays 200 with `deletedAt` set so the FE can render Restore.
     const get = await authedGet(`/roles/${id}`, cookies);
-    expect(get.status).toBe(404);
+    expect(get.status).toBe(200);
+    expect(get.body.deletedAt).not.toBeNull();
+
+    // But default list hides it; includeArchived=true surfaces it.
+    const live = await authedGet("/roles", cookies);
+    expect(live.body.items.find((r: { id: string }) => r.id === id)).toBeUndefined();
+    const archived = await authedGet("/roles?includeArchived=true", cookies);
+    expect(archived.body.items.find((r: { id: string }) => r.id === id)).toBeDefined();
   });
 
   it("blocks delete of a system role", async () => {

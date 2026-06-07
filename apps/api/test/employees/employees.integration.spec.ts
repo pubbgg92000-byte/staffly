@@ -526,10 +526,12 @@ describe("employees", () => {
       .set("Cookie", asCookie(cookies))
       .set("X-CSRF-Token", cookies.csrf!)
       .expect(204);
+    // Detail stays 200 with `deletedAt` set so the FE can render Restore.
     const get = await request(app.getHttpServer())
       .get(`/employees/${create.body.id}`)
       .set("Cookie", asCookie(cookies));
-    expect(get.status).toBe(404);
+    expect(get.status).toBe(200);
+    expect(get.body.deletedAt).not.toBeNull();
     const list = await request(app.getHttpServer())
       .get("/employees")
       .set("Cookie", asCookie(cookies));
