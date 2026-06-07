@@ -15,6 +15,7 @@ import {
   Shield,
   UserCog,
   Mail,
+  ScrollText,
 } from "lucide-react";
 
 /**
@@ -93,6 +94,12 @@ const nav: NavItem[] = [
     label: "Invites",
     icon: Mail,
     permission: "employee.invite",
+  },
+  {
+    href: "/settings/audit-log",
+    label: "Audit Log",
+    icon: ScrollText,
+    permission: "audit.read",
   },
 ];
 

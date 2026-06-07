@@ -221,6 +221,9 @@ export {
   rbacKeys,
 } from "./api/rbac";
 
+// API — audit
+export { useAuditLogs, useAuditLog, auditKeys } from "./api/audit";
+
 // API — holidays
 export {
   useHolidayCalendars,
