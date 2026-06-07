@@ -8,8 +8,17 @@ import {
  * Models that are NOT tenant-scoped — the extension does not touch their queries.
  * Permission is a global catalog; AuditLog is tenant-scoped but writes happen via
  * a dedicated repository that bypasses the extension by construction.
+ *
+ * Organization is the tenant root: its primary key IS the organization id, and it
+ * has no `organizationId` column. Auto-injecting `where.organizationId` would
+ * reference a non-existent field and break every read/update. Callers must scope
+ * Organization queries explicitly by `id` (always the caller's own org, derived
+ * from the tenant context — see OrganizationService / AuthService.me).
  */
-const TENANT_OPT_OUT: ReadonlySet<string> = new Set(["Permission"]);
+const TENANT_OPT_OUT: ReadonlySet<string> = new Set([
+  "Permission",
+  "Organization",
+]);
 
 const READ_OPS = new Set([
   "findUnique",

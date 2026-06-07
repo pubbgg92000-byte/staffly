@@ -16,6 +16,7 @@ import { OrgBootstrapService } from "../rbac/org-bootstrap.service";
 import { PermissionsService } from "../rbac/permissions.service";
 import { highestRole, type RoleKey } from "../rbac/system-roles";
 import { loadEnv } from "../infra/config/env";
+import { StorageService } from "../storage/storage.module";
 import type { SignupBodyT } from "./dto/signup.dto";
 import type { SigninBodyT } from "./dto/signin.dto";
 import type { ForgotPasswordBodyT } from "./dto/forgot-password.dto";
@@ -80,6 +81,17 @@ export interface MeResult {
     organizationId: string;
     defaultPortal: AdminPortal;
   };
+  organization: {
+    id: string;
+    slug: string;
+    name: string;
+    primaryColor: string;
+    logoUrl: string | null;
+    currency: string;
+    timezone: string;
+    locale: string;
+    weekStart: number;
+  };
   permissions: string[];
 }
 
@@ -101,6 +113,7 @@ export class AuthService {
     private readonly tokens: TokensService,
     private readonly bootstrap: OrgBootstrapService,
     private readonly permissions: PermissionsService,
+    private readonly storage: StorageService,
   ) {}
 
   // ─── Signup (org bootstrap) ──────────────────────────────────────────
@@ -314,6 +327,25 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException({ code: "auth.unauthenticated" });
     }
+    // Organization is excluded from the tenant extension (its PK is the org id),
+    // so this explicit id read is safe and self-scoped.
+    const org = await this.prisma.db.organization.findUnique({
+      where: { id: user.organizationId },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        primaryColor: true,
+        logoUrl: true,
+        currency: true,
+        timezone: true,
+        locale: true,
+        weekStart: true,
+      },
+    });
+    if (!org) {
+      throw new UnauthorizedException({ code: "auth.unauthenticated" });
+    }
     const roles = await this.permissions.loadUserRoles(userId);
     const role = highestRole(roles) ?? "employee";
     const perms = await this.permissions.loadUserPermissions(userId);
@@ -324,6 +356,10 @@ export class AuthService {
         role,
         organizationId: user.organizationId,
         defaultPortal: defaultPortalForRole(role),
+      },
+      organization: {
+        ...org,
+        logoUrl: await this.storage.presignOrNull(org.logoUrl),
       },
       permissions: [...perms].sort(),
     };

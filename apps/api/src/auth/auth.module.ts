@@ -8,6 +8,7 @@ import { TokensService } from "./tokens.service";
 import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { CsrfGuard } from "./guards/csrf.guard";
 import { RbacModule } from "../rbac/rbac.module";
+import { StorageModule } from "../storage/storage.module";
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { RbacModule } from "../rbac/rbac.module";
       },
     }),
     RbacModule,
+    StorageModule,
   ],
   controllers: [AuthController],
   providers: [

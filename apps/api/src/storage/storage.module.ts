@@ -102,6 +102,23 @@ export class StorageService {
     return { url, expiresIn: env.S3_PRESIGN_TTL_SECONDS };
   }
 
+  /**
+   * Presign a GET URL for an optional storage key. Returns null when the key is
+   * absent, and degrades to null (rather than throwing) if storage is
+   * unconfigured — callers render org data with no logo instead of 500ing.
+   */
+  async presignOrNull(key: string | null | undefined): Promise<string | null> {
+    if (!key) return null;
+    try {
+      return (await this.presignDownload(key)).url;
+    } catch (e) {
+      this.logger.warn(
+        `presignOrNull failed for ${key}: ${(e as Error).message}`,
+      );
+      return null;
+    }
+  }
+
   async remove(key: string): Promise<void> {
     const env = loadEnv();
     try {

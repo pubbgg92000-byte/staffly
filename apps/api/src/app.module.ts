@@ -14,6 +14,7 @@ import { AnnouncementsModule } from "./announcements/announcements.module";
 import { DocumentsModule } from "./documents/documents.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { NotificationsModule } from "./notifications/notifications.module";
+import { OrganizationModule } from "./organization/organization.module";
 import { JwtAuthGuard } from "./auth/guards/jwt-auth.guard";
 import { CsrfGuard } from "./auth/guards/csrf.guard";
 import { PermissionGuard } from "./rbac/permission.guard";
@@ -35,6 +36,7 @@ import { GlobalExceptionFilter } from "./common/http-exception.filter";
     DocumentsModule,
     DashboardModule,
     NotificationsModule,
+    OrganizationModule,
   ],
   controllers: [HealthController],
   providers: [
