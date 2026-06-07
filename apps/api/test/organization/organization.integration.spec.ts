@@ -244,7 +244,10 @@ beforeAll(async () => {
   process.env.S3_PRESIGN_TTL_SECONDS = "900";
   resetEnvCacheForTests();
 
-  execSync("pnpm prisma migrate deploy", { stdio: "inherit", env: process.env });
+  execSync("pnpm prisma migrate deploy", {
+    stdio: "inherit",
+    env: process.env,
+  });
   execSync("pnpm db:seed", { stdio: "inherit", env: process.env });
 
   const moduleRef = await Test.createTestingModule({
@@ -442,29 +445,21 @@ describe("Logo upload round-trip", () => {
 
   it("rejects an oversized logo at the DTO layer (>2 MB)", async () => {
     const { cookies } = await signupOrg();
-    const res = await authedPost(
-      "/organization/logo/presign-upload",
-      cookies,
-      {
-        fileName: "huge.png",
-        mimeType: "image/png",
-        sizeBytes: 3 * 1024 * 1024,
-      },
-    );
+    const res = await authedPost("/organization/logo/presign-upload", cookies, {
+      fileName: "huge.png",
+      mimeType: "image/png",
+      sizeBytes: 3 * 1024 * 1024,
+    });
     expect(res.status).toBe(400);
   });
 
   it("rejects a disallowed mime type", async () => {
     const { cookies } = await signupOrg();
-    const res = await authedPost(
-      "/organization/logo/presign-upload",
-      cookies,
-      {
-        fileName: "logo.tiff",
-        mimeType: "image/tiff",
-        sizeBytes: 1000,
-      },
-    );
+    const res = await authedPost("/organization/logo/presign-upload", cookies, {
+      fileName: "logo.tiff",
+      mimeType: "image/tiff",
+      sizeBytes: 1000,
+    });
     expect(res.status).toBe(400);
   });
 
@@ -527,7 +522,9 @@ describe("PATCH /organization/settings", () => {
 
   it("updates an existing key in place rather than inserting a duplicate", async () => {
     const { cookies, organizationId } = await signupOrg();
-    await authedPatch("/organization/settings", cookies, { "ui.density": "comfy" });
+    await authedPatch("/organization/settings", cookies, {
+      "ui.density": "comfy",
+    });
     const res = await authedPatch("/organization/settings", cookies, {
       "ui.density": "compact",
     });
@@ -541,7 +538,9 @@ describe("PATCH /organization/settings", () => {
 
   it("persists an explicit null value (JSON null, not missing)", async () => {
     const { cookies } = await signupOrg();
-    await authedPatch("/organization/settings", cookies, { "ui.theme": "dark" });
+    await authedPatch("/organization/settings", cookies, {
+      "ui.theme": "dark",
+    });
     const res = await authedPatch("/organization/settings", cookies, {
       "ui.theme": null,
     });

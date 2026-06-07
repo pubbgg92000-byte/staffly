@@ -131,7 +131,9 @@ export default function BrandingPage(): React.ReactNode {
       await logoUpload.upload(file);
       toast.success("Logo updated");
     } catch (err) {
-      setServerError(friendly(err) ?? extractErrorMessage(err) ?? "Upload failed");
+      setServerError(
+        friendly(err) ?? extractErrorMessage(err) ?? "Upload failed",
+      );
     }
   }
 
@@ -147,7 +149,9 @@ export default function BrandingPage(): React.ReactNode {
       await update.mutateAsync({ primaryColor: colorHex });
       toast.success("Primary color updated");
     } catch (err) {
-      setServerError(friendly(err) ?? extractErrorMessage(err) ?? "Update failed");
+      setServerError(
+        friendly(err) ?? extractErrorMessage(err) ?? "Update failed",
+      );
     }
   }
 
@@ -164,8 +168,8 @@ export default function BrandingPage(): React.ReactNode {
         <CardHeader>
           <CardTitle>Logo</CardTitle>
           <CardDescription>
-            PNG, JPEG, WEBP, SVG, or GIF — up to 2 MB. Shown in the topbar and on
-            invitation emails.
+            PNG, JPEG, WEBP, SVG, or GIF — up to 2 MB. Shown in the topbar and
+            on invitation emails.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center">

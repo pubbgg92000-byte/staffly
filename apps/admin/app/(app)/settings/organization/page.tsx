@@ -171,20 +171,22 @@ export default function OrganizationSettingsPage(): React.ReactNode {
       await update.mutateAsync(patch);
       toast.success("Organization updated");
     } catch (err) {
-      setServerError(friendly(err) ?? extractErrorMessage(err) ?? "Update failed");
+      setServerError(
+        friendly(err) ?? extractErrorMessage(err) ?? "Update failed",
+      );
     }
   }
 
   const isDirty = Boolean(
     data &&
-      (form.name.trim() !== data.name ||
-        form.legalName !== (data.legalName ?? "") ||
-        form.domain !== (data.domain ?? "") ||
-        form.billingEmail !== (data.billingEmail ?? "") ||
-        form.timezone !== data.timezone ||
-        form.locale !== data.locale ||
-        form.currency !== data.currency ||
-        form.weekStart !== data.weekStart),
+    (form.name.trim() !== data.name ||
+      form.legalName !== (data.legalName ?? "") ||
+      form.domain !== (data.domain ?? "") ||
+      form.billingEmail !== (data.billingEmail ?? "") ||
+      form.timezone !== data.timezone ||
+      form.locale !== data.locale ||
+      form.currency !== data.currency ||
+      form.weekStart !== data.weekStart),
   );
 
   return (

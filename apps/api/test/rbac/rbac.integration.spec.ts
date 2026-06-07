@@ -400,9 +400,13 @@ describe("DELETE /roles/:id", () => {
 
     // But default list hides it; includeArchived=true surfaces it.
     const live = await authedGet("/roles", cookies);
-    expect(live.body.items.find((r: { id: string }) => r.id === id)).toBeUndefined();
+    expect(
+      live.body.items.find((r: { id: string }) => r.id === id),
+    ).toBeUndefined();
     const archived = await authedGet("/roles?includeArchived=true", cookies);
-    expect(archived.body.items.find((r: { id: string }) => r.id === id)).toBeDefined();
+    expect(
+      archived.body.items.find((r: { id: string }) => r.id === id),
+    ).toBeDefined();
   });
 
   it("blocks delete of a system role", async () => {

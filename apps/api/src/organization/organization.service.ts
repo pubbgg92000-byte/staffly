@@ -42,7 +42,9 @@ const ORG_PROFILE_SELECT = {
   updatedAt: true,
 } satisfies Prisma.OrganizationSelect;
 
-type OrgRow = Prisma.OrganizationGetPayload<{ select: typeof ORG_PROFILE_SELECT }>;
+type OrgRow = Prisma.OrganizationGetPayload<{
+  select: typeof ORG_PROFILE_SELECT;
+}>;
 
 /**
  * Organization profile, branding, and key/value settings (A-SET-001/002).
@@ -64,9 +66,11 @@ export class OrganizationService {
     private readonly storage: StorageService,
   ) {}
 
-  private async toProfile(row: OrgRow): Promise<Omit<OrgRow, "logoUrl"> & {
-    logoUrl: string | null;
-  }> {
+  private async toProfile(row: OrgRow): Promise<
+    Omit<OrgRow, "logoUrl"> & {
+      logoUrl: string | null;
+    }
+  > {
     return { ...row, logoUrl: await this.storage.presignOrNull(row.logoUrl) };
   }
 
@@ -88,7 +92,8 @@ export class OrganizationService {
       where: { id },
       select: ORG_PROFILE_SELECT,
     });
-    if (!before) throw new NotFoundException({ code: "organization.not_found" });
+    if (!before)
+      throw new NotFoundException({ code: "organization.not_found" });
     const row = await this.prisma.db.organization.update({
       where: { id },
       data: { ...body, updatedBy: actorUserId },
@@ -124,7 +129,8 @@ export class OrganizationService {
       where: { id },
       select: ORG_PROFILE_SELECT,
     });
-    if (!before) throw new NotFoundException({ code: "organization.not_found" });
+    if (!before)
+      throw new NotFoundException({ code: "organization.not_found" });
     const row = await this.prisma.db.organization.update({
       where: { id },
       data: { logoUrl: key, updatedBy: actorUserId },
@@ -163,10 +169,16 @@ export class OrganizationService {
           create: {
             organizationId,
             key,
-            value: value === null ? Prisma.JsonNull : (value as Prisma.InputJsonValue),
+            value:
+              value === null
+                ? Prisma.JsonNull
+                : (value as Prisma.InputJsonValue),
           },
           update: {
-            value: value === null ? Prisma.JsonNull : (value as Prisma.InputJsonValue),
+            value:
+              value === null
+                ? Prisma.JsonNull
+                : (value as Prisma.InputJsonValue),
           },
         }),
       ),

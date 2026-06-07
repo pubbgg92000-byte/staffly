@@ -83,7 +83,8 @@ export function useUpdateOrgSettings(): ReturnType<
 > {
   const qc = useQueryClient();
   return useMutation<OrgSettings, ApiError, UpdateOrgSettingsInput>({
-    mutationFn: (patch) => api.patch<OrgSettings>("/organization/settings", patch),
+    mutationFn: (patch) =>
+      api.patch<OrgSettings>("/organization/settings", patch),
     onSuccess: (next) => {
       qc.setQueryData(organizationKeys.settings, next);
     },
@@ -95,10 +96,7 @@ export function usePresignLogoUpload(): ReturnType<
 > {
   return useMutation<LogoPresignResponse, ApiError, LogoPresignInput>({
     mutationFn: (body) =>
-      api.post<LogoPresignResponse>(
-        "/organization/logo/presign-upload",
-        body,
-      ),
+      api.post<LogoPresignResponse>("/organization/logo/presign-upload", body),
   });
 }
 
@@ -107,7 +105,8 @@ export function useConfirmLogo(): ReturnType<
 > {
   const qc = useQueryClient();
   return useMutation<OrganizationProfile, ApiError, { key: string }>({
-    mutationFn: (body) => api.post<OrganizationProfile>("/organization/logo", body),
+    mutationFn: (body) =>
+      api.post<OrganizationProfile>("/organization/logo", body),
     onSuccess: (next) => {
       qc.setQueryData(organizationKeys.profile, next);
       void qc.invalidateQueries({ queryKey: sessionKeys.me });
@@ -145,6 +144,8 @@ export function useLogoUpload(): {
     upload,
     isUploading: presign.isPending || confirm.isPending,
     error:
-      (presign.error as Error | null) ?? (confirm.error as Error | null) ?? null,
+      (presign.error as Error | null) ??
+      (confirm.error as Error | null) ??
+      null,
   };
 }

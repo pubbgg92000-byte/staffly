@@ -83,7 +83,10 @@ export const LogoPresignBody = z.object({
   fileName: z.string().trim().min(1).max(255),
   mimeType: z
     .string()
-    .refine((m) => LOGO_MIME.has(m), "logo must be a PNG, JPEG, WEBP, SVG or GIF"),
+    .refine(
+      (m) => LOGO_MIME.has(m),
+      "logo must be a PNG, JPEG, WEBP, SVG or GIF",
+    ),
   sizeBytes: z
     .number()
     .int()
