@@ -11,7 +11,9 @@ import {
   PartyPopper,
   Megaphone,
   FileText,
+  Building,
   Building2,
+  Palette,
   Shield,
   UserCog,
   Mail,
@@ -79,6 +81,18 @@ const nav: NavItem[] = [
     label: "Org Structure",
     icon: Building2,
     permission: "org.structure.read",
+  },
+  {
+    href: "/settings/organization",
+    label: "Organization",
+    icon: Building,
+    permission: "org.settings.read",
+  },
+  {
+    href: "/settings/branding",
+    label: "Branding",
+    icon: Palette,
+    permission: "org.settings.read",
   },
   {
     href: "/settings/roles",

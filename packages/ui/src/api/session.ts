@@ -5,10 +5,12 @@ import { api } from "./client";
 import { ApiError } from "./error";
 import type {
   AcceptInviteInput,
+  AuthOrganization,
   AuthSuccess,
   ForgotPasswordInput,
   ForgotPasswordResponse,
   InvitePeekResponse,
+  MeOrganization,
   MeResponse,
   ResetPasswordInput,
   ResetPasswordResponse,
@@ -23,6 +25,26 @@ export const sessionKeys = {
   me: ["auth", "me"] as const,
   invite: (token: string) => ["auth", "invite", token] as const,
 };
+
+/**
+ * Auth responses only carry id/slug/name for the organization. The cache
+ * stub we prime needs the full MeOrganization shape — the invalidate that
+ * follows immediately refetches /auth/me to fill in the real values, so the
+ * placeholders here are only visible for one tick.
+ */
+function stubOrganization(org: AuthOrganization): MeOrganization {
+  return {
+    id: org.id,
+    slug: org.slug,
+    name: org.name,
+    primaryColor: "#0F172A",
+    logoUrl: null,
+    currency: "USD",
+    timezone: "Etc/UTC",
+    locale: "en-US",
+    weekStart: 1,
+  };
+}
 
 /**
  * Reads /auth/me. Returns `null` (not an error) when the user is signed out
@@ -73,6 +95,7 @@ export function useSignIn(): ReturnType<
             organizationId: res.organization.id,
             defaultPortal: res.defaultPortal,
           },
+          organization: stubOrganization(res.organization),
           permissions: [],
         } satisfies MeResponse);
         void qc.invalidateQueries({ queryKey: sessionKeys.me });
@@ -95,6 +118,7 @@ export function useVerifyTwoFactor(): ReturnType<
           organizationId: res.organization.id,
           defaultPortal: res.defaultPortal,
         },
+        organization: stubOrganization(res.organization),
         permissions: [],
       } satisfies MeResponse);
       void qc.invalidateQueries({ queryKey: sessionKeys.me });
@@ -158,6 +182,7 @@ export function useAcceptInvite(): ReturnType<
           organizationId: res.organization.id,
           defaultPortal: res.defaultPortal,
         },
+        organization: stubOrganization(res.organization),
         permissions: [],
       } satisfies MeResponse);
       void qc.invalidateQueries({ queryKey: sessionKeys.me });

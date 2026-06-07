@@ -64,12 +64,26 @@ export interface InvitePeekResponse {
   expiresAt: string;
 }
 
+/** Mirrors the `organization` block emitted by GET /auth/me. */
+export interface MeOrganization {
+  id: string;
+  slug: string;
+  name: string;
+  primaryColor: string;
+  logoUrl: string | null;
+  currency: string;
+  timezone: string;
+  locale: string;
+  weekStart: number;
+}
+
 /** GET /auth/me → 200. */
 export interface MeResponse {
   user: AuthUser & {
     organizationId: string;
     defaultPortal: DefaultPortal;
   };
+  organization: MeOrganization;
   permissions: string[];
 }
 

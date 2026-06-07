@@ -224,6 +224,18 @@ export {
 // API — audit
 export { useAuditLogs, useAuditLog, auditKeys } from "./api/audit";
 
+// API — organization
+export {
+  useOrganization,
+  useOrgSettings,
+  useUpdateOrganization,
+  useUpdateOrgSettings,
+  usePresignLogoUpload,
+  useConfirmLogo,
+  useLogoUpload,
+  organizationKeys,
+} from "./api/organization";
+
 // API — notifications
 export {
   useNotifications,
