@@ -1,0 +1,35 @@
+# Caddy — local reverse proxy on the Mac Mini.
+#
+# Topology (locked Phase B decision):
+#   Cloudflare edge (TLS) ──► Cloudflare Tunnel ──► Caddy ──► NestJS API :4000
+#
+# Why Caddy is in the path even though the tunnel could hit :4000 directly:
+#   - VPS portability. On a future public VPS we drop the tunnel and let Caddy
+#     terminate public TLS (swap `auto_https off` for an email + the public
+#     hostname). The app and PM2 config don't change.
+#   - One place for compression and forwarded-header normalization.
+#
+# Public TLS is terminated at the Cloudflare edge. The hop the tunnel makes to
+# Caddy stays on loopback, so it's plain HTTP — it never leaves the machine.
+#
+# Run:  caddy run --config infra/Caddyfile
+
+{
+	# TLS is handled at the Cloudflare edge; the loopback hop needs none.
+	auto_https off
+	admin off
+}
+
+# cloudflared points its ingress at this loopback listener (see
+# infra/cloudflared/config.example.yml → service: http://127.0.0.1:8080).
+http://127.0.0.1:8080 {
+	encode zstd gzip
+
+	# Hand the API the real visitor IP. Cloudflare sets CF-Connecting-IP at the
+	# edge; the app trusts the proxy chain and reads it (main.ts trust-proxy +
+	# real-IP resolver) for audit logging and rate-limit keying.
+	reverse_proxy 127.0.0.1:4000 {
+		header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+		header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+	}
+}

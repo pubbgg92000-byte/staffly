@@ -51,3 +51,99 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  test:
+    name: Unit + integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @staffly/api prisma:generate
+
+      - name: Unit tests
+        run: pnpm test
+
+      # Integration specs spin up an ephemeral PostgreSQL 18 via Testcontainers.
+      # The GitHub-hosted ubuntu runner ships a working Docker daemon, so no
+      # `services:` block is needed — each spec manages its own container and
+      # sets DATABASE_URL from the container URI in beforeAll().
+      - name: Integration tests (Testcontainers)
+        run: pnpm --filter @staffly/api test:integration
+        env:
+          NODE_ENV: test
+          # Ryuk (the Testcontainers reaper) occasionally races on ephemeral
+          # CI runners; the runner is torn down per-job so we don't need it.
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+
+  artifact:
+    name: Build deployable API artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [check]
+    # Only publish an artifact for pushes to main — PR builds are validated by
+    # the `check` job and don't need a stored bundle. No auto-deploy.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @staffly/api prisma:generate
+
+      - name: Build API
+        run: pnpm --filter @staffly/api build
+
+      # Assemble the minimal set the Mac Mini needs to run `node dist/main.js`
+      # after `pnpm install --prod` + `prisma migrate deploy`. Build-validation
+      # + provenance artifact only — there is NO auto-deploy.
+      - name: Assemble artifact
+        run: |
+          set -euo pipefail
+          mkdir -p artifact/apps/api
+          cp -r apps/api/dist artifact/apps/api/dist
+          cp -r apps/api/prisma artifact/apps/api/prisma
+          cp apps/api/package.json artifact/apps/api/package.json
+          cp package.json pnpm-lock.yaml pnpm-workspace.yaml artifact/
+          cp -r infra artifact/infra
+          cp -r deploy artifact/deploy
+          echo "${{ github.sha }}" > artifact/COMMIT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: staffly-api-${{ github.sha }}
+          path: artifact/
+          retention-days: 7

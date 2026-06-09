@@ -1,0 +1,24 @@
+# Cloudflare Tunnel ingress for the Staffly demo API.
+#
+# Copy to ~/.cloudflared/config.yml on the Mac Mini and fill in the tunnel id
+# + credentials path produced by `cloudflared tunnel create staffly-demo`.
+# Do NOT commit the real config or the credentials JSON (both contain secrets).
+#
+# Setup (one-time):
+#   cloudflared tunnel login
+#   cloudflared tunnel create staffly-demo
+#   cloudflared tunnel route dns staffly-demo api.staffly.av.online
+#   cloudflared tunnel run staffly-demo      # or install as a launchd service
+#
+# Topology realized here: edge ──tunnel──► Caddy(:8080) ──► API(:4000)
+
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: /Users/arvind/.cloudflared/REPLACE_WITH_TUNNEL_ID.json
+
+# No inbound ports are opened on the Mini — the tunnel dials out to Cloudflare.
+# The home IP is never exposed.
+ingress:
+  - hostname: api.staffly.av.online
+    service: http://127.0.0.1:8080 # → Caddy → NestJS :4000
+  # Everything else is rejected at the tunnel.
+  - service: http_status:404
