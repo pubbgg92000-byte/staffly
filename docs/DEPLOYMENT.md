@@ -135,23 +135,33 @@ dumps retained. **Restore-test once** before calling the demo stable.
 
 ---
 
-## Demo accounts
+## Demo accounts (Phase B2)
 
 > **Security:** admin & HR demo accounts must NOT use public/guessable
 > passwords. Their passwords come from environment variables at seed time and
-> are never committed. Only the employee/demo account may use a published
-> credential so reviewers can log into the employee portal. The rich demo
-> seed + the documented credential matrix are produced in **Phase B2 (Demo
-> Readiness)** — this runbook will link the generated matrix there.
+> are never committed. Only the employee account uses a published credential so
+> reviewers can log into the employee portal.
+
+The demo dataset is created by `apps/api/prisma/seed-demo.ts` (org **Acme
+Corporation**, slug `staffly-demo`). Set the admin passwords in the
+environment before seeding; if unset, the seed generates strong random ones
+and prints them once:
+
+```bash
+DEMO_SUPERADMIN_PASSWORD=...  DEMO_HR_PASSWORD=...  DEMO_MANAGER_PASSWORD=... \
+  deploy/reset-demo.sh
+```
 
 | Role | Email | Password source |
 | --- | --- | --- |
-| Super Admin | `superadmin@demo.staffly.av.online` | `DEMO_SUPERADMIN_PASSWORD` env (strong, private) |
-| HR Admin | `hr@demo.staffly.av.online` | `DEMO_HR_PASSWORD` env (strong, private) |
-| Manager | `manager@demo.staffly.av.online` | `DEMO_MANAGER_PASSWORD` env (strong, private) |
-| Employee | `employee@demo.staffly.av.online` | published demo credential (read-only-ish role) |
+| Super Admin | `superadmin@acme.demo` | `DEMO_SUPERADMIN_PASSWORD` env (strong, private; generated if unset) |
+| HR Admin | `hr@acme.demo` | `DEMO_HR_PASSWORD` env (strong, private; generated if unset) |
+| Manager | `manager@acme.demo` | `DEMO_MANAGER_PASSWORD` env (strong, private; generated if unset) |
+| Employee | `employee@acme.demo` | published demo credential `Employee@123` (override with `DEMO_EMPLOYEE_PASSWORD`) |
 
-Demo reset (Phase B2): `deploy/reset-demo.sh` re-seeds the rich demo company
-(1 org, 25–50 employees, departments, designations, locations, attendance
-history, leave requests, announcements, notifications, branding) so the
-environment always looks actively used.
+**Demo reset:** `deploy/reset-demo.sh` runs migrations, seeds the permission
+catalog, then runs the deterministic demo seed. The seed deletes and recreates
+**only** the `staffly-demo` org (other tenants untouched) and is fully
+idempotent — re-running converges to the same 40-employee company with 90 days
+of attendance, leave requests in every state, announcements, documents,
+notifications, and branding, so the environment always looks actively used.
