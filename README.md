@@ -4,38 +4,81 @@ Staffly is the working repository for **PeopleFlow**, a multi-tenant HRMS for SM
 
 ## Status
 
-**v0.23-org-settings** — active development (+ v0.23.1 attendance-timezone hotfixes applied).
+**v0.23.2-deploy** — public-beta candidate (deployment hardening + demo readiness; pre-production certified).
 
-Twenty-three releases shipped across the backend, UI, and platform sprints:
+Twenty-five releases shipped across the backend, UI, and platform sprints:
 
-| Tag                                         | Milestone                                                        |
-| ------------------------------------------- | ---------------------------------------------------------------- |
-| `v0.1-infrastructure`                       | Monorepo, CI, Docker Compose                                     |
-| `v0.2-auth`                                 | Auth + RBAC + multi-tenancy (JWT, refresh chain, org-bootstrap)  |
-| `v0.3-employee-management`                  | Employee records + org structure                                 |
-| `v0.4-attendance`                           | Attendance policies, check-in/out, regularization                |
-| `v0.5-leave-management`                     | Leave types, balances, requests, approvals                       |
-| `v0.6-holidays`                             | Holiday calendars + location assignment                          |
-| `v0.7-announcements`                        | Announcement composer, scheduling, ack tracking                  |
-| `v0.8-documents-compliance`                 | Documents, versioning, MinIO, ack tracking                       |
-| `v0.9-dashboards`                           | `GET /dashboard/admin` + `GET /dashboard/employee` aggregations  |
-| `v0.10-ui-foundation`                       | Shared UI package + auth/dashboard route scaffolds               |
-| `v0.11-ui-auth`                             | End-to-end authentication for both portals                       |
-| `v0.12-ui-dashboard`                        | Live dashboard widgets wired to API data                         |
-| `v0.13-ui-employees`                        | Employees CRUD admin UI — list, create, detail, edit, offboard   |
-| `v0.14-ui-attendance`                       | Attendance admin + employee self-service UI                      |
-| `v0.15-ui-leave`                            | Leave request, approval, balance UI                              |
-| `v0.16-ui-holidays`                         | Holiday calendar admin + employee view                           |
-| `v0.17-ui-announcements`                    | Announcement composer + employee feed UI                         |
-| `v0.18-ui-documents`                        | Documents UI — categories, upload, versions, ack                 |
-| `v0.18.2-announcements-documents-hardening` | Lifecycle fixes + employee download endpoint + Confirm dialogs   |
-| `v0.19-ui-org-structure`                    | Admin org-structure pages + employee "My Org"                    |
-| `v0.20-rbac-backend` / `v0.20-ui-rbac`      | Full RBAC + invite API; roles, users, invites admin pages        |
-| `v0.20.2-archive-restore`                   | `POST /:resource/:id/restore` across 10 soft-deletable resources |
-| `v0.21-audit-viewer`                        | `GET /audit-logs` + Settings → Audit Log page                    |
-| `v0.22-notifications`                       | In-app notifications — topbar bell + inbox + unread count        |
-| **`v0.23-org-settings`**                    | **Organization profile + branding + settings UI**                |
-| `v0.23.1-attendance-tz`                     | Dashboard + seed alignment with employee-local timezone (hotfix) |
+| Tag                                         | Milestone                                                                                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `v0.1-infrastructure`                       | Monorepo, CI, Docker Compose                                                                                                          |
+| `v0.2-auth`                                 | Auth + RBAC + multi-tenancy (JWT, refresh chain, org-bootstrap)                                                                       |
+| `v0.3-employee-management`                  | Employee records + org structure                                                                                                      |
+| `v0.4-attendance`                           | Attendance policies, check-in/out, regularization                                                                                     |
+| `v0.5-leave-management`                     | Leave types, balances, requests, approvals                                                                                            |
+| `v0.6-holidays`                             | Holiday calendars + location assignment                                                                                               |
+| `v0.7-announcements`                        | Announcement composer, scheduling, ack tracking                                                                                       |
+| `v0.8-documents-compliance`                 | Documents, versioning, MinIO, ack tracking                                                                                            |
+| `v0.9-dashboards`                           | `GET /dashboard/admin` + `GET /dashboard/employee` aggregations                                                                       |
+| `v0.10-ui-foundation`                       | Shared UI package + auth/dashboard route scaffolds                                                                                    |
+| `v0.11-ui-auth`                             | End-to-end authentication for both portals                                                                                            |
+| `v0.12-ui-dashboard`                        | Live dashboard widgets wired to API data                                                                                              |
+| `v0.13-ui-employees`                        | Employees CRUD admin UI — list, create, detail, edit, offboard                                                                        |
+| `v0.14-ui-attendance`                       | Attendance admin + employee self-service UI                                                                                           |
+| `v0.15-ui-leave`                            | Leave request, approval, balance UI                                                                                                   |
+| `v0.16-ui-holidays`                         | Holiday calendar admin + employee view                                                                                                |
+| `v0.17-ui-announcements`                    | Announcement composer + employee feed UI                                                                                              |
+| `v0.18-ui-documents`                        | Documents UI — categories, upload, versions, ack                                                                                      |
+| `v0.18.2-announcements-documents-hardening` | Lifecycle fixes + employee download endpoint + Confirm dialogs                                                                        |
+| `v0.19-ui-org-structure`                    | Admin org-structure pages + employee "My Org"                                                                                         |
+| `v0.20-rbac-backend` / `v0.20-ui-rbac`      | Full RBAC + invite API; roles, users, invites admin pages                                                                             |
+| `v0.20.2-archive-restore`                   | `POST /:resource/:id/restore` across 10 soft-deletable resources                                                                      |
+| `v0.21-audit-viewer`                        | `GET /audit-logs` + Settings → Audit Log page                                                                                         |
+| `v0.22-notifications`                       | In-app notifications — topbar bell + inbox + unread count                                                                             |
+| **`v0.23-org-settings`**                    | **Organization profile + branding + settings UI**                                                                                     |
+| `v0.23.1-attendance-tz`                     | Dashboard + seed alignment with employee-local timezone (hotfix)                                                                      |
+| `v0.23.2-deploy`                            | Deployment hardening (Helmet, throttler, R2, Sentry, /readyz, CI), comprehensive demo seed, error boundaries, dashboard-refresh fixes |
+
+## Demo environment
+
+A deterministic demo organization (**Acme Corporation**, 40 employees, 90 days
+of attendance, leave/announcements/documents/notifications) is seeded by
+`pnpm --filter @staffly/api db:seed:demo`. See
+[`docs/DEMO_GUIDE.md`](docs/DEMO_GUIDE.md) for the guided walkthrough.
+
+### Local URLs
+
+| Service            | URL                           |
+| ------------------ | ----------------------------- |
+| Admin portal       | http://localhost:3000         |
+| Employee portal    | http://localhost:3001         |
+| API                | http://localhost:4000         |
+| API health         | http://localhost:4000/healthz |
+| Mailhog (dev mail) | http://localhost:8025         |
+| MinIO console      | http://localhost:9001         |
+
+### Demo accounts
+
+> **Security:** admin/HR/manager passwords are set from `DEMO_*_PASSWORD`
+> environment variables at seed time and are **never committed**. The values
+> below are the local-development convention only — override them via env for
+> any shared or public environment (the seed prints whatever is in effect).
+
+| Role        | Email                  | Password (local dev)       | Source         |
+| ----------- | ---------------------- | -------------------------- | -------------- |
+| Super Admin | `superadmin@acme.demo` | `DEMO_SUPERADMIN_PASSWORD` | env (private)  |
+| HR Admin    | `hr@acme.demo`         | `DEMO_HR_PASSWORD`         | env (private)  |
+| Manager     | `manager@acme.demo`    | `DEMO_MANAGER_PASSWORD`    | env (private)  |
+| Employee    | `employee@acme.demo`   | `Employee@123`             | published demo |
+
+Seed with explicit passwords:
+
+```bash
+DEMO_SUPERADMIN_PASSWORD=... DEMO_HR_PASSWORD=... DEMO_MANAGER_PASSWORD=... \
+  pnpm --filter @staffly/api db:seed:demo
+```
+
+The legacy minimal dev org (`staffly-dev`, 4 users, well-known passwords) is
+still available via `db:seed:dev` for quick smoke tests.
 
 ## Stack
 
