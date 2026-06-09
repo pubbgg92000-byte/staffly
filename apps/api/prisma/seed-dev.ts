@@ -19,6 +19,8 @@ import argon2 from "argon2";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { DEFAULT_DOCUMENT_CATEGORIES } from "../src/documents/default-document-categories";
+import { resolveEmployeeTimezone } from "../src/common/timezone";
+import { localDateInTimezone } from "../src/attendance/local-date";
 
 type Catalog = {
   permissions: {
@@ -356,31 +358,43 @@ async function main(): Promise<void> {
     });
   }
 
-  // 8. Today's attendance record for the employee (checked in this morning).
+  // 8. Today's attendance record for the employee. Must use the same
+  // tz-aware date math as AttendanceService.checkIn — otherwise the seeded
+  // row's attendance_date can land on a different calendar day than the
+  // employee-local "today" the dashboard queries against.
   const empId = employeeIdByEmail["employee@staffly.local"];
   if (empId) {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const checkInTime = new Date(today);
-    checkInTime.setUTCHours(9, 0, 0, 0);
-    const workedMinutes = Math.max(
-      0,
-      Math.floor((Date.now() - checkInTime.getTime()) / 60_000),
-    );
-    await prisma.attendanceRecord.upsert({
-      where: {
-        employeeId_attendanceDate: { employeeId: empId, attendanceDate: today },
+    const emp = await prisma.employee.findUnique({
+      where: { id: empId },
+      select: {
+        timezoneOverride: true,
+        location: { select: { timezone: true } },
+        organization: { select: { timezone: true } },
       },
-      create: {
-        organizationId: org.id,
-        employeeId: empId,
-        attendanceDate: today,
-        checkInAt: checkInTime,
-        status: "present",
-        workedMinutes,
-      },
-      update: { status: "present", workedMinutes },
     });
+    if (emp) {
+      const now = new Date();
+      const tz = resolveEmployeeTimezone(emp);
+      const attendanceDate = new Date(localDateInTimezone(now, tz));
+      const checkInAt = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+      const workedMinutes = Math.floor(
+        (now.getTime() - checkInAt.getTime()) / 60_000,
+      );
+      await prisma.attendanceRecord.upsert({
+        where: {
+          employeeId_attendanceDate: { employeeId: empId, attendanceDate },
+        },
+        create: {
+          organizationId: org.id,
+          employeeId: empId,
+          attendanceDate,
+          checkInAt,
+          status: "present",
+          workedMinutes,
+        },
+        update: { checkInAt, status: "present", workedMinutes },
+      });
+    }
   }
 
   // eslint-disable-next-line no-console

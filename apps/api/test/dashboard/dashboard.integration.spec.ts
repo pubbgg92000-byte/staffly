@@ -40,6 +40,7 @@ import {
   STORAGE_CLIENT,
   type StorageClient,
 } from "../../src/storage/storage.module";
+import { localDateInTimezone } from "../../src/attendance/local-date";
 
 const stubStorage: StorageClient = {
   presignedPutObject: async () => "https://stub.local/put",
@@ -581,5 +582,61 @@ describe("GET /dashboard/employee", () => {
       .get("/dashboard/employee")
       .set("Cookie", cookieHeader(cookies));
     expect(res.status).toBe(200);
+  });
+
+  // Regression: the dashboard used to scope today's attendance lookup by
+  // startOfDayUTC(now) while the check-in writer stamps attendanceDate from
+  // the employee-local calendar date (resolveEmployeeTimezone +
+  // localDateInTimezone). For any non-UTC org the two keys diverge during
+  // part of every day, leaving the dashboard unable to find the open row the
+  // service itself just refused to overwrite ("attendance.already_checked_in"
+  // while UI reads "haven't checked in"). See db06f48.
+  it("surfaces today's attendance using the employee-local date, not UTC", async () => {
+    const TZ = "America/Los_Angeles";
+    const { cookies, organizationId, userId } = await signupOrg();
+    await prisma.db.organization.update({
+      where: { id: organizationId },
+      data: { timezone: TZ },
+    });
+    const empId = await createEmployeeForUser(cookies, userId);
+
+    const ci = await request(app.getHttpServer())
+      .post("/attendance/check-in")
+      .set("Cookie", cookieHeader(cookies))
+      .set("X-CSRF-Token", cookies.csrf!)
+      .send({})
+      .expect(201);
+
+    const expectedLocalDate = localDateInTimezone(
+      new Date(ci.body.checkInAt),
+      TZ,
+    );
+    const utcToday = todayUTC().toISOString().slice(0, 10);
+
+    // Writer side: attendance_date must be the employee-LOCAL calendar date.
+    const row = await prisma.db.attendanceRecord.findUniqueOrThrow({
+      where: { id: ci.body.id },
+    });
+    expect(row.employeeId).toBe(empId);
+    expect(row.attendanceDate.toISOString().slice(0, 10)).toBe(
+      expectedLocalDate,
+    );
+
+    // Reader side: dashboard must look up by the same local key and return the row.
+    const dash = await request(app.getHttpServer())
+      .get("/dashboard/employee")
+      .set("Cookie", cookieHeader(cookies))
+      .expect(200);
+    expect(dash.body.todayStatus.date).toBe(expectedLocalDate);
+    expect(dash.body.todayStatus.attendance?.id).toBe(ci.body.id);
+
+    // Cross-day witness: when the wall clock places us in the UTC ≠ PDT
+    // window (PDT 17:00–23:59 = UTC 00:00–06:59 next day), expectedLocalDate
+    // is strictly less than UTC today. The assertions above already cover
+    // both sides; this guard makes it explicit that we'd previously have
+    // returned `attendance: null` here.
+    if (expectedLocalDate !== utcToday) {
+      expect(dash.body.todayStatus.date).not.toBe(utcToday);
+    }
   });
 });
