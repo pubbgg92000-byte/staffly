@@ -26,6 +26,10 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["test/**/*.integration.spec.ts"],
+    // Points Testcontainers at a Colima socket when the default is unusable
+    // (no-op on Docker Desktop / CI). Lets `pnpm test:integration` run without
+    // per-invocation DOCKER_HOST env vars.
+    globalSetup: ["./test/setup-testcontainers.ts"],
     testTimeout: 180_000,
     hookTimeout: 180_000,
     reporters: ["default"],

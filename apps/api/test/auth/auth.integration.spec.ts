@@ -393,30 +393,52 @@ describe("auth flow", () => {
     expect(res.body.user.email).toBe(payload.email);
   });
 
-  it("CSRF: logout without X-CSRF-Token → 403", async () => {
-    const payload = uniqueSignup();
-    const signup = await request(app.getHttpServer())
-      .post("/auth/signup")
-      .send(payload);
-    const c = extractCookies(signup.headers["set-cookie"]);
-    const res = await request(app.getHttpServer())
-      .post("/auth/logout")
-      .set("Cookie", asCookieHeader(c));
-    expect(res.status).toBe(403);
-    expect(res.body.error.code).toBe("auth.csrf_failed");
-  });
-
   it("CSRF: skipped when authed via Bearer header", async () => {
     const payload = uniqueSignup();
     const signup = await request(app.getHttpServer())
       .post("/auth/signup")
       .send(payload);
     const c = extractCookies(signup.headers["set-cookie"]);
-    // logout via Bearer (no CSRF cookie/header) — should still succeed.
+    // A protected mutation via Bearer (no CSRF cookie/header) — _test has no
+    // mutations, so verify logout-by-bearer still succeeds.
     const res = await request(app.getHttpServer())
       .post("/auth/logout")
       .set("Authorization", `Bearer ${c.access}`);
     expect(res.status).toBe(204);
+  });
+
+  // ─── Session-expiry escape hatch (v0.23.2 Phase 2) ─────────────────────
+  // The client's global 401 handler calls POST /auth/logout to clear cookies
+  // so the cookie-presence middleware lets it land on sign-in. That call must
+  // succeed even when the access token is absent, expired, or garbage —
+  // i.e. logout must be @Public and CSRF-free.
+
+  it("logout with NO cookies → 204 (clears client state)", async () => {
+    const res = await request(app.getHttpServer()).post("/auth/logout");
+    expect(res.status).toBe(204);
+  });
+
+  it("logout with a garbage access cookie → 204 (still clears)", async () => {
+    const res = await request(app.getHttpServer())
+      .post("/auth/logout")
+      .set("Cookie", `${ACCESS_COOKIE}=not.a.valid.jwt`);
+    expect(res.status).toBe(204);
+    // clears the access/refresh/csrf cookies via Set-Cookie
+    const setCookie = res.headers["set-cookie"];
+    const joined = Array.isArray(setCookie)
+      ? setCookie.join("\n")
+      : String(setCookie ?? "");
+    expect(joined).toContain(`${ACCESS_COOKIE}=`);
+  });
+
+  it("expired/invalid access token on a protected route → 401", async () => {
+    // A present-but-invalid access cookie (deleted-user / tampered) is rejected
+    // by the API even though middleware would let it onto the page — this is
+    // the 401 the client's global handler reacts to.
+    const res = await request(app.getHttpServer())
+      .get("/auth/me")
+      .set("Cookie", `${ACCESS_COOKIE}=eyJhbGciOiJIUzI1NiJ9.e30.bad`);
+    expect(res.status).toBe(401);
   });
 });
 

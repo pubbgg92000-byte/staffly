@@ -154,6 +154,14 @@ export class AuthController {
     setAuthCookies(res, tokens);
   }
 
+  /**
+   * @Public so it succeeds even with an expired/invalid access token — a
+   * client must always be able to clear its own cookies, which is what lets
+   * the session-expiry handler escape the cookie-presence middleware loop.
+   * (CSRF is consequently not required for logout: forced-logout is a benign
+   * nuisance, not a data-mutating CSRF target.)
+   */
+  @Public()
   @Post("logout")
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(
@@ -168,6 +176,7 @@ export class AuthController {
    * Alias for clients that prefer the spelling `signout`. Same semantics as
    * `/auth/logout` — clears cookies and revokes the presented refresh.
    */
+  @Public()
   @Post("signout")
   @HttpCode(HttpStatus.NO_CONTENT)
   signout(
