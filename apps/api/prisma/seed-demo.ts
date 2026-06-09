@@ -29,6 +29,7 @@ import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { DEFAULT_DOCUMENT_CATEGORIES } from "../src/documents/default-document-categories";
+import { MANAGER_TEAM_PERMISSIONS } from "../src/rbac/system-roles";
 
 type Catalog = {
   permissions: {
@@ -59,16 +60,6 @@ const ORG_SLUG = "staffly-demo";
 const ORG_NAME = "Acme Corporation";
 // Pinned so the org id (and thus the whole dataset) is stable across re-seeds.
 const ORG_ID = "019e0000-0000-7000-8000-000000000001";
-
-// Manager permissions that are conceptually team-scoped. Recorded with
-// PermissionScope.team on the role_permission row; row-level team filtering is
-// Phase 2, so today these grant org-wide read/approve until enforcement ships.
-const TEAM_SCOPED_MANAGER_PERMS = new Set([
-  "employee.read",
-  "attendance.read",
-  "leave.read",
-  "leave.approve",
-]);
 
 // ─── Deterministic helpers ─────────────────────────────────────────────────
 
@@ -445,7 +436,7 @@ async function main(): Promise<void> {
           permissionKey,
           scope:
             role.key === "manager" &&
-            TEAM_SCOPED_MANAGER_PERMS.has(permissionKey)
+            MANAGER_TEAM_PERMISSIONS.has(permissionKey)
               ? ("team" as const)
               : undefined,
         })),

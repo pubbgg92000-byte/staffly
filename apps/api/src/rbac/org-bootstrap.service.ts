@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import {
   SYSTEM_ROLES,
   expandRolePermissions,
+  MANAGER_TEAM_PERMISSIONS,
   type RoleKey,
 } from "./system-roles";
 import { DEFAULT_LEAVE_TYPES } from "../leave/default-leave-types";
@@ -50,11 +51,16 @@ export class OrgBootstrapService {
       const permKeys = expandRolePermissions(role);
       if (permKeys.length === 0) continue;
 
+      const teamScoped =
+        role.key === "manager" ? MANAGER_TEAM_PERMISSIONS : undefined;
       await tx.rolePermission.createMany({
         data: permKeys.map((permissionKey) => ({
           organizationId,
           roleId: created.id,
           permissionKey,
+          // Manager team-scoped reads/approve land with scope=team; everything
+          // else inherits the DB default (global).
+          scope: teamScoped?.has(permissionKey) ? ("team" as const) : undefined,
         })),
         skipDuplicates: true,
       });

@@ -116,8 +116,9 @@ export class LeaveController {
   @RequirePermission("leave.read")
   listRequests(
     @Query(new ZodQuery(RequestsListQuery)) q: RequestsListQueryT,
+    @CurrentUser() user: RequestUser,
   ): Promise<unknown> {
-    return this.requests.list(q);
+    return this.requests.list(q, user.userId);
   }
 
   @Patch("requests/:id/cancel")

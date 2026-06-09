@@ -7,6 +7,7 @@ import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../infra/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { UsersService } from "../rbac/users.service";
+import { CallerScopeService } from "../rbac/caller-scope.service";
 import { pageOf, skipTake, type Page } from "../common/pagination";
 import { isUniqueViolation } from "../org-structure/departments.service";
 import { currentOrganizationId } from "../tenant/tenant-context";
@@ -33,9 +34,13 @@ export class EmployeesService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly users: UsersService,
+    private readonly callerScope: CallerScopeService,
   ) {}
 
-  async list(q: EmployeeListQueryT): Promise<Page<unknown>> {
+  async list(
+    q: EmployeeListQueryT,
+    callerUserId?: string,
+  ): Promise<Page<unknown>> {
     const where: Prisma.EmployeeWhereInput = q.includeArchived
       ? {}
       : { deletedAt: null };
@@ -51,6 +56,15 @@ export class EmployeesService {
         { employeeCode: { contains: q.search, mode: "insensitive" } },
         { workEmail: { contains: q.search, mode: "insensitive" } },
       ];
+    }
+    // Team scoping: a manager (employee.read held at `team` scope) sees only
+    // their own record + direct/indirect reports. global scope → no restriction.
+    if (callerUserId) {
+      const team = await this.callerScope.teamFilterFor(
+        callerUserId,
+        "employee.read",
+      );
+      if (team) where.id = { in: team };
     }
 
     const [items, total] = await Promise.all([

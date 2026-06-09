@@ -19,6 +19,7 @@ import argon2 from "argon2";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { DEFAULT_DOCUMENT_CATEGORIES } from "../src/documents/default-document-categories";
+import { MANAGER_TEAM_PERMISSIONS } from "../src/rbac/system-roles";
 import { resolveEmployeeTimezone } from "../src/common/timezone";
 import { localDateInTimezone } from "../src/attendance/local-date";
 
@@ -46,15 +47,6 @@ const catalog = JSON.parse(readFileSync(catalogPath, "utf8")) as Catalog;
 
 const ORG_SLUG = "staffly-dev";
 const ORG_NAME = "Staffly Dev";
-
-// Manager permissions recorded with PermissionScope.team (row-level team
-// filtering is Phase 2; see role-permissions.json manager description).
-const TEAM_SCOPED_MANAGER_PERMS = new Set([
-  "employee.read",
-  "attendance.read",
-  "leave.read",
-  "leave.approve",
-]);
 
 const USERS: {
   email: string;
@@ -169,7 +161,7 @@ async function main(): Promise<void> {
           permissionKey,
           scope:
             role.key === "manager" &&
-            TEAM_SCOPED_MANAGER_PERMS.has(permissionKey)
+            MANAGER_TEAM_PERMISSIONS.has(permissionKey)
               ? ("team" as const)
               : undefined,
         })),

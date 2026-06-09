@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { OrgBootstrapService } from "./org-bootstrap.service";
 import { PermissionsService } from "./permissions.service";
+import { CallerScopeService } from "./caller-scope.service";
 import { PermissionGuard } from "./permission.guard";
 import { RolesService } from "./roles.service";
 import { UsersService } from "./users.service";
@@ -14,6 +15,7 @@ import { AuditModule } from "../audit/audit.module";
   providers: [
     OrgBootstrapService,
     PermissionsService,
+    CallerScopeService,
     PermissionGuard,
     RolesService,
     UsersService,
@@ -22,6 +24,7 @@ import { AuditModule } from "../audit/audit.module";
   exports: [
     OrgBootstrapService,
     PermissionsService,
+    CallerScopeService,
     PermissionGuard,
     UsersService,
   ],

@@ -41,6 +41,20 @@ export const ALL_PERMISSION_KEYS: readonly string[] = Object.freeze(
 export const SYSTEM_ROLES: readonly RoleEntry[] = Object.freeze(catalog.roles);
 
 /**
+ * Manager permissions that are conceptually team-scoped. These are stored on
+ * the `role_permission` row with `PermissionScope.team`, which the
+ * CallerScopeService reads to restrict managers to their direct/indirect
+ * reports. Single source of truth — used by org bootstrap (signup) and both
+ * seeds so real orgs and demo orgs behave identically.
+ */
+export const MANAGER_TEAM_PERMISSIONS: ReadonlySet<string> = new Set([
+  "employee.read",
+  "attendance.read",
+  "leave.read",
+  "leave.approve",
+]);
+
+/**
  * Highest to lowest. A user with multiple roles is presented to the API as the
  * highest-precedence one in this list (used for `/auth/me`'s singular `role`
  * projection).

@@ -8,6 +8,7 @@ import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../infra/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { PermissionsService } from "../rbac/permissions.service";
+import { CallerScopeService } from "../rbac/caller-scope.service";
 import { LeaveBalancesService } from "./leave-balances.service";
 import { HolidayLookupService } from "../holidays/holiday-lookup.service";
 import { pageOf, skipTake, type Page } from "../common/pagination";
@@ -25,11 +26,15 @@ export class LeaveRequestsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly permissions: PermissionsService,
+    private readonly callerScope: CallerScopeService,
     private readonly balances: LeaveBalancesService,
     private readonly holidayLookup: HolidayLookupService,
   ) {}
 
-  async list(q: RequestsListQueryT): Promise<Page<unknown>> {
+  async list(
+    q: RequestsListQueryT,
+    callerUserId?: string,
+  ): Promise<Page<unknown>> {
     const where: Prisma.LeaveRequestWhereInput = {};
     if (q.employeeId) where.employeeId = q.employeeId;
     if (q.leaveTypeId) where.leaveTypeId = q.leaveTypeId;
@@ -39,6 +44,22 @@ export class LeaveRequestsService {
         ...(q.from ? { gte: new Date(q.from) } : {}),
         ...(q.to ? { lte: new Date(q.to) } : {}),
       };
+    }
+    // Team scoping: a manager (leave.read at `team` scope) sees only their
+    // team's requests. global scope → no restriction. An explicit employeeId
+    // filter is intersected with the team.
+    if (callerUserId) {
+      const team = await this.callerScope.teamFilterFor(
+        callerUserId,
+        "leave.read",
+      );
+      if (team) {
+        if (q.employeeId) {
+          if (!team.includes(q.employeeId)) where.employeeId = { in: [] };
+        } else {
+          where.employeeId = { in: team };
+        }
+      }
     }
     const [items, total] = await Promise.all([
       this.prisma.db.leaveRequest.findMany({
@@ -228,6 +249,15 @@ export class LeaveRequestsService {
       if (!perms.has("leave.approve")) {
         throw new ForbiddenException({ code: "auth.forbidden" });
       }
+      // Team scoping: a manager may only cancel their team's requests.
+      const canAct = await this.callerScope.canActOnEmployee(
+        actor.userId,
+        "leave.approve",
+        before.employeeId,
+      );
+      if (!canAct) {
+        throw new ForbiddenException({ code: "auth.forbidden" });
+      }
     }
 
     const result = await this.prisma.db.$transaction(
@@ -298,6 +328,17 @@ export class LeaveRequestsService {
       throw new NotFoundException({ code: "leave.request.not_found" });
     if (before.status !== "pending") {
       throw new BadRequestException({ code: "leave.request.not_pending" });
+    }
+    // Team scoping: a manager (leave.approve at `team` scope) may only decide
+    // their team's requests. global scope (hr/super) → always allowed.
+    const permKey = decision === "approved" ? "leave.approve" : "leave.reject";
+    const canAct = await this.callerScope.canActOnEmployee(
+      actor.userId,
+      permKey,
+      before.employeeId,
+    );
+    if (!canAct) {
+      throw new ForbiddenException({ code: "auth.forbidden" });
     }
 
     const result = await this.prisma.db.$transaction(

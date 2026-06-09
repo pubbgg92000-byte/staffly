@@ -179,8 +179,9 @@ export class AttendanceController {
   @RequirePermission("attendance.read")
   listRecords(
     @Query(new ZodQuery(RecordsListQuery)) q: RecordsListQueryT,
+    @CurrentUser() user: RequestUser,
   ): Promise<unknown> {
-    return this.attendance.list(q);
+    return this.attendance.list(q, user.userId);
   }
 
   @Get("attendance/:id")

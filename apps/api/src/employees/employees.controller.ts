@@ -38,8 +38,9 @@ export class EmployeesController {
   @RequirePermission("employee.read")
   list(
     @Query(new ZodQuery(EmployeeListQuery)) q: EmployeeListQueryT,
+    @CurrentUser() user: RequestUser,
   ): Promise<unknown> {
-    return this.employees.list(q);
+    return this.employees.list(q, user.userId);
   }
 
   // /me declared BEFORE /:id so Nest does not match "me" as a UUID.
