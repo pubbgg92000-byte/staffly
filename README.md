@@ -4,24 +4,38 @@ Staffly is the working repository for **PeopleFlow**, a multi-tenant HRMS for SM
 
 ## Status
 
-**v0.12-ui-dashboard** — active development.
+**v0.23-org-settings** — active development (+ v0.23.1 attendance-timezone hotfixes applied).
 
-Twelve releases shipped across the backend sprint and UI foundation sprints:
+Twenty-three releases shipped across the backend, UI, and platform sprints:
 
-| Tag                         | Milestone                                                       |
-| --------------------------- | --------------------------------------------------------------- |
-| `v0.1-infrastructure`       | Monorepo, CI, Docker Compose                                    |
-| `v0.2-auth`                 | Auth + RBAC + multi-tenancy (JWT, refresh chain, org-bootstrap) |
-| `v0.3-employee-management`  | Employee records + org structure                                |
-| `v0.4-attendance`           | Attendance policies, check-in/out, regularization               |
-| `v0.5-leave-management`     | Leave types, balances, requests, approvals                      |
-| `v0.6-holidays`             | Holiday calendars + location assignment                         |
-| `v0.7-announcements`        | Announcement composer, scheduling, ack tracking                 |
-| `v0.8-documents-compliance` | Documents, versioning, MinIO, ack tracking                      |
-| `v0.9-dashboards`           | `GET /dashboard/admin` + `GET /dashboard/employee` aggregations |
-| `v0.10-ui-foundation`       | Shared UI package + auth/dashboard route scaffolds              |
-| `v0.11-ui-auth`             | End-to-end authentication for both portals                      |
-| `v0.12-ui-dashboard`        | Live dashboard widgets wired to API data                        |
+| Tag                                         | Milestone                                                        |
+| ------------------------------------------- | ---------------------------------------------------------------- |
+| `v0.1-infrastructure`                       | Monorepo, CI, Docker Compose                                     |
+| `v0.2-auth`                                 | Auth + RBAC + multi-tenancy (JWT, refresh chain, org-bootstrap)  |
+| `v0.3-employee-management`                  | Employee records + org structure                                 |
+| `v0.4-attendance`                           | Attendance policies, check-in/out, regularization                |
+| `v0.5-leave-management`                     | Leave types, balances, requests, approvals                       |
+| `v0.6-holidays`                             | Holiday calendars + location assignment                          |
+| `v0.7-announcements`                        | Announcement composer, scheduling, ack tracking                  |
+| `v0.8-documents-compliance`                 | Documents, versioning, MinIO, ack tracking                       |
+| `v0.9-dashboards`                           | `GET /dashboard/admin` + `GET /dashboard/employee` aggregations  |
+| `v0.10-ui-foundation`                       | Shared UI package + auth/dashboard route scaffolds               |
+| `v0.11-ui-auth`                             | End-to-end authentication for both portals                       |
+| `v0.12-ui-dashboard`                        | Live dashboard widgets wired to API data                         |
+| `v0.13-ui-employees`                        | Employees CRUD admin UI — list, create, detail, edit, offboard   |
+| `v0.14-ui-attendance`                       | Attendance admin + employee self-service UI                      |
+| `v0.15-ui-leave`                            | Leave request, approval, balance UI                              |
+| `v0.16-ui-holidays`                         | Holiday calendar admin + employee view                           |
+| `v0.17-ui-announcements`                    | Announcement composer + employee feed UI                         |
+| `v0.18-ui-documents`                        | Documents UI — categories, upload, versions, ack                 |
+| `v0.18.2-announcements-documents-hardening` | Lifecycle fixes + employee download endpoint + Confirm dialogs   |
+| `v0.19-ui-org-structure`                    | Admin org-structure pages + employee "My Org"                    |
+| `v0.20-rbac-backend` / `v0.20-ui-rbac`      | Full RBAC + invite API; roles, users, invites admin pages        |
+| `v0.20.2-archive-restore`                   | `POST /:resource/:id/restore` across 10 soft-deletable resources |
+| `v0.21-audit-viewer`                        | `GET /audit-logs` + Settings → Audit Log page                    |
+| `v0.22-notifications`                       | In-app notifications — topbar bell + inbox + unread count        |
+| **`v0.23-org-settings`**                    | **Organization profile + branding + settings UI**                |
+| `v0.23.1-attendance-tz`                     | Dashboard + seed alignment with employee-local timezone (hotfix) |
 
 ## Stack
 
