@@ -16,9 +16,10 @@ import {
   useEmployees,
   useLeaveRequests,
   useLeaveTypes,
+  usePermissionCheck,
 } from "@staffly/ui";
 import type { LeaveRequest, LeaveRequestStatus } from "@staffly/types";
-import { CalendarDays, Scale } from "lucide-react";
+import { CalendarDays, Scale, ShieldOff } from "lucide-react";
 import { DecideLeaveDialog } from "./_components/decide-leave-dialog";
 
 const STATUS_TONE: Record<string, StatusTone> = {
@@ -69,6 +70,9 @@ function LeaveRequestsContent(): React.ReactNode {
   const to = sp.get("to") ?? "";
   const pageParam = Math.max(1, Number(sp.get("page")) || 1);
 
+  const { has, isLoading: permsLoading } = usePermissionCheck();
+  const canRead = has("leave.read");
+
   const { data, isLoading, isError, refetch } = useLeaveRequests({
     page: pageParam,
     pageSize: 20,
@@ -115,12 +119,12 @@ function LeaveRequestsContent(): React.ReactNode {
   );
 
   useEffect(() => {
-    if (isError) {
+    if (isError && canRead) {
       toast.error("Failed to load leave requests", {
         action: { label: "Retry", onClick: refetch },
       });
     }
-  }, [isError, refetch]);
+  }, [isError, refetch, canRead]);
 
   const items = data?.items ?? [];
   const meta = data?.meta;
@@ -130,6 +134,23 @@ function LeaveRequestsContent(): React.ReactNode {
     setSelected(req);
     setDialogOpen(true);
   };
+
+  // Forbidden state — page renders but data is gated by permission.
+  if (!permsLoading && !canRead) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Leave Requests"
+          subtitle="Review and approve leave"
+        />
+        <EmptyState
+          icon={<ShieldOff className="h-8 w-8" />}
+          title="Forbidden"
+          description="You need the leave.read permission to view leave requests."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

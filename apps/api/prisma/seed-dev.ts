@@ -47,6 +47,15 @@ const catalog = JSON.parse(readFileSync(catalogPath, "utf8")) as Catalog;
 const ORG_SLUG = "staffly-dev";
 const ORG_NAME = "Staffly Dev";
 
+// Manager permissions recorded with PermissionScope.team (row-level team
+// filtering is Phase 2; see role-permissions.json manager description).
+const TEAM_SCOPED_MANAGER_PERMS = new Set([
+  "employee.read",
+  "attendance.read",
+  "leave.read",
+  "leave.approve",
+]);
+
 const USERS: {
   email: string;
   password: string;
@@ -158,6 +167,11 @@ async function main(): Promise<void> {
           organizationId: org.id,
           roleId: created.id,
           permissionKey,
+          scope:
+            role.key === "manager" &&
+            TEAM_SCOPED_MANAGER_PERMS.has(permissionKey)
+              ? ("team" as const)
+              : undefined,
         })),
         skipDuplicates: true,
       });

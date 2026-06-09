@@ -60,6 +60,16 @@ const ORG_NAME = "Acme Corporation";
 // Pinned so the org id (and thus the whole dataset) is stable across re-seeds.
 const ORG_ID = "019e0000-0000-7000-8000-000000000001";
 
+// Manager permissions that are conceptually team-scoped. Recorded with
+// PermissionScope.team on the role_permission row; row-level team filtering is
+// Phase 2, so today these grant org-wide read/approve until enforcement ships.
+const TEAM_SCOPED_MANAGER_PERMS = new Set([
+  "employee.read",
+  "attendance.read",
+  "leave.read",
+  "leave.approve",
+]);
+
 // ─── Deterministic helpers ─────────────────────────────────────────────────
 
 // mulberry32 — small seeded PRNG. Fixed seed → identical sequence every run.
@@ -433,6 +443,11 @@ async function main(): Promise<void> {
           organizationId: org.id,
           roleId: created.id,
           permissionKey,
+          scope:
+            role.key === "manager" &&
+            TEAM_SCOPED_MANAGER_PERMS.has(permissionKey)
+              ? ("team" as const)
+              : undefined,
         })),
         skipDuplicates: true,
       });
@@ -652,8 +667,24 @@ async function main(): Promise<void> {
     const workEmail = login ? login.email : mkEmail(first, last, i);
     usedEmails.add(workEmail);
     // ~1 in 7 designated as a manager (plus the explicit manager login).
-    const isManager = login?.role === "manager" || (!login && chance(0.14));
-    const status = !login && chance(0.08) ? "on_leave" : "active";
+    // The last 3 non-login employees are recent hires (joined this month), so
+    // the dashboard "New joins this month" metric is non-zero. New hires are
+    // not managers.
+    const isRecentJoin = !login && i >= TOTAL - 3;
+    const isManager =
+      login?.role === "manager" || (!login && !isRecentJoin && chance(0.14));
+    const status =
+      !login && !isRecentJoin && chance(0.08) ? "on_leave" : "active";
+    let joinedOn: Date;
+    if (isRecentJoin) {
+      const monthStart = new Date(
+        Date.UTC(TODAY.getUTCFullYear(), TODAY.getUTCMonth(), 1),
+      );
+      const candidate = addDays(TODAY, -(2 + (i - (TOTAL - 3)) * 3));
+      joinedOn = candidate < monthStart ? monthStart : candidate;
+    } else {
+      joinedOn = addDays(TODAY, -randInt(180, 1500));
+    }
     empSpecs.push({
       id,
       code,
@@ -666,7 +697,7 @@ async function main(): Promise<void> {
       employmentType,
       workMode: pick(workModes),
       status,
-      joinedOn: addDays(TODAY, -randInt(180, 1500)),
+      joinedOn,
       userId,
       isManager,
     });
@@ -772,11 +803,15 @@ async function main(): Promise<void> {
     isLate: boolean;
   }[] = [];
 
-  for (let back = 90; back >= 1; back--) {
+  // Last 90 days through TODAY (back === 0). Today is left "in progress":
+  // most employees are checked in with no check-out yet, so the admin
+  // "Today's attendance" widget and live trend point are populated.
+  for (let back = 90; back >= 0; back--) {
     const day = addDays(TODAY, -back);
     const dow = day.getUTCDay();
     if (dow === 0 || dow === 6) continue; // weekend
     if (isHoliday(day)) continue;
+    const isToday = back === 0;
     for (const e of empSpecs) {
       if (e.joinedOn > day) continue;
       const roll = rng();
@@ -785,7 +820,20 @@ async function main(): Promise<void> {
         checkOut: Date | null = null,
         worked: number | null = null,
         late = false;
-      if (roll < 0.86) {
+      if (isToday) {
+        // In-progress day: checked-in but not yet checked out (no worked
+        // minutes), a few already on leave, a few not checked in yet (no row).
+        if (roll < 0.82) {
+          status = "present";
+          const lateMin = chance(0.15) ? randInt(16, 75) : randInt(-10, 14);
+          late = lateMin > 15;
+          checkIn = atHour(day, 9, Math.max(0, lateMin));
+        } else if (roll < 0.9) {
+          status = "on_leave";
+        } else {
+          continue; // not checked in yet → no record for today
+        }
+      } else if (roll < 0.86) {
         status = "present";
         const lateMin = chance(0.15) ? randInt(16, 75) : randInt(-10, 14);
         late = lateMin > 15;

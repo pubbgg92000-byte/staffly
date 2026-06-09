@@ -21,8 +21,9 @@ import {
   useEmployees,
   useDepartments,
   useRestoreEmployee,
+  usePermissionCheck,
 } from "@staffly/ui";
-import { Plus, Search, Undo2, Users } from "lucide-react";
+import { Plus, Search, Undo2, Users, ShieldOff } from "lucide-react";
 
 function initials(name: string): string {
   return name
@@ -86,6 +87,8 @@ function EmployeesListContent(): React.ReactNode {
   // user is currently disabled; the dialog re-syncs on open.
   const [restoreReactivateUser, setRestoreReactivateUser] = useState(true);
   const restore = useRestoreEmployee();
+  const { has, isLoading: permsLoading } = usePermissionCheck();
+  const canRead = has("employee.read");
 
   const { data, isLoading, isError, refetch } = useEmployees({
     page: pageParam,
@@ -126,16 +129,30 @@ function EmployeesListContent(): React.ReactNode {
   }, [search, searchParam, updateParams]);
 
   useEffect(() => {
-    if (isError) {
+    if (isError && canRead) {
       toast.error("Failed to load employees", {
         action: { label: "Retry", onClick: refetch },
       });
     }
-  }, [isError, refetch]);
+  }, [isError, refetch, canRead]);
 
   const items = data?.items ?? [];
   const meta = data?.meta;
   const isEmpty = !isLoading && items.length === 0;
+
+  // Forbidden state — page renders but data is gated by permission.
+  if (!permsLoading && !canRead) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Employees" subtitle="Directory and records" />
+        <EmptyState
+          icon={<ShieldOff className="h-8 w-8" />}
+          title="Forbidden"
+          description="You need the employee.read permission to view employees."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

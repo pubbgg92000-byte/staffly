@@ -359,13 +359,17 @@
     {
       "key": "manager",
       "name": "Manager",
-      "description": "Placeholder for Phase 2 team-scoped approvals. No extra powers in Phase 1.",
+      "description": "Team lead — reads team employee/attendance/leave data and approves leave. Read/approve keys are stored with team scope; team-level row filtering lands in Phase 2 (currently org-wide until scope enforcement ships).",
       "isSystem": true,
       "permissions": [
         "dashboard.view",
         "announcement.read",
         "announcement.acknowledge",
-        "holiday.read"
+        "holiday.read",
+        "employee.read",
+        "attendance.read",
+        "leave.read",
+        "leave.approve"
       ]
     },
     {

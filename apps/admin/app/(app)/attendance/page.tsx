@@ -17,9 +17,10 @@ import {
   toast,
   useAttendanceList,
   useEmployees,
+  usePermissionCheck,
 } from "@staffly/ui";
 import type { AttendanceStatus } from "@staffly/types";
-import { CalendarDays, ClipboardCheck, Clock } from "lucide-react";
+import { CalendarDays, ClipboardCheck, Clock, ShieldOff } from "lucide-react";
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "All statuses" },
@@ -84,6 +85,9 @@ function AttendanceListContent(): React.ReactNode {
   const statusParam = sp.get("status") ?? "";
   const pageParam = Math.max(1, Number(sp.get("page")) || 1);
 
+  const { has, isLoading: permsLoading } = usePermissionCheck();
+  const canRead = has("attendance.read");
+
   const { data, isLoading, isError, refetch } = useAttendanceList({
     page: pageParam,
     pageSize: 20,
@@ -123,17 +127,31 @@ function AttendanceListContent(): React.ReactNode {
   );
 
   useEffect(() => {
-    if (isError) {
+    if (isError && canRead) {
       toast.error("Failed to load attendance records", {
         action: { label: "Retry", onClick: refetch },
       });
     }
-  }, [isError, refetch]);
+  }, [isError, refetch, canRead]);
 
   const items = data?.items ?? [];
   const meta = data?.meta;
   const isEmpty = !isLoading && items.length === 0;
   const hasFilters = !!(employeeId || from || to || statusParam);
+
+  // Forbidden state — page renders but data is gated by permission.
+  if (!permsLoading && !canRead) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Attendance" subtitle="Daily attendance records" />
+        <EmptyState
+          icon={<ShieldOff className="h-8 w-8" />}
+          title="Forbidden"
+          description="You need the attendance.read permission to view attendance."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
