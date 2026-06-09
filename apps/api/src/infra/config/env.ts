@@ -79,6 +79,11 @@ const EnvSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
   S3_PRESIGN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
+
+  // ─── Observability ───────────────────────────────────────────────────
+  // Sentry DSN for the API. Optional — when unset (dev/test/CI) Sentry init
+  // is a no-op and nothing is reported.
+  SENTRY_DSN: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

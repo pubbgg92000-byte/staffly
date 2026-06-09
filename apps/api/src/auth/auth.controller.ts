@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
+import { Throttle } from "@nestjs/throttler";
 import {
   AuthService,
   isChallenge,
@@ -21,6 +22,14 @@ import {
   type SigninOutcome,
   type TwoFactorChallengeResult,
 } from "./auth.service";
+
+/**
+ * Strict per-IP limits for credential / token endpoints — tighter than the
+ * global 120/min default. Keyed on the real client IP by
+ * ThrottlerBehindProxyGuard. Blunts brute-force + enumeration on the public
+ * demo (defence-in-depth alongside the Cloudflare WAF rule).
+ */
+const AUTH_THROTTLE = { default: { limit: 10, ttl: 60_000 } } as const;
 import { SignupBody, type SignupBodyT } from "./dto/signup.dto";
 import { SigninBody, type SigninBodyT } from "./dto/signin.dto";
 import {
@@ -66,6 +75,7 @@ export class AuthController {
   // ─── Signup (org bootstrap) ─────────────────────────────────────────
 
   @Public()
+  @Throttle(AUTH_THROTTLE)
   @Post("signup")
   async signup(
     @Body(new ZodBody(SignupBody)) body: SignupBodyT,
@@ -85,6 +95,7 @@ export class AuthController {
   // ─── Signin (password + optional 2FA challenge) ─────────────────────
 
   @Public()
+  @Throttle(AUTH_THROTTLE)
   @Post("signin")
   @HttpCode(HttpStatus.OK)
   async signin(
@@ -108,6 +119,7 @@ export class AuthController {
   // ─── Verify 2FA ─────────────────────────────────────────────────────
 
   @Public()
+  @Throttle(AUTH_THROTTLE)
   @Post("verify-2fa")
   @HttpCode(HttpStatus.OK)
   async verifyTwoFactor(
@@ -178,6 +190,7 @@ export class AuthController {
    * without setting up SMTP — production strips this field.
    */
   @Public()
+  @Throttle(AUTH_THROTTLE)
   @Post("forgot-password")
   @HttpCode(HttpStatus.OK)
   forgotPassword(
@@ -188,6 +201,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(AUTH_THROTTLE)
   @Post("reset-password")
   @HttpCode(HttpStatus.OK)
   resetPassword(
@@ -207,6 +221,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle(AUTH_THROTTLE)
   @Post("accept-invite")
   @HttpCode(HttpStatus.OK)
   async acceptInvite(

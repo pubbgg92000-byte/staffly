@@ -7,6 +7,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import type { Response } from "express";
+import * as Sentry from "@sentry/node";
 import { TenantBoundaryViolation } from "../tenant/tenant-context";
 
 interface ErrorEnvelope {
@@ -46,6 +47,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     this.logger.error("Unhandled exception", exception as Error);
+    // Report genuine 5xx/unknown failures to Sentry (no-op if SENTRY_DSN is
+    // unset). HttpExceptions above are expected, client-facing errors and are
+    // intentionally not reported.
+    Sentry.captureException(exception);
     res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
       error: { code: "internal_error", message: "Internal server error" },
     } satisfies ErrorEnvelope);

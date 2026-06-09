@@ -1,7 +1,10 @@
 import "reflect-metadata";
 import "./common/bigint-json";
 import { NestFactory } from "@nestjs/core";
+import type { NestExpressApplication } from "@nestjs/platform-express";
 import { Logger } from "@nestjs/common";
+import * as Sentry from "@sentry/node";
+import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import * as path from "node:path";
 import { AppModule } from "./app.module";
@@ -17,7 +20,34 @@ try {
 
 async function bootstrap(): Promise<void> {
   const env = loadEnv();
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+
+  // ─── Sentry ──────────────────────────────────────────────────────────
+  // No-op when SENTRY_DSN is unset (dev/test/CI). The GlobalExceptionFilter
+  // forwards unhandled 5xx errors via Sentry.captureException.
+  if (env.SENTRY_DSN) {
+    Sentry.init({
+      dsn: env.SENTRY_DSN,
+      environment: env.NODE_ENV,
+      // Error-only for the demo; turn on tracing later if needed.
+      tracesSampleRate: 0,
+    });
+  }
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bufferLogs: true,
+  });
+
+  // ─── Proxy trust + real client IP ────────────────────────────────────
+  // Public traffic arrives via Cloudflare edge → Tunnel → Caddy, so the TCP
+  // peer is loopback. Trust the loopback hop so `req.ip` resolves the
+  // forwarded chain (Caddy sets X-Forwarded-For = CF-Connecting-IP). This is
+  // what makes per-IP rate limiting and audit IPs reflect the real visitor.
+  // "loopback" is deliberately narrow — we never trust XFF from a non-local
+  // peer, so a direct caller cannot spoof its IP.
+  app.set("trust proxy", "loopback");
+
+  // Security headers. Defaults are appropriate for a JSON API.
+  app.use(helmet());
   app.use(cookieParser());
 
   // ─── CORS ────────────────────────────────────────────────────────────

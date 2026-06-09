@@ -1,6 +1,9 @@
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { HealthController } from "./health.controller";
+import { ThrottlerBehindProxyGuard } from "./common/throttler-behind-proxy.guard";
+import { StorageModule } from "./storage/storage.module";
 import { PrismaModule } from "./infra/prisma/prisma.module";
 import { AuthModule } from "./auth/auth.module";
 import { RbacModule } from "./rbac/rbac.module";
@@ -23,7 +26,13 @@ import { GlobalExceptionFilter } from "./common/http-exception.filter";
 
 @Module({
   imports: [
+    // Global rate limiting. Generous default ceiling per client IP (keyed by
+    // the proxy-aware guard below); /auth/* tightens this via @Throttle, and
+    // /healthz + /readyz are exempt via @SkipThrottle. In-memory storage is
+    // fine for the single-instance demo.
+    ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 120 }]),
     PrismaModule,
+    StorageModule,
     AuditModule,
     AuthModule,
     RbacModule,
@@ -40,6 +49,9 @@ import { GlobalExceptionFilter } from "./common/http-exception.filter";
   ],
   controllers: [HealthController],
   providers: [
+    // Throttler runs FIRST so unauthenticated floods are rejected before the
+    // auth/permission guards do any work.
+    { provide: APP_GUARD, useClass: ThrottlerBehindProxyGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_GUARD, useClass: PermissionGuard },

@@ -1,11 +1,21 @@
 import { Inject, Injectable, Logger, Module } from "@nestjs/common";
-import { Client as MinioClient } from "minio";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+  HeadBucketCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { loadEnv } from "../infra/config/env";
 
 /**
  * The slice of S3-style functionality the documents module actually uses.
  * We isolate against this interface so tests can inject a deterministic
- * in-memory stub without spinning MinIO up.
+ * in-memory stub without spinning real storage up.
+ *
+ * Backed by the AWS SDK v3 against Cloudflare R2 (S3v4-compatible) in
+ * dev/prod; tests override the STORAGE_CLIENT token with a stub.
  */
 export interface StorageClient {
   presignedPutObject(
@@ -20,6 +30,12 @@ export interface StorageClient {
     reqParams?: Record<string, string>,
   ): Promise<string>;
   removeObject(bucket: string, key: string): Promise<void>;
+  /**
+   * Optional liveness probe used by /readyz. Optional so test stubs (which
+   * only implement the three methods above) stay valid; when absent the
+   * readiness check treats storage as "not probed".
+   */
+  healthCheck?(bucket: string): Promise<void>;
 }
 
 export const STORAGE_CLIENT = Symbol("STORAGE_CLIENT");
@@ -131,34 +147,80 @@ export class StorageService {
       );
     }
   }
+
+  /**
+   * Readiness probe for /readyz. Returns:
+   *   - "ok"        — bucket reachable
+   *   - "skipped"   — client has no healthCheck (test stub / unconfigured)
+   *   - throws      — storage configured but unreachable (caller maps to 503)
+   */
+  async healthCheck(): Promise<"ok" | "skipped"> {
+    if (!this.client.healthCheck) return "skipped";
+    const env = loadEnv();
+    await this.client.healthCheck(env.S3_BUCKET);
+    return "ok";
+  }
 }
 
 /**
- * Build a real MinIO client from env when running in dev/prod. If env vars
- * are missing the factory returns a lazy stub that throws on use — that way
- * the API can boot without storage configured, and tests can override the
- * STORAGE_CLIENT token entirely.
+ * Build an S3v4 client (AWS SDK v3) from env when running in dev/prod. Target
+ * is Cloudflare R2 (`S3_REGION=auto`, path-style addressing). If env vars are
+ * missing the factory returns a lazy stub that throws on use — so the API can
+ * boot without storage configured, and tests override the STORAGE_CLIENT
+ * token entirely.
+ *
+ * The presigned-URL architecture is unchanged: the browser uploads/downloads
+ * directly against R2 via these short-lived URLs; the API never proxies bytes.
  */
 function buildClientFromEnv(): StorageClient {
   const env = loadEnv();
   if (!env.S3_ENDPOINT || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY) {
+    const notConfigured = (): Promise<never> =>
+      Promise.reject(new Error("storage not configured"));
     return {
-      presignedPutObject: () =>
-        Promise.reject(new Error("storage not configured")),
-      presignedGetObject: () =>
-        Promise.reject(new Error("storage not configured")),
-      removeObject: () => Promise.reject(new Error("storage not configured")),
+      presignedPutObject: notConfigured,
+      presignedGetObject: notConfigured,
+      removeObject: notConfigured,
+      healthCheck: notConfigured,
     };
   }
-  const url = new URL(env.S3_ENDPOINT);
-  return new MinioClient({
-    endPoint: url.hostname,
-    port: Number(url.port) || (url.protocol === "https:" ? 443 : 80),
-    useSSL: url.protocol === "https:",
-    accessKey: env.S3_ACCESS_KEY_ID,
-    secretKey: env.S3_SECRET_ACCESS_KEY,
-    region: env.S3_REGION,
+
+  const s3 = new S3Client({
+    endpoint: env.S3_ENDPOINT,
+    region: env.S3_REGION, // "auto" for R2
+    // R2 requires path-style addressing (no virtual-hosted bucket subdomain).
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: env.S3_ACCESS_KEY_ID,
+      secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+    },
   });
+
+  return {
+    presignedPutObject: (bucket, key, expirySeconds) =>
+      getSignedUrl(s3, new PutObjectCommand({ Bucket: bucket, Key: key }), {
+        expiresIn: expirySeconds,
+      }),
+    presignedGetObject: (bucket, key, expirySeconds, reqParams) =>
+      getSignedUrl(
+        s3,
+        new GetObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          // Map the legacy MinIO param name to the S3 SDK field so callers
+          // (StorageService.presignDownload) keep working unchanged.
+          ResponseContentDisposition:
+            reqParams?.["response-content-disposition"],
+        }),
+        { expiresIn: expirySeconds },
+      ),
+    removeObject: async (bucket, key) => {
+      await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    },
+    healthCheck: async (bucket) => {
+      await s3.send(new HeadBucketCommand({ Bucket: bucket }));
+    },
+  };
 }
 
 @Module({
