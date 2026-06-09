@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../infra/prisma/prisma.service";
 import { currentOrganizationId } from "../tenant/tenant-context";
+import { resolveEmployeeTimezone } from "../common/timezone";
+import { localDateInTimezone } from "../attendance/local-date";
 import {
   daysAgoWindow,
   denseDailySeries,
@@ -311,12 +313,25 @@ export class DashboardService {
         designationId: true,
         locationId: true,
         employmentType: true,
+        timezoneOverride: true,
+        location: { select: { timezone: true } },
+        organization: { select: { timezone: true } },
       },
     });
     if (!me) throw new NotFoundException({ code: "employee.not_found" });
 
     const now = new Date();
     const today = startOfDayUTC(now);
+    // Attendance rows are dated by the EMPLOYEE'S local calendar day (see
+    // AttendanceService.checkIn). When the employee's tz differs from UTC,
+    // `startOfDayUTC(now)` and the local date diverge — that mismatch was
+    // the v0.23.1 bug where the dashboard couldn't find an active session
+    // it had just written. Use the local date for the attendance lookup
+    // and the displayed `todayStatus.date`; keep UTC for trend windows and
+    // forward-looking date filters (leave/holidays), which are intentionally
+    // tz-agnostic per docs/02 § 1.2.
+    const employeeTz = resolveEmployeeTimezone(me);
+    const localToday = new Date(localDateInTimezone(now, employeeTz));
     const window7 = daysAgoWindow(7, now);
     const cycleYear = now.getUTCFullYear();
 
@@ -377,7 +392,7 @@ export class DashboardService {
       last7Attendance,
     ] = await Promise.all([
       this.prisma.db.attendanceRecord.findFirst({
-        where: { employeeId: me.id, attendanceDate: today },
+        where: { employeeId: me.id, attendanceDate: localToday },
       }),
       this.prisma.db.leaveBalance.findMany({
         where: { employeeId: me.id, cycleYear },
@@ -529,7 +544,7 @@ export class DashboardService {
         displayName: me.displayName,
       },
       todayStatus: {
-        date: today.toISOString().slice(0, 10),
+        date: localToday.toISOString().slice(0, 10),
         attendance: todayRecord,
       },
       attendanceLast7Days: this.buildEmployeeAttendanceSeries(
