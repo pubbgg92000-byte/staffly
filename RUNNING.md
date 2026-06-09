@@ -70,11 +70,11 @@ pnpm --filter @staffly/employee dev   # Employee only (port 3001)
 
 ## Dev infra ports
 
-| Service | Host port    | Notes                                    |
-| ------- | ------------ | ---------------------------------------- |
-| Postgres | 5433        | Mapped from container 5432               |
-| Redis    | 6379        |                                          |
-| Mailhog  | 1025 / 8025 | SMTP / web UI at http://localhost:8025   |
+| Service  | Host port   | Notes                                     |
+| -------- | ----------- | ----------------------------------------- |
+| Postgres | 5433        | Mapped from container 5432                |
+| Redis    | 6379        |                                           |
+| Mailhog  | 1025 / 8025 | SMTP / web UI at http://localhost:8025    |
 | MinIO    | 9000 / 9001 | S3 API / console at http://localhost:9001 |
 
 ## Common operations
