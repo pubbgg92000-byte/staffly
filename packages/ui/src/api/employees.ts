@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
 import { ApiError } from "./error";
+import { dashboardKeys } from "./dashboard";
 import type {
   EmployeeListResponse,
   EmployeeDetail,
@@ -93,6 +94,7 @@ export function useCreateEmployee(): ReturnType<
     mutationFn: (body) => api.post<EmployeeDetail>("/employees", body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["employees"] });
+      void qc.invalidateQueries({ queryKey: dashboardKeys.admin });
     },
   });
 }
@@ -107,6 +109,7 @@ export function useUpdateEmployee(
     mutationFn: (body) => api.patch<EmployeeDetail>(`/employees/${id}`, body),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["employees"] });
+      void qc.invalidateQueries({ queryKey: dashboardKeys.admin });
     },
   });
 }
@@ -119,6 +122,7 @@ export function useDeleteEmployee(): ReturnType<
     mutationFn: (id) => api.delete(`/employees/${id}`),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["employees"] });
+      void qc.invalidateQueries({ queryKey: dashboardKeys.admin });
     },
   });
 }
@@ -140,6 +144,7 @@ export function useRestoreEmployee(): ReturnType<
       api.post(`/employees/${id}/restore`, { reactivateUser }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["employees"] });
+      void qc.invalidateQueries({ queryKey: dashboardKeys.admin });
       // Linked user may have been reactivated as a cascade.
       void qc.invalidateQueries({ queryKey: ["rbac", "users"] });
     },
