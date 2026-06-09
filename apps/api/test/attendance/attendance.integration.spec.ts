@@ -565,6 +565,102 @@ describe("tenant isolation", () => {
 
 // ─── Audit ───────────────────────────────────────────────────────────────
 
+// ─── v0.24.1 — Attendance Exceptions: schema-level assertions ────────────
+//
+// Phase 1 only verifies the migration landed: the policy default backfills
+// to 6.00, and the seven new AttendanceRecord columns accept the documented
+// enum values + free-text + reviewer reference. Service-level enforcement
+// of the early-checkout gate ships in Phase 2.
+
+describe("attendance exceptions schema (v0.24.1)", () => {
+  it("AttendancePolicy.earlyCheckoutThresholdHours defaults to 6.00", async () => {
+    const { cookies } = await signupOrg();
+    const res = await request(app.getHttpServer())
+      .post("/attendance-policies")
+      .set("Cookie", cookieHeader(cookies))
+      .set("X-CSRF-Token", cookies.csrf!)
+      .send({ name: "Std" })
+      .expect(201);
+    const row = await prisma.db.attendancePolicy.findUniqueOrThrow({
+      where: { id: res.body.id },
+    });
+    expect(Number(row.earlyCheckoutThresholdHours)).toBe(6);
+  });
+
+  it("AttendanceRecord round-trips the new exception columns", async () => {
+    const { cookies, organizationId, userId } = await signupOrg();
+    const employeeId = await createEmployeeForUser(
+      cookies,
+      organizationId,
+      userId,
+    );
+
+    // Compose a record by check-in/out so the row exists, then write the
+    // new columns directly via Prisma — the service-level gate lands in
+    // Phase 2, so the test exercises the schema, not the API surface.
+    await request(app.getHttpServer())
+      .post("/attendance/check-in")
+      .set("Cookie", cookieHeader(cookies))
+      .set("X-CSRF-Token", cookies.csrf!)
+      .send({})
+      .expect(201);
+    const ci = await prisma.db.attendanceRecord.findFirstOrThrow({
+      where: { employeeId },
+    });
+
+    await prisma.db.attendanceRecord.update({
+      where: { id: ci.id },
+      data: {
+        checkOutAt: new Date(),
+        workedMinutes: 120,
+        checkoutType: "emergency",
+        earlyCheckoutReason: "medical",
+        earlyCheckoutNote:
+          "Doctor appointment, will follow up with HR tomorrow.",
+        approvalStatus: "pending",
+      },
+    });
+
+    const after = await prisma.db.attendanceRecord.findUniqueOrThrow({
+      where: { id: ci.id },
+      select: {
+        checkoutType: true,
+        earlyCheckoutReason: true,
+        earlyCheckoutNote: true,
+        approvalStatus: true,
+        reviewedBy: true,
+        reviewedAt: true,
+        reviewComment: true,
+      },
+    });
+    expect(after.checkoutType).toBe("emergency");
+    expect(after.earlyCheckoutReason).toBe("medical");
+    expect(after.earlyCheckoutNote).toMatch(/Doctor appointment/);
+    expect(after.approvalStatus).toBe("pending");
+    expect(after.reviewedBy).toBeNull();
+    expect(after.reviewedAt).toBeNull();
+    expect(after.reviewComment).toBeNull();
+
+    // And the reviewer fields accept a decision write.
+    await prisma.db.attendanceRecord.update({
+      where: { id: ci.id },
+      data: {
+        approvalStatus: "approved",
+        reviewedBy: userId,
+        reviewedAt: new Date(),
+        reviewComment: "OK — medical evidence on file.",
+      },
+    });
+    const decided = await prisma.db.attendanceRecord.findUniqueOrThrow({
+      where: { id: ci.id },
+    });
+    expect(decided.approvalStatus).toBe("approved");
+    expect(decided.reviewedBy).toBe(userId);
+    expect(decided.reviewedAt).toBeInstanceOf(Date);
+    expect(decided.reviewComment).toBe("OK — medical evidence on file.");
+  });
+});
+
 describe("attendance audit logs", () => {
   it("check-in + check-out logged", async () => {
     const { cookies, organizationId, userId } = await signupOrg();

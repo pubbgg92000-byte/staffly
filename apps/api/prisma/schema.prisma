@@ -135,6 +135,31 @@ enum RegularizationStatus {
   @@map("regularization_status")
 }
 
+enum CheckoutType {
+  normal
+  emergency
+
+  @@map("checkout_type")
+}
+
+enum EarlyCheckoutReason {
+  medical
+  personal
+  emergency
+  manager_approved
+
+  @@map("early_checkout_reason")
+}
+
+enum AttendanceApprovalStatus {
+  pending
+  approved
+  rejected
+  not_required
+
+  @@map("attendance_approval_status")
+}
+
 enum LeaveUnit {
   day
   half_day
@@ -639,23 +664,24 @@ model Employee {
 // ─── Attendance ─────────────────────────────────────────────────────────────
 
 model AttendancePolicy {
-  id                         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  organizationId             String    @map("organization_id") @db.Uuid
-  name                       String    @db.VarChar(80)
-  isDefault                  Boolean   @default(false) @map("is_default")
-  workDays                   Int[]     @default([1, 2, 3, 4, 5]) @map("work_days") @db.SmallInt
-  expectedHoursPerDay        Decimal   @default(8.00) @map("expected_hours_per_day") @db.Decimal(4, 2)
-  dayStartTime               String    @default("09:00") @map("day_start_time") @db.VarChar(8)
-  dayEndTime                 String    @default("18:00") @map("day_end_time") @db.VarChar(8)
-  graceMinutesLate           Int       @default(15) @map("grace_minutes_late") @db.SmallInt
-  halfDayThresholdHours      Decimal   @default(4.00) @map("half_day_threshold_hours") @db.Decimal(4, 2)
-  regularizationWindowDays   Int       @default(14) @map("regularization_window_days") @db.SmallInt
-  autoCloseAtMinutesAfterEnd Int?      @default(120) @map("auto_close_at_minutes_after_end") @db.SmallInt
-  createdAt                  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt                  DateTime? @map("deleted_at") @db.Timestamptz(6)
-  createdBy                  String?   @map("created_by") @db.Uuid
-  updatedBy                  String?   @map("updated_by") @db.Uuid
+  id                          String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId              String    @map("organization_id") @db.Uuid
+  name                        String    @db.VarChar(80)
+  isDefault                   Boolean   @default(false) @map("is_default")
+  workDays                    Int[]     @default([1, 2, 3, 4, 5]) @map("work_days") @db.SmallInt
+  expectedHoursPerDay         Decimal   @default(8.00) @map("expected_hours_per_day") @db.Decimal(4, 2)
+  dayStartTime                String    @default("09:00") @map("day_start_time") @db.VarChar(8)
+  dayEndTime                  String    @default("18:00") @map("day_end_time") @db.VarChar(8)
+  graceMinutesLate            Int       @default(15) @map("grace_minutes_late") @db.SmallInt
+  halfDayThresholdHours       Decimal   @default(4.00) @map("half_day_threshold_hours") @db.Decimal(4, 2)
+  earlyCheckoutThresholdHours Decimal   @default(6.00) @map("early_checkout_threshold_hours") @db.Decimal(4, 2)
+  regularizationWindowDays    Int       @default(14) @map("regularization_window_days") @db.SmallInt
+  autoCloseAtMinutesAfterEnd  Int?      @default(120) @map("auto_close_at_minutes_after_end") @db.SmallInt
+  createdAt                   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt                   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdBy                   String?   @map("created_by") @db.Uuid
+  updatedBy                   String?   @map("updated_by") @db.Uuid
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -665,26 +691,36 @@ model AttendancePolicy {
 }
 
 model AttendanceRecord {
-  id                String           @id @default(dbgenerated("uuidv7()")) @db.Uuid
-  organizationId    String           @map("organization_id") @db.Uuid
-  employeeId        String           @map("employee_id") @db.Uuid
-  attendanceDate    DateTime         @map("attendance_date") @db.Date
-  checkInAt         DateTime?        @map("check_in_at") @db.Timestamptz(6)
-  checkOutAt        DateTime?        @map("check_out_at") @db.Timestamptz(6)
-  checkInIp         String?          @map("check_in_ip") @db.Inet
-  checkOutIp        String?          @map("check_out_ip") @db.Inet
-  checkInUserAgent  String?          @map("check_in_user_agent")
-  checkOutUserAgent String?          @map("check_out_user_agent")
-  workedMinutes     Int?             @map("worked_minutes")
-  status            AttendanceStatus @default(absent)
-  isLate            Boolean          @default(false) @map("is_late")
-  isRegularized     Boolean          @default(false) @map("is_regularized")
-  regularizationId  String?          @map("regularization_id") @db.Uuid
-  notes             String?
-  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
-  createdBy         String?          @map("created_by") @db.Uuid
-  updatedBy         String?          @map("updated_by") @db.Uuid
+  id                  String                    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  organizationId      String                    @map("organization_id") @db.Uuid
+  employeeId          String                    @map("employee_id") @db.Uuid
+  attendanceDate      DateTime                  @map("attendance_date") @db.Date
+  checkInAt           DateTime?                 @map("check_in_at") @db.Timestamptz(6)
+  checkOutAt          DateTime?                 @map("check_out_at") @db.Timestamptz(6)
+  checkInIp           String?                   @map("check_in_ip") @db.Inet
+  checkOutIp          String?                   @map("check_out_ip") @db.Inet
+  checkInUserAgent    String?                   @map("check_in_user_agent")
+  checkOutUserAgent   String?                   @map("check_out_user_agent")
+  workedMinutes       Int?                      @map("worked_minutes")
+  status              AttendanceStatus          @default(absent)
+  isLate              Boolean                   @default(false) @map("is_late")
+  isRegularized       Boolean                   @default(false) @map("is_regularized")
+  regularizationId    String?                   @map("regularization_id") @db.Uuid
+  notes               String?
+  // v0.24.1 — Early/Emergency checkout. Populated only when checkOutAt is set.
+  // checkoutType=normal + approvalStatus=not_required for ≥ threshold; emergency
+  // path requires reason + note and lands in approvalStatus=pending for HR review.
+  checkoutType        CheckoutType?             @map("checkout_type")
+  earlyCheckoutReason EarlyCheckoutReason?      @map("early_checkout_reason")
+  earlyCheckoutNote   String?                   @map("early_checkout_note")
+  approvalStatus      AttendanceApprovalStatus? @map("approval_status")
+  reviewedBy          String?                   @map("reviewed_by") @db.Uuid
+  reviewedAt          DateTime?                 @map("reviewed_at") @db.Timestamptz(6)
+  reviewComment       String?                   @map("review_comment")
+  createdAt           DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy           String?                   @map("created_by") @db.Uuid
+  updatedBy           String?                   @map("updated_by") @db.Uuid
 
   organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   employee       Employee                  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -693,6 +729,7 @@ model AttendanceRecord {
   @@unique([employeeId, attendanceDate])
   @@index([organizationId, attendanceDate])
   @@index([organizationId, status, attendanceDate])
+  @@index([organizationId, approvalStatus])
   @@map("attendance_records")
 }
 
