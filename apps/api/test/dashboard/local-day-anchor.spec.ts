@@ -118,7 +118,10 @@ describe("dashboard local-day anchoring at timezone boundaries", () => {
   });
 
   it("daysAgoWindow with a date-only anchor keeps both bounds at 00:00 UTC", () => {
-    const anchor = localAnchor(new Date("2026-06-10T19:00:00.000Z"), "Asia/Kolkata");
+    const anchor = localAnchor(
+      new Date("2026-06-10T19:00:00.000Z"),
+      "Asia/Kolkata",
+    );
     const w = daysAgoWindow(7, anchor);
     expect(w.to.toISOString()).toBe("2026-06-11T00:00:00.000Z");
     expect(w.from.toISOString()).toBe("2026-06-05T00:00:00.000Z");

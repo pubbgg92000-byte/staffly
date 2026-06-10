@@ -484,7 +484,10 @@ describe("GET /dashboard/admin", () => {
       .expect(201);
 
     // Stored under the org/employee-local date, which differs from UTC today.
-    const localDate = localDateInTimezone(new Date(ci.body.checkInAt), divergentTz!);
+    const localDate = localDateInTimezone(
+      new Date(ci.body.checkInAt),
+      divergentTz!,
+    );
     expect(localDate).not.toBe(nowUtcDate);
 
     const res = await request(app.getHttpServer())
