@@ -328,6 +328,7 @@
         "attendance.write",
         "attendance.approve",
         "attendance.policy.read",
+        "attendance.policy.write",
         "attendance.export",
         "leave.read",
         "leave.create",

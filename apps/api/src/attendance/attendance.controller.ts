@@ -186,7 +186,10 @@ export class AttendanceController {
 
   @Get("attendance/:id")
   @RequirePermission("attendance.read")
-  getRecord(@Param("id", new ParseUUIDPipe()) id: string): Promise<unknown> {
-    return this.attendance.get(id);
+  getRecord(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<unknown> {
+    return this.attendance.get(id, user.userId);
   }
 }

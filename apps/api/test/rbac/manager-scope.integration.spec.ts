@@ -259,6 +259,119 @@ describe("manager team-scoping", () => {
     expect(mgrIds.size).toBe(3);
   });
 
+  // Detail/by-id endpoints must apply the SAME team scope as the list endpoints
+  // (regression for the Phase 3 broken-access-control finding: a manager could
+  // read an outside-team employee/attendance/balance directly by id even though
+  // the list views were scoped).
+  it("manager GET /employees/:id is 404 for an outsider, 200 for a team member", async () => {
+    const admin = await signupOrg();
+    const managerEmp = await createEmployee(admin.cookies);
+    const report = await createEmployee(admin.cookies, {
+      managerId: managerEmp,
+    });
+    const outsider = await createEmployee(admin.cookies);
+    const mgr = await makeUserWithRole(
+      admin.organizationId,
+      managerEmp,
+      "manager",
+    );
+
+    await request(app.getHttpServer())
+      .get(`/employees/${report}`)
+      .set("Cookie", cookieHeader(mgr))
+      .expect(200);
+    await request(app.getHttpServer())
+      .get(`/employees/${outsider}`)
+      .set("Cookie", cookieHeader(mgr))
+      .expect(404);
+    // super_admin (global scope) is unaffected.
+    await request(app.getHttpServer())
+      .get(`/employees/${outsider}`)
+      .set("Cookie", cookieHeader(admin.cookies))
+      .expect(200);
+  });
+
+  it("manager GET /attendance/:id is 404 for an outsider's record", async () => {
+    const admin = await signupOrg();
+    const managerEmp = await createEmployee(admin.cookies);
+    const report = await createEmployee(admin.cookies, {
+      managerId: managerEmp,
+    });
+    const outsider = await createEmployee(admin.cookies);
+    const mkRec = (employeeId: string) =>
+      prisma.db.attendanceRecord.create({
+        data: {
+          organizationId: admin.organizationId,
+          employeeId,
+          attendanceDate: new Date("2026-07-01"),
+          status: "present",
+        },
+      });
+    const teamRec = await mkRec(report);
+    const outsiderRec = await mkRec(outsider);
+    const mgr = await makeUserWithRole(
+      admin.organizationId,
+      managerEmp,
+      "manager",
+    );
+
+    await request(app.getHttpServer())
+      .get(`/attendance/${teamRec.id}`)
+      .set("Cookie", cookieHeader(mgr))
+      .expect(200);
+    await request(app.getHttpServer())
+      .get(`/attendance/${outsiderRec.id}`)
+      .set("Cookie", cookieHeader(mgr))
+      .expect(404);
+  });
+
+  it("manager GET /leave/balances excludes outsiders even when targeted by employeeId", async () => {
+    const admin = await signupOrg();
+    const managerEmp = await createEmployee(admin.cookies);
+    const report = await createEmployee(admin.cookies, {
+      managerId: managerEmp,
+    });
+    const outsider = await createEmployee(admin.cookies);
+    const lt = await prisma.db.leaveType.findFirstOrThrow({
+      where: { organizationId: admin.organizationId },
+    });
+    const mkBal = (employeeId: string) =>
+      prisma.db.leaveBalance.create({
+        data: {
+          organizationId: admin.organizationId,
+          employeeId,
+          leaveTypeId: lt.id,
+          cycleYear: 2026,
+          allocated: 12,
+        },
+      });
+    await mkBal(report);
+    await mkBal(outsider);
+    const mgr = await makeUserWithRole(
+      admin.organizationId,
+      managerEmp,
+      "manager",
+    );
+
+    // Targeting the outsider directly returns nothing.
+    const targeted = await request(app.getHttpServer())
+      .get(`/leave/balances?employeeId=${outsider}`)
+      .set("Cookie", cookieHeader(mgr))
+      .expect(200);
+    expect(targeted.body.items).toHaveLength(0);
+
+    // Unfiltered, the manager sees only their team's balances.
+    const all = await request(app.getHttpServer())
+      .get("/leave/balances?pageSize=100")
+      .set("Cookie", cookieHeader(mgr))
+      .expect(200);
+    const empIds = new Set(
+      all.body.items.map((b: { employeeId: string }) => b.employeeId),
+    );
+    expect(empIds.has(report)).toBe(true);
+    expect(empIds.has(outsider)).toBe(false);
+  });
+
   it("manager can approve a team member's leave but NOT an outsider's", async () => {
     const admin = await signupOrg();
     const managerEmp = await createEmployee(admin.cookies);

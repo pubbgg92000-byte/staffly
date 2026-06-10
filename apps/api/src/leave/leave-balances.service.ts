@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../infra/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { CallerScopeService } from "../rbac/caller-scope.service";
 import { pageOf, skipTake, type Page } from "../common/pagination";
 import { currentOrganizationId } from "../tenant/tenant-context";
 import { availableBalance } from "./leave-rules";
@@ -17,13 +18,33 @@ export class LeaveBalancesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly callerScope: CallerScopeService,
   ) {}
 
-  async list(q: BalancesListQueryT): Promise<Page<unknown>> {
+  async list(
+    q: BalancesListQueryT,
+    callerUserId?: string,
+  ): Promise<Page<unknown>> {
     const where: Prisma.LeaveBalanceWhereInput = {};
     if (q.employeeId) where.employeeId = q.employeeId;
     if (q.leaveTypeId) where.leaveTypeId = q.leaveTypeId;
     if (q.cycleYear) where.cycleYear = q.cycleYear;
+    // Team scoping: a manager (leave.read at `team` scope) sees only their
+    // team's balances. global scope → no restriction. An explicit employeeId
+    // filter is intersected with the team (out-of-team → empty result).
+    if (callerUserId) {
+      const team = await this.callerScope.teamFilterFor(
+        callerUserId,
+        "leave.read",
+      );
+      if (team) {
+        if (q.employeeId) {
+          if (!team.includes(q.employeeId)) where.employeeId = { in: [] };
+        } else {
+          where.employeeId = { in: team };
+        }
+      }
+    }
     const [items, total] = await Promise.all([
       this.prisma.db.leaveBalance.findMany({
         where,

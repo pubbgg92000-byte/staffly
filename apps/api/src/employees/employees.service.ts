@@ -79,7 +79,18 @@ export class EmployeesService {
     return pageOf(items, total, q);
   }
 
-  async get(id: string): Promise<unknown> {
+  async get(id: string, callerUserId?: string): Promise<unknown> {
+    // Team scoping: a manager (employee.read at `team` scope) may only read
+    // their own record + direct/indirect reports. Out-of-team → 404 (do not
+    // leak existence). global scope (hr_admin/super_admin) → no restriction.
+    if (callerUserId) {
+      const allowed = await this.callerScope.canActOnEmployee(
+        callerUserId,
+        "employee.read",
+        id,
+      );
+      if (!allowed) throw new NotFoundException({ code: "employee.not_found" });
+    }
     // Detail does NOT filter deletedAt so the FE can show an archived
     // employee with a Restore action. List visibility is controlled by
     // `includeArchived`. Update guards re-check `deletedAt` itself.
