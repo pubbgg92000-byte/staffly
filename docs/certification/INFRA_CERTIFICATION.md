@@ -51,20 +51,32 @@ Cold start verified this session: Colima start → `docker compose -f infra/dock
 | ID | Sev | Finding | Source | Disposition |
 | --- | --- | --- | --- | --- |
 | F-1.1 | **P1** | `release.sh` failure path claims "Code rolled back via PM2" but reloads the **same overwritten** `apps/api/dist` (built in-place at :58) — no versioned releases, no checkout of the rollback tag; a failed deploy stays broken while reporting recovery. Related: `pm2 reload` in fork-mode/1-instance is stop-then-start, so the "near-zero-downtime" claim is also false | `deploy/release.sh:58,80-84`; `ecosystem.config.cjs:24-25` | **Phase 13** (needs design: versioned release dirs or checkout-rollback) |
-| F-1.2 | **P1** | `docs/DEPLOYMENT.md` §5 env table omits `EMAIL_PROVIDER`/`EMAIL_FROM` while `1d29173` made unset `EMAIL_PROVIDER` **boot-fatal in production**; DEPLOY_CHECKLIST.md:51 lists it — deploy docs contradict; operator following DEPLOYMENT.md alone ships an API that cannot start | `docs/DEPLOYMENT.md:79-94`; `mailer.module.ts:155-170` | **Propose fix at this gate** (doc row) |
-| F-1.3 | P2 | `SMTP_SECURE: z.coerce.boolean()` — `Boolean("false") === true`; shipped `.env.example:78` sets `SMTP_SECURE=false` literally → parses TRUE when copied, breaking Mailhog/STARTTLS with opaque TLS errors (latent locally only because dev `.env` leaves it unset) | `env.ts:100`; `.env.example:78` | **Propose fix at this gate** |
-| F-1.4 | P2 | Unconfigured object storage → `/readyz` permanently 503: the not-configured stub assigns a **rejecting** `healthCheck` so the probe maps to "fail", not the documented "skipped"; boots fine, never ready, release.sh declares release unhealthy | `storage.module.ts:178-185`; `health.controller.ts:81-88` | **Propose fix at this gate** |
-| F-1.5 | P2 | No readiness probe timeouts (no AbortSignal/race on DB or S3 probe; AWS SDK default unbounded) — a hung dependency stalls `/readyz` instead of fast-503; `release.sh` health curl has no `--max-time`, so a wedged dep hangs the deploy script | `health.controller.ts:53-88`; `release.sh:71-78` | **Propose fix at this gate** |
+| F-1.2 | **P1** | `docs/DEPLOYMENT.md` §5 env table omits `EMAIL_PROVIDER`/`EMAIL_FROM` while `1d29173` made unset `EMAIL_PROVIDER` **boot-fatal in production**; DEPLOY_CHECKLIST.md:51 lists it — deploy docs contradict; operator following DEPLOYMENT.md alone ships an API that cannot start | `docs/DEPLOYMENT.md:79-94`; `mailer.module.ts:155-170` | **FIXED at gate** — env table now lists EMAIL_PROVIDER (boot-fatal note), EMAIL_FROM, provider creds |
+| F-1.3 | P2 | `SMTP_SECURE: z.coerce.boolean()` — `Boolean("false") === true`; shipped `.env.example:78` sets `SMTP_SECURE=false` literally → parses TRUE when copied, breaking Mailhog/STARTTLS with opaque TLS errors (latent locally only because dev `.env` leaves it unset) | `env.ts:100`; `.env.example:78` | **FIXED at gate** — strict `z.enum(["true","false"]).transform()`; 4 unit tests (`test/infra/env.spec.ts`) |
+| F-1.4 | P2 | Unconfigured object storage → `/readyz` permanently 503: the not-configured stub assigns a **rejecting** `healthCheck` so the probe maps to "fail", not the documented "skipped"; boots fine, never ready, release.sh declares release unhealthy | `storage.module.ts:178-185`; `health.controller.ts:81-88` | **FIXED at gate** — stub no longer exposes `healthCheck`; storage-less boot probes "skipped"/ready; tests in `test/health/readyz.spec.ts` |
+| F-1.5 | P2 | No readiness probe timeouts (no AbortSignal/race on DB or S3 probe; AWS SDK default unbounded) — a hung dependency stalls `/readyz` instead of fast-503; `release.sh` health curl has no `--max-time`, so a wedged dep hangs the deploy script | `health.controller.ts:53-88`; `release.sh:71-78` | **FIXED at gate** — `withTimeout()` bounds both probes at 3 s; `curl --max-time 5` in release.sh; timeout unit-tested |
 | F-1.6 | P2 | PM2: `max_restarts: 10` with no `min_uptime`/backoff — persistent boot failure (now more likely: mailer is prod-fatal) burns 10 restarts in seconds, process sits errored indefinitely | `ecosystem.config.cjs:26-27` | Phase 13 |
 | F-1.7 | P2 | Caddy + cloudflared supervision not pinned (foreground/"or brew services"/"or launchd") — both are single points of failure for all public traffic; live state NOT VERIFIABLE LOCALLY | `docs/DEPLOYMENT.md:72`; `config.example.yml:11` | Phase 13 |
 | F-1.8 | P2 | pm2-logrotate exists only as a comment; host has StorageFull history; unbounded logs risk the disk-space failure backup.sh itself guards against | `ecosystem.config.cjs:34-39` | Phase 13 |
 | F-1.9 | P2 | Deploys not gated on green CI (`git pull --ff-only`, no status check); CI `artifact` job `needs: [check]` only — an artifact can publish from a main push whose **test job failed** | `release.sh:46`; `.github/workflows/ci.yml:100` | Phase 13 |
-| F-1.10 | P3 | OI-08 confirmed with exact wire shape (§2 D3): add 503 case to `defaultCode()` (e.g. `service.unavailable`) and/or have `ServiceNotReady` carry code/message | `http-exception.filter.ts:73-90` | **Propose fix at this gate** |
+| F-1.10 | P3 | OI-08 confirmed with exact wire shape (§2 D3): add 503 case to `defaultCode()` (e.g. `service.unavailable`) and/or have `ServiceNotReady` carry code/message | `http-exception.filter.ts:73-90` | **FIXED at gate** — `defaultCode` 503 case + `ServiceNotReady` carries code/message; shape unit-tested + live-verified (§7) |
 | F-1.11 | P3 | Proxy/stack hygiene rollup: Caddy lacks `request_body max_size` + access log; CI lacks dependency audit/secret scanning; `postgres:18-alpine` major-pin only; Mailhog no healthcheck; dev ports bind all interfaces with dev creds | Caddyfile:25-35; ci.yml; compose files | Phase 13 (checklist items) |
 | F-1.12 | P3 | `REDIS_URL` declared in schema, consumed by zero source files; Redis not probed (correct while unused) — dead config surface = OI-09, now live-confirmed (D1) | `env.ts:10` | Phase 13/15 (drop or annotate) |
 | F-1.13 | P3 | Stale references: `role-redirect.ts:13` claims `NEXT_PUBLIC_PORTAL` (read nowhere); `RUNBOOK.md:16` says email "not wired" (wired since a0754c6); mailer validated for presence, never connectivity | as cited | Phase 15 (docs) / OI-02 (live send) |
 | F-1.14 | P3 | Backup-path credentials out-of-band: awscli creds for R2 upload and compose POSTGRES_* ↔ DATABASE_URL consistency are operator-managed with no documented convention | `backup.sh:27-35,69-75` | Phase 13 |
 
-## 6. Proposed fixes at this gate (await approval)
+## 6. Gate fixes — implemented and verified (approved 2026-06-10)
 
-Small, self-contained, all in the readiness/config neighborhood — F-1.2 (DEPLOYMENT.md env row), F-1.3 (SMTP_SECURE strict boolean parse + unit test), F-1.4 (unconfigured storage → "skipped" + test), F-1.5 (probe timeouts ~3 s + `curl --max-time` in release.sh), F-1.10 (503 envelope `service.unavailable` + readyz-shape test). Everything else lands at its named phase (13/15).
+F-1.2, F-1.3, F-1.4, F-1.5, F-1.10 fixed at this gate (changes: `env.ts`, `storage.module.ts`, `health.controller.ts`, `http-exception.filter.ts`, `release.sh`, `DEPLOYMENT.md`; +10 unit tests in `test/infra/env.spec.ts`, `test/health/readyz.spec.ts`). F-1.1, F-1.6..9, F-1.11, F-1.12, F-1.14 → Phase 13; F-1.13 → Phase 15.
+
+## 7. Post-fix re-verification (live)
+
+Postgres outage drill re-run after the fixes — degraded body is now self-describing and recovery unchanged:
+
+```
+during outage  → 503 {"error":{"code":"service.unavailable","message":"service not ready: dependency check failed",
+                       "details":{"status":"degraded","checks":{"database":"fail","storage":"ok"}}}}
+after restart  → 200 {"status":"ok","checks":{"database":"ok","storage":"ok"}}
+```
+
+Gates after fixes: typecheck 7/7 · lint 0 errors · format clean · unit 83/83 (73 + 10 new) · integration 243/243 · build 7/7 — recorded in the phase commit.

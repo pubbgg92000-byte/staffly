@@ -97,7 +97,13 @@ const EnvSchema = z.object({
   // SMTP (Mailhog dev defaults: localhost:1025, no auth).
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().default(1025),
-  SMTP_SECURE: z.coerce.boolean().default(false),
+  // Strict string-boolean: z.coerce.boolean() is Boolean(input), which turns
+  // the literal string "false" into true and would silently enable implicit
+  // TLS (breaking Mailhog/STARTTLS). Only "true"/"false" are accepted.
+  SMTP_SECURE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   // Resend.

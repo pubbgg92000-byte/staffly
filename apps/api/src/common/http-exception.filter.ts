@@ -84,6 +84,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         return "conflict";
       case 423:
         return "account.locked";
+      case 503:
+        return "service.unavailable";
       default:
         return "error";
     }

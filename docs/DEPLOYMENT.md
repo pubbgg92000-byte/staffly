@@ -91,6 +91,9 @@ Tunnel ingress points at `http://127.0.0.1:8080` → Caddy → API `:4000`.
 | `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | R2 token pair |
 | `S3_PRESIGN_TTL_SECONDS` | `900` |
 | `SENTRY_DSN` | API Sentry DSN |
+| `EMAIL_PROVIDER` | `resend` — **boot-fatal if unset in production** (`log`/`smtp`/`resend`/`mailgun`) |
+| `EMAIL_FROM` | `Staffly <no-reply@staffly.av.online>` |
+| `RESEND_API_KEY` | Resend API key (or `SMTP_*` / `MAILGUN_*` for those providers — creds for the chosen provider are also boot-fatal if missing) |
 
 (Generate secrets with `openssl rand -base64 36`.)
 
