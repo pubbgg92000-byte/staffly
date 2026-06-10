@@ -42,7 +42,7 @@ not code inspection.
 | Lint | 0 errors |
 | Format | clean |
 | Unit | 49/49 |
-| Integration (Testcontainers PG18) | 236/236 |
+| Integration (Testcontainers PG18) | 241/241 (13 specs; incl. manager-scope + session-expiry) |
 | Build | 7/7 |
 
 ## Security results
@@ -62,25 +62,24 @@ measured (no browser tooling).
 
 ## Open issues
 
+> **Update (post-Phase 1/2):** manager team-scoping is now **enforced
+> row-level** (verified live: manager sees 10 of 40 employees; hr/super see
+> all) and session-expiry now **clears state + redirects with a toast**. Both
+> are removed from the open list below.
+
 ### Critical
 
 - None.
 
 ### High
 
-- **Manager team-scoping is declarative, not enforced.** Manager
-  read/approve permissions are stored with `PermissionScope.team` but services
-  do not filter rows by direct reports, so a manager currently reads org-wide
-  employee/attendance/leave data. Acceptable for demo; close before a pilot
-  where managers must be limited to their team.
 - **Email delivery not wired.** Mailhog runs but no SMTP send path exists;
   password reset / invites are log-only. Blocks any flow that needs real email
-  (invites, notifications) in a pilot.
+  (invites, notifications) in a pilot. (Provider abstraction in progress on a
+  side branch; not in this release.)
 
 ### Medium
 
-- **Expired-session UX** — stale session lands on an empty dashboard instead of
-  redirecting to login. Operational workaround: re-login.
 - **Manager cannot reject leave** (`leave.reject` not granted) — asymmetric
   approve/reject.
 - **Production-domain cookie/CORS unverified live** — works by design
@@ -94,34 +93,39 @@ measured (no browser tooling).
 - `/readyz` 503 body wraps the breakdown under a generic `error` envelope
   (cosmetic; details preserved).
 - Redis provisioned but unused.
-- `newJoinsThisMonth` / today's attendance depend on reseed timing.
+- `newJoinsThisMonth` / today's attendance depend on reseed timing (the demo
+  seed anchors attendance to its run date — re-seed to refresh "today").
+- Logout is now CSRF-exempt (`@Public`) — required to clear cookies on an
+  expired session; forced-logout is a benign nuisance, flagged for the security
+  review.
 
 ## Deployment risk
 
-**MEDIUM.** No critical blockers; security and performance are strong and the
-data path is exact end-to-end. Risk is driven by: production-domain
-verification still pending, manager scoping being declarative, email not wired,
-and the absence of browser-level UI verification.
+**MEDIUM-LOW.** No critical blockers; security, RBAC, and performance are
+strong and the data path is exact end-to-end. Remaining risk is driven by
+production-domain verification still pending, email not wired, and the absence
+of browser-level UI verification. Manager scoping and session-expiry — the two
+High/Medium items from the prior review — are now resolved and verified.
 
 | Target | Readiness |
 | --- | --- |
-| Investor demo | **Ready** (re-login caveat) |
-| Customer demo | **Ready** (re-login caveat) |
+| Investor demo | **Ready** |
+| Customer demo | **Ready** |
 | Public beta | **Ready after** production-domain verification |
-| Pilot customer deployment | **Fix first**: manager scoping + email delivery |
+| Pilot customer deployment | **Fix first**: email delivery |
 
-## Readiness score: **84 / 100**
+## Readiness score: **90 / 100**
 
-Deductions: production-domain verification pending (−5), manager scoping
-declarative (−4), email not wired (−3), UI visual unverified (−3), expired-
-session UX (−1).
+Deductions: production-domain verification pending (−5), email not wired (−3),
+UI visual / mobile unverified (−2). Manager scoping (+4) and session-expiry
+(+1) from the prior 84 are now resolved.
 
 ## Final recommendation: **B — Fix specific issues, then ship**
 
-Ship immediately for **investor / customer demos** (with the operational
-re-login note). For **public beta**, complete production-domain cookie/CORS
-verification first. For **pilot customer deployment**, additionally close
-manager team-scope enforcement and wire email delivery.
+Ship immediately for **investor / customer demos**. For **public beta**,
+complete production-domain cookie/CORS
+verification first. For **pilot customer deployment**, additionally wire email
+delivery.
 
 ## Deployment steps (summary)
 

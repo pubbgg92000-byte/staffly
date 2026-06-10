@@ -16,10 +16,16 @@ pre-production certification pass.
   40 employees with a manager hierarchy, 90 days of attendance (incl.
   in-progress today), 5 leave types, 160 balances, 54 leave requests across
   all states, 6 announcements, 24 documents, 24 notifications.
-- **Manager role** now has team-scoped reads (`employee.read`,
-  `attendance.read`, `leave.read`) and `leave.approve`. (Row-level team
-  filtering is recorded via `PermissionScope.team`; enforcement ships in a
-  later phase — see Known Issues.)
+- **Manager team-scoping (row-level)** — managers (`employee.read`/
+  `attendance.read`/`leave.read`/`leave.approve` held at `PermissionScope.team`)
+  now see and act on **only their direct + indirect reports**. Enforced via a
+  `CallerScopeService` that filters list queries and guards the leave
+  approve/cancel paths; org bootstrap stamps the manager's team permissions so
+  real signups match the demo org. hr_admin/super_admin keep org-wide access.
+- **Session-expiry handling** — any 401 from a data query/mutation clears the
+  React Query cache, shows a "Session expired" toast, and hard-redirects to
+  sign-in; `logout`/`signout` are now `@Public` so the cookie clear works with
+  an expired/invalid token (escaping the cookie-presence middleware loop).
 - **Error boundaries** (`error.tsx` + `global-error.tsx`) in both portals with
   a branded fallback + retry.
 - **Forbidden state** — admin list pages render a dedicated "Forbidden"
@@ -56,20 +62,16 @@ pre-production certification pass.
 
 ### Known Issues
 
-- **Manager team-scoping is declarative only.** The manager's read/approve
-  permissions are stored with `PermissionScope.team`, but services do not yet
-  filter rows by the manager's direct reports — so in this release a manager
-  sees org-wide employee/attendance/leave data. True team-scope enforcement is
-  planned for a later phase.
-- **Manager can approve but not reject leave** (`leave.reject` not granted).
-- **Expired/stale session UX**: the portal middleware gates on cookie
-  _presence_, not validity. An expired session (access TTL 15 min) lands on a
-  dashboard whose data queries 401 rather than redirecting to login. Fix:
-  re-login. (Hardening candidate.)
+- **Manager can approve but not reject leave** (`leave.reject` not granted to
+  the manager role).
 - **Email delivery is not wired** — Mailhog runs in dev but no SMTP send path
-  exists; reset/invite links are logged.
+  exists; reset/invite links are logged. (A provider abstraction is in
+  progress on a side branch, not part of this release.)
 - **Announcement `bodyHtml`** is stored and rendered as HTML (privileged
   authors only); sanitize before broadening author scope.
+- **Deleted-user session within token TTL** surfaces as a 403 on permissioned
+  routes and is intentionally not force-redirected (resolves on token expiry);
+  tampered/expired tokens correctly 401 and redirect.
 
 ### Upgrade Notes
 

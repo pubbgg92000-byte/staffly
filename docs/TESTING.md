@@ -7,7 +7,7 @@ How Staffly is tested, and how to verify a build before release.
 | Layer | Tooling | Scope |
 | --- | --- | --- |
 | Unit | Vitest (`pnpm test`) | Pure logic — date/timezone math, dashboard windowing, pagination, redaction. 49 tests. |
-| Integration | Vitest + Testcontainers (`pnpm --filter @staffly/api test:integration`) | Full NestJS app against an ephemeral PostgreSQL 18 container; auth, RBAC, tenant isolation, every module's CRUD + workflows. 236 tests across 12 specs. |
+| Integration | Vitest + Testcontainers (`pnpm --filter @staffly/api test:integration`) | Full NestJS app against an ephemeral PostgreSQL 18 container; auth, RBAC, tenant isolation, manager team-scoping, session-expiry, every module's CRUD + workflows. 241 tests across 13 specs. |
 | Static | `pnpm typecheck`, `pnpm lint`, `pnpm format:check` | Types (7 packages), ESLint, Prettier. |
 | Build | `pnpm build` | Turborepo build of API + both Next apps. |
 | Manual / live | curl + psql + docker (this doc) | End-to-end role flows, data consistency, security, performance, failure modes. |
