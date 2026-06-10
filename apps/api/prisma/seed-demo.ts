@@ -1117,6 +1117,20 @@ async function main(): Promise<void> {
       pinned: false,
       ack: false,
     },
+    {
+      title: "New hires joining this month — say hello!",
+      priority: "normal",
+      status: "published",
+      pinned: false,
+      ack: false,
+    },
+    {
+      title: "Security awareness training due (please acknowledge)",
+      priority: "high",
+      status: "published",
+      pinned: false,
+      ack: true,
+    },
   ];
   const empIds = empSpecs.map((e) => e.id);
   for (let i = 0; i < annSpecs.length; i++) {
