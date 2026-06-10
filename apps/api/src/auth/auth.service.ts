@@ -17,6 +17,8 @@ import { PermissionsService } from "../rbac/permissions.service";
 import { highestRole, type RoleKey } from "../rbac/system-roles";
 import { loadEnv } from "../infra/config/env";
 import { StorageService } from "../storage/storage.module";
+import { MailerService } from "../mailer/mailer.module";
+import { passwordResetEmail, welcomeEmail } from "../mailer/templates";
 import type { SignupBodyT } from "./dto/signup.dto";
 import type { SigninBodyT } from "./dto/signin.dto";
 import type { ForgotPasswordBodyT } from "./dto/forgot-password.dto";
@@ -114,6 +116,7 @@ export class AuthService {
     private readonly bootstrap: OrgBootstrapService,
     private readonly permissions: PermissionsService,
     private readonly storage: StorageService,
+    private readonly mailer: MailerService,
   ) {}
 
   // ─── Signup (org bootstrap) ──────────────────────────────────────────
@@ -404,6 +407,11 @@ export class AuthService {
     this.logger.warn(
       `[dev-password-reset] reset URL for ${user.email}: ${devResetUrl}`,
     );
+    // Fire-and-forget delivery; never blocks or fails the request.
+    void this.mailer.send({
+      to: user.email,
+      ...passwordResetEmail({ resetUrl: devResetUrl }),
+    });
     // Return the URL only outside of production for ergonomics. In prod the
     // endpoint MUST return `{ ok: true }` only — see docs/03 §2.8.
     if (this.env.NODE_ENV !== "production") {
@@ -544,6 +552,21 @@ export class AuthService {
         return user;
       },
     );
+
+    // Welcome email (fire-and-forget). Org name resolved post-commit.
+    const org = await this.prisma.db.organization.findUnique({
+      where: { id: result.organizationId },
+      select: { name: true },
+    });
+    void this.mailer.send({
+      to: result.email,
+      ...welcomeEmail({
+        displayName:
+          `${body.firstName} ${body.lastName}`.trim() || result.email,
+        orgName: org?.name ?? "Staffly",
+        portalUrl: this.env.APP_BASE_URL,
+      }),
+    });
 
     return this.finalizeSignin(result.id, result.organizationId, ctx, {
       rememberMe: true,

@@ -84,6 +84,25 @@ const EnvSchema = z.object({
   // Sentry DSN for the API. Optional — when unset (dev/test/CI) Sentry init
   // is a no-op and nothing is reported.
   SENTRY_DSN: z.string().url().optional(),
+
+  // ─── Email ─────────────────────────────────────────────────────────────
+  // Provider selection. `log` (default) writes the message to the logger and
+  // sends nothing — safe for tests/CI with no credentials. `smtp` targets any
+  // SMTP server incl. Mailhog in dev. `resend`/`mailgun` use their HTTP APIs.
+  EMAIL_PROVIDER: z.enum(["log", "smtp", "resend", "mailgun"]).default("log"),
+  EMAIL_FROM: z.string().default("Staffly <no-reply@staffly.local>"),
+  // SMTP (Mailhog dev defaults: localhost:1025, no auth).
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(1025),
+  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
+  // Resend.
+  RESEND_API_KEY: z.string().optional(),
+  // Mailgun (US region default; set MAILGUN_BASE_URL for EU).
+  MAILGUN_API_KEY: z.string().optional(),
+  MAILGUN_DOMAIN: z.string().optional(),
+  MAILGUN_BASE_URL: z.string().url().default("https://api.mailgun.net"),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
