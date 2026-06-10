@@ -320,6 +320,45 @@ describe("auth flow", () => {
     expect(me.status).toBe(200);
   });
 
+  // CSRF enforcement on /auth/refresh (regression: the route is @Public(), and
+  // before @EnforceCsrf() the CsrfGuard short-circuited on @Public, so a forged
+  // cross-site refresh with no token succeeded — silently rotating sessions).
+  it("refresh WITHOUT a CSRF header is rejected (403), even though the route is @Public", async () => {
+    const payload = uniqueSignup();
+    const signup = await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(payload);
+    const c1 = extractCookies(signup.headers["set-cookie"]);
+
+    const res = await request(app.getHttpServer())
+      .post("/auth/refresh")
+      .set("Cookie", asCookieHeader(c1));
+    expect(res.status).toBe(403);
+    expect(res.body?.error?.code).toBe("auth.csrf_failed");
+
+    // The refresh token must NOT have been rotated/consumed by the rejected call.
+    const ok = await request(app.getHttpServer())
+      .post("/auth/refresh")
+      .set("Cookie", asCookieHeader(c1))
+      .set("X-CSRF-Token", c1.csrf!);
+    expect(ok.status).toBe(204);
+  });
+
+  it("refresh with a MISMATCHED CSRF header is rejected (403)", async () => {
+    const payload = uniqueSignup();
+    const signup = await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(payload);
+    const c1 = extractCookies(signup.headers["set-cookie"]);
+
+    const res = await request(app.getHttpServer())
+      .post("/auth/refresh")
+      .set("Cookie", asCookieHeader(c1))
+      .set("X-CSRF-Token", "not-the-cookie-value");
+    expect(res.status).toBe(403);
+    expect(res.body?.error?.code).toBe("auth.csrf_failed");
+  });
+
   it("refresh with reused (revoked) token invalidates the chain", async () => {
     const payload = uniqueSignup();
     const signup = await request(app.getHttpServer())
@@ -367,10 +406,12 @@ describe("auth flow", () => {
       .set("X-CSRF-Token", c.csrf!);
     expect(res.status).toBe(204);
 
-    // refresh now rejected
+    // refresh now rejected — send the full cookie set (incl. sf_csrf) so the
+    // double-submit CSRF check passes and we reach the revoked-token path (401),
+    // not the CSRF rejection (403).
     const refresh = await request(app.getHttpServer())
       .post("/auth/refresh")
-      .set("Cookie", `${REFRESH_COOKIE}=${c.refresh}`)
+      .set("Cookie", asCookieHeader(c))
       .set("X-CSRF-Token", c.csrf!);
     expect(refresh.status).toBe(401);
   });

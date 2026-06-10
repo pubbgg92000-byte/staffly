@@ -9,7 +9,6 @@ import {
   Req,
   Res,
   UnauthorizedException,
-  UseGuards,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { Throttle } from "@nestjs/throttler";
@@ -58,7 +57,7 @@ import {
   type RequestUser,
 } from "./decorators/current-user.decorator";
 import { setAuthCookies, clearAuthCookies, REFRESH_COOKIE } from "./cookies";
-import { CsrfGuard } from "./guards/csrf.guard";
+import { EnforceCsrf } from "./decorators/enforce-csrf.decorator";
 
 interface CookieBag {
   [name: string]: string | undefined;
@@ -139,7 +138,7 @@ export class AuthController {
   // ─── Refresh + logout + me ──────────────────────────────────────────
 
   @Public()
-  @UseGuards(CsrfGuard)
+  @EnforceCsrf()
   @Post("refresh")
   @HttpCode(HttpStatus.NO_CONTENT)
   async refresh(
