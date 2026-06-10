@@ -34,6 +34,25 @@ describe("buildMailerFromEnv — provider selection", () => {
     expect(buildMailerFromEnv().provider).toBe("log");
   });
 
+  it("production: refuses to boot when EMAIL_PROVIDER is unset", () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.EMAIL_PROVIDER;
+    expect(() => buildMailerFromEnv()).toThrow(/EMAIL_PROVIDER unset/);
+  });
+
+  it("production: refuses to boot when provider creds are missing", () => {
+    process.env.NODE_ENV = "production";
+    process.env.EMAIL_PROVIDER = "smtp";
+    delete process.env.SMTP_HOST;
+    expect(() => buildMailerFromEnv()).toThrow(/SMTP_HOST unset/);
+  });
+
+  it("production: honors an explicit EMAIL_PROVIDER=log", () => {
+    process.env.NODE_ENV = "production";
+    process.env.EMAIL_PROVIDER = "log";
+    expect(buildMailerFromEnv().provider).toBe("log");
+  });
+
   it("falls back to log when provider=smtp but SMTP_HOST is unset", () => {
     process.env.EMAIL_PROVIDER = "smtp";
     delete process.env.SMTP_HOST;

@@ -137,57 +137,82 @@ class MailgunMailer implements MailerClient {
 }
 
 /**
- * Build the configured adapter from env. Misconfiguration (e.g. provider=smtp
- * with no SMTP_HOST, or resend with no key) falls back to LogMailer with a
- * warning rather than crashing boot — email is non-critical infrastructure.
+ * Build the configured adapter from env, with boot-time validation.
+ *
+ * Outside production a misconfiguration (unset EMAIL_PROVIDER, or a chosen
+ * provider with missing credentials) falls back to LogMailer with a loud
+ * warning so dev/test/CI always boot. In production the same misconfiguration
+ * REFUSES TO BOOT: a silently-disabled mailer drops password resets and
+ * invites while every endpoint keeps returning 200 — an unbootable API is
+ * strictly easier to notice. `EMAIL_PROVIDER=log` set explicitly is honored
+ * everywhere (assumed intentional), but still logged at boot.
  */
 export function buildMailerFromEnv(): MailerClient {
   const env = loadEnv();
   const logger = new Logger("MailerFactory");
-  switch (env.EMAIL_PROVIDER) {
-    case "smtp": {
-      if (!env.SMTP_HOST) {
-        logger.warn(
-          "EMAIL_PROVIDER=smtp but SMTP_HOST unset — using log mailer",
-        );
-        return new LogMailer();
-      }
-      return new SmtpMailer({
-        host: env.SMTP_HOST,
-        port: env.SMTP_PORT,
-        secure: env.SMTP_SECURE,
-        user: env.SMTP_USER,
-        password: env.SMTP_PASSWORD,
-        from: env.EMAIL_FROM,
-      });
-    }
-    case "resend": {
-      if (!env.RESEND_API_KEY) {
-        logger.warn(
-          "EMAIL_PROVIDER=resend but RESEND_API_KEY unset — using log mailer",
-        );
-        return new LogMailer();
-      }
-      return new ResendMailer(env.RESEND_API_KEY, env.EMAIL_FROM);
-    }
-    case "mailgun": {
-      if (!env.MAILGUN_API_KEY || !env.MAILGUN_DOMAIN) {
-        logger.warn(
-          "EMAIL_PROVIDER=mailgun but MAILGUN_API_KEY/DOMAIN unset — using log mailer",
-        );
-        return new LogMailer();
-      }
-      return new MailgunMailer(
-        env.MAILGUN_API_KEY,
-        env.MAILGUN_DOMAIN,
-        env.MAILGUN_BASE_URL,
-        env.EMAIL_FROM,
+  const prod = env.NODE_ENV === "production";
+
+  const misconfigured = (problem: string): MailerClient => {
+    if (prod) {
+      throw new Error(
+        `mailer misconfigured in production: ${problem}. ` +
+          `Set EMAIL_PROVIDER (smtp|resend|mailgun) with its credentials, ` +
+          `or EMAIL_PROVIDER=log to explicitly disable outbound email.`,
       );
     }
+    logger.warn(`${problem} — using log mailer (outbound email DISABLED)`);
+    return new LogMailer();
+  };
+
+  let client: MailerClient;
+  switch (env.EMAIL_PROVIDER) {
+    case undefined:
+      client = misconfigured("EMAIL_PROVIDER unset");
+      break;
+    case "smtp": {
+      client = !env.SMTP_HOST
+        ? misconfigured("EMAIL_PROVIDER=smtp but SMTP_HOST unset")
+        : new SmtpMailer({
+            host: env.SMTP_HOST,
+            port: env.SMTP_PORT,
+            secure: env.SMTP_SECURE,
+            user: env.SMTP_USER,
+            password: env.SMTP_PASSWORD,
+            from: env.EMAIL_FROM,
+          });
+      break;
+    }
+    case "resend": {
+      client = !env.RESEND_API_KEY
+        ? misconfigured("EMAIL_PROVIDER=resend but RESEND_API_KEY unset")
+        : new ResendMailer(env.RESEND_API_KEY, env.EMAIL_FROM);
+      break;
+    }
+    case "mailgun": {
+      client =
+        !env.MAILGUN_API_KEY || !env.MAILGUN_DOMAIN
+          ? misconfigured(
+              "EMAIL_PROVIDER=mailgun but MAILGUN_API_KEY/DOMAIN unset",
+            )
+          : new MailgunMailer(
+              env.MAILGUN_API_KEY,
+              env.MAILGUN_DOMAIN,
+              env.MAILGUN_BASE_URL,
+              env.EMAIL_FROM,
+            );
+      break;
+    }
     case "log":
-    default:
-      return new LogMailer();
+      client = new LogMailer();
+      break;
   }
+
+  if (client.provider === "log") {
+    logger.warn("mailer provider=log — outbound email DISABLED (not sent)");
+  } else {
+    logger.log(`mailer provider=${client.provider} from=${env.EMAIL_FROM}`);
+  }
+  return client;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────

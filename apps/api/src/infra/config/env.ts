@@ -86,10 +86,13 @@ const EnvSchema = z.object({
   SENTRY_DSN: z.string().url().optional(),
 
   // ─── Email ─────────────────────────────────────────────────────────────
-  // Provider selection. `log` (default) writes the message to the logger and
-  // sends nothing — safe for tests/CI with no credentials. `smtp` targets any
+  // Provider selection. `log` writes the message to the logger and sends
+  // nothing — safe for tests/CI with no credentials. `smtp` targets any
   // SMTP server incl. Mailhog in dev. `resend`/`mailgun` use their HTTP APIs.
-  EMAIL_PROVIDER: z.enum(["log", "smtp", "resend", "mailgun"]).default("log"),
+  // No schema default: the mailer factory falls back to `log` outside
+  // production but refuses to boot when unset in production, so a forgotten
+  // var can't silently disable all outbound mail (resets, invites).
+  EMAIL_PROVIDER: z.enum(["log", "smtp", "resend", "mailgun"]).optional(),
   EMAIL_FROM: z.string().default("Staffly <no-reply@staffly.local>"),
   // SMTP (Mailhog dev defaults: localhost:1025, no auth).
   SMTP_HOST: z.string().optional(),
