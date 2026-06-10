@@ -34,6 +34,7 @@ import {
 } from "../src/attendance/local-date";
 import { DEFAULT_DOCUMENT_CATEGORIES } from "../src/documents/default-document-categories";
 import { MANAGER_TEAM_PERMISSIONS } from "../src/rbac/system-roles";
+import { makePdf, putObject, seedStorageClient } from "./seed-lib/storage";
 
 type Catalog = {
   permissions: {
@@ -1162,6 +1163,15 @@ async function main(): Promise<void> {
   }
 
   // 15. Documents — org-wide (with versions + audiences) and a few personal.
+  // Each version's binary is uploaded to object storage so the seeded rows
+  // point at real, downloadable PDFs (not just dangling storage keys).
+  const storage = seedStorageClient();
+  if (!storage) {
+    throw new Error(
+      "demo seed: object storage is not configured (S3_ENDPOINT / S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY). " +
+        "Start the dev stack (MinIO) or set R2 credentials before seeding documents.",
+    );
+  }
   const orgCat = categories.find((c) => !c.isPersonal) ?? categories[0]!;
   const personalCat = categories.find((c) => c.isPersonal) ?? categories[0]!;
   const orgDocs = [
@@ -1177,6 +1187,9 @@ async function main(): Promise<void> {
   for (let i = 0; i < orgDocs.length; i++) {
     const docId = uuid();
     const verId = uuid();
+    const orgKey = `uploads/${org.id}/documents/${docId}/v1.pdf`;
+    const orgPdf = makePdf(orgDocs[i]!, randInt(80_000, 600_000));
+    await putObject(storage, orgKey, orgPdf, "application/pdf");
     await prisma.document.create({
       data: {
         id: docId,
@@ -1195,10 +1208,10 @@ async function main(): Promise<void> {
         organizationId: org.id,
         documentId: docId,
         versionNo: 1,
-        storageKey: `uploads/${org.id}/documents/${docId}/v1.pdf`,
+        storageKey: orgKey,
         fileName: `${orgDocs[i]!.replace(/[^A-Za-z0-9]+/g, "_")}.pdf`,
         mimeType: "application/pdf",
-        sizeBytes: BigInt(randInt(80_000, 4_000_000)),
+        sizeBytes: BigInt(orgPdf.length),
       },
     });
     await prisma.document.update({
@@ -1226,6 +1239,12 @@ async function main(): Promise<void> {
     ]);
     const docId = uuid();
     const verId = uuid();
+    const persKey = `uploads/${org.id}/personal/${e.id}/${docId}.pdf`;
+    const persPdf = makePdf(
+      `${kind} — ${e.first} ${e.last}`,
+      randInt(50_000, 300_000),
+    );
+    await putObject(storage, persKey, persPdf, "application/pdf");
     await prisma.document.create({
       data: {
         id: docId,
@@ -1243,10 +1262,10 @@ async function main(): Promise<void> {
         organizationId: org.id,
         documentId: docId,
         versionNo: 1,
-        storageKey: `uploads/${org.id}/personal/${e.id}/${docId}.pdf`,
+        storageKey: persKey,
         fileName: `${kind.replace(/\s+/g, "_")}.pdf`,
         mimeType: "application/pdf",
-        sizeBytes: BigInt(randInt(50_000, 2_000_000)),
+        sizeBytes: BigInt(persPdf.length),
       },
     });
     await prisma.document.update({
