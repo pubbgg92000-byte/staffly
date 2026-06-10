@@ -7,7 +7,6 @@ import { localDateInTimezone } from "../attendance/local-date";
 import {
   daysAgoWindow,
   denseDailySeries,
-  startOfDayUTC,
   startOfMonthUTC,
 } from "./date-windows";
 
@@ -41,12 +40,22 @@ export class DashboardService {
   async admin(): Promise<unknown> {
     const orgId = requireOrg();
     const now = new Date();
-    const today = startOfDayUTC(now);
-    const tomorrow = new Date(today);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-    const monthStart = startOfMonthUTC(now);
-    const window7 = daysAgoWindow(7, now);
-    const window30 = daysAgoWindow(30, now);
+    // Attendance rows are dated by the EMPLOYEE'S local calendar day (see
+    // AttendanceService.checkIn), so a UTC anchor here misses live check-ins
+    // for several hours around every local midnight. The org's home timezone
+    // is the headline's source of truth: "today" on the admin dashboard means
+    // the org's current calendar day. Per-employee divergence within a
+    // multi-tz org is bounded by the offset spread and self-heals at the org
+    // day rollover.
+    const org = await this.prisma.db.organization.findFirst({
+      where: { id: orgId },
+      select: { timezone: true },
+    });
+    const orgTz = org?.timezone ?? "Etc/UTC";
+    const today = new Date(localDateInTimezone(now, orgTz));
+    const monthStart = startOfMonthUTC(today);
+    const window7 = daysAgoWindow(7, today);
+    const window30 = daysAgoWindow(30, today);
 
     const [
       totalEmployees,
@@ -321,19 +330,19 @@ export class DashboardService {
     if (!me) throw new NotFoundException({ code: "employee.not_found" });
 
     const now = new Date();
-    const today = startOfDayUTC(now);
     // Attendance rows are dated by the EMPLOYEE'S local calendar day (see
     // AttendanceService.checkIn). When the employee's tz differs from UTC,
-    // `startOfDayUTC(now)` and the local date diverge — that mismatch was
-    // the v0.23.1 bug where the dashboard couldn't find an active session
-    // it had just written. Use the local date for the attendance lookup
-    // and the displayed `todayStatus.date`; keep UTC for trend windows and
-    // forward-looking date filters (leave/holidays), which are intentionally
-    // tz-agnostic per docs/02 § 1.2.
+    // a UTC anchor and the local date diverge — that mismatch was the
+    // v0.23.1 bug where the dashboard couldn't find an active session it
+    // had just written. Anchor EVERYTHING on this dashboard (todayStatus,
+    // the 7-day series, leave/holiday forward filters) to the employee's
+    // local calendar day so a single response is internally consistent.
+    // The admin dashboard applies the same rule with the org timezone.
     const employeeTz = resolveEmployeeTimezone(me);
     const localToday = new Date(localDateInTimezone(now, employeeTz));
-    const window7 = daysAgoWindow(7, now);
-    const cycleYear = now.getUTCFullYear();
+    const today = localToday;
+    const window7 = daysAgoWindow(7, localToday);
+    const cycleYear = localToday.getUTCFullYear();
 
     // Same Promise.all pattern. Audience filter for /me feed identical
     // shape to the one in documents/announcements modules.
