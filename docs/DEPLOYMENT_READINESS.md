@@ -63,9 +63,12 @@ measured (no browser tooling).
 ## Open issues
 
 > **Update (post-Phase 1/2):** manager team-scoping is now **enforced
-> row-level** (verified live: manager sees 10 of 40 employees; hr/super see
-> all) and session-expiry now **clears state + redirects with a toast**. Both
-> are removed from the open list below.
+> row-level** and session-expiry now **clears state + redirects with a toast**.
+>
+> **Update (prod-readiness sprint, branch `feat/v0.23.2-prod-readiness`):**
+> **email delivery is now wired** (provider abstraction; invite/reset/welcome/
+> leave — verified live on Mailhog) and **managers can now reject team leave**.
+> Both are removed from the open list. See `RELEASE_NOTES.md` / `TEST_EVIDENCE.md`.
 
 ### Critical
 
@@ -73,20 +76,18 @@ measured (no browser tooling).
 
 ### High
 
-- **Email delivery not wired.** Mailhog runs but no SMTP send path exists;
-  password reset / invites are log-only. Blocks any flow that needs real email
-  (invites, notifications) in a pilot. (Provider abstraction in progress on a
-  side branch; not in this release.)
+- **Production-domain cookie/CORS unverified live** — correct by design
+  (`COOKIE_DOMAIN=.<domain>`, `CORS_ORIGINS`; refresh/CSRF/logout validated on
+  localhost) but must be validated on real subdomains at deploy time.
+- **Live email-provider send unverified** — verified on Mailhog (SMTP); do a
+  Resend smoke test post-deploy. R2 bucket + tunnel not yet provisioned.
 
 ### Medium
 
-- **Manager cannot reject leave** (`leave.reject` not granted) — asymmetric
-  approve/reject.
-- **Production-domain cookie/CORS unverified live** — works by design
-  (`COOKIE_DOMAIN=.<domain>`, `CORS_ORIGINS`), but must be validated on real
-  subdomains at deploy time.
 - **UI visual / mobile / accessibility unverified** — requires human/browser
-  review.
+  review (no browser automation here).
+- **Existing non-demo orgs** need a one-row `(manager, leave.reject, scope=team)`
+  backfill; the demo org gets it via `reset-demo.sh`.
 
 ### Low
 
@@ -103,29 +104,31 @@ measured (no browser tooling).
 
 **MEDIUM-LOW.** No critical blockers; security, RBAC, and performance are
 strong and the data path is exact end-to-end. Remaining risk is driven by
-production-domain verification still pending, email not wired, and the absence
-of browser-level UI verification. Manager scoping and session-expiry — the two
-High/Medium items from the prior review — are now resolved and verified.
+production-domain verification still pending, live email-provider send + R2
+provisioning, and the absence of browser-level UI verification. Manager
+scoping, session-expiry, email delivery, and manager leave-reject — the items
+from prior reviews — are now resolved and verified.
 
 | Target | Readiness |
 | --- | --- |
 | Investor demo | **Ready** |
 | Customer demo | **Ready** |
-| Public beta | **Ready after** production-domain verification |
-| Pilot customer deployment | **Fix first**: email delivery |
+| Public beta | **Ready after** production-domain verification + live email smoke test |
+| Pilot customer deployment | **Fix first**: cross-subdomain auth + R2 provisioning, live |
 
-## Readiness score: **90 / 100**
+## Readiness score: **93 / 100**
 
-Deductions: production-domain verification pending (−5), email not wired (−3),
-UI visual / mobile unverified (−2). Manager scoping (+4) and session-expiry
-(+1) from the prior 84 are now resolved.
+Deductions: production-domain verification pending (−5), live email-provider
+send + R2 provisioning pending (−2). Email wiring (+2) and deploy-safety +
+backup/restore drill (+1) resolved from the prior 90; manager scoping and
+session-expiry were resolved earlier.
 
 ## Final recommendation: **B — Fix specific issues, then ship**
 
 Ship immediately for **investor / customer demos**. For **public beta**,
-complete production-domain cookie/CORS
-verification first. For **pilot customer deployment**, additionally wire email
-delivery.
+complete production-domain cookie/CORS verification + a live email-provider
+smoke test first. For **pilot customer deployment**, additionally provision R2
+and re-run the restore drill against the production database.
 
 ## Deployment steps (summary)
 

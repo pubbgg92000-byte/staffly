@@ -4,6 +4,34 @@ All notable changes to Staffly. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions are the repo's
 `vX.Y.Z` sprint tags.
 
+## [Unreleased] — v0.23.2 production-readiness sprint
+
+Branch `feat/v0.23.2-prod-readiness` (local). Demo → Public-Beta hardening; no new modules.
+
+### Features
+
+- **Email delivery (provider-agnostic).** `MailerModule` with `log`/`smtp`/`resend`/`mailgun`
+  adapters selected by `EMAIL_PROVIDER` (missing creds → log fallback; fire-and-forget, never
+  throws). Wired into invite create/resend, password reset, welcome-on-accept, and leave
+  approve/reject notifications. Centralized HTML+text templates. Verified live on Mailhog.
+- **Managers can reject team leave.** `leave.reject` granted to the manager role at **team**
+  scope (enforced row-level by `CallerScopeService`) — symmetric with approve.
+
+### Production safety
+
+- `.gitignore` excludes `.backups/`, `.pm2/`, and the real `infra/cloudflared/config.yml`
+  (tunnel credentials); `config.example.yml` stays tracked.
+
+### Documentation
+
+- New `docs/DEPLOY_CHECKLIST.md`, `docs/RELEASE_NOTES.md`, `docs/PROD_SIGNOFF.md`,
+  `docs/TEST_EVIDENCE.md`. Readiness 90 → 93.
+
+### Known Issues (carried)
+
+- Cross-subdomain auth config-validated only (needs real DNS); live email-provider send and R2
+  bucket not yet provisioned. Existing non-demo orgs need a one-row `leave.reject` backfill.
+
 ## [v0.23.2] — 2026-06-09
 
 Public-beta candidate: deployment hardening, demo readiness, and a
