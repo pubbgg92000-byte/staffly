@@ -27,3 +27,9 @@ prisma/migrations/.tmp
 
 # storybook
 storybook-static
+
+# deploy runtime artefacts (DB dumps, PM2 logs, real tunnel config — secrets)
+# infra/cloudflared/config.example.yml stays tracked (.example.yml != .yml)
+.backups/
+.pm2/
+infra/cloudflared/config.yml
