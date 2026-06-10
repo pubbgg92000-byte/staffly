@@ -310,6 +310,60 @@ describe("manager team-scoping", () => {
       .expect(403);
   });
 
+  it("manager can reject a team member's leave but NOT an outsider's", async () => {
+    const admin = await signupOrg();
+    const managerEmp = await createEmployee(admin.cookies);
+    const report = await createEmployee(admin.cookies, {
+      managerId: managerEmp,
+    });
+    const outsider = await createEmployee(admin.cookies);
+
+    const lt = await prisma.db.leaveType.findFirstOrThrow({
+      where: { organizationId: admin.organizationId },
+    });
+    const mkReq = (employeeId: string) =>
+      prisma.db.leaveRequest.create({
+        data: {
+          organizationId: admin.organizationId,
+          employeeId,
+          leaveTypeId: lt.id,
+          startDate: new Date("2026-08-01"),
+          endDate: new Date("2026-08-01"),
+          units: 1,
+          status: "pending",
+        },
+      });
+    const teamReq = await mkReq(report);
+    const outsiderReq = await mkReq(outsider);
+
+    const mgr = await makeUserWithRole(
+      admin.organizationId,
+      managerEmp,
+      "manager",
+    );
+    const csrf = mgr.csrf!;
+
+    // team member's request → reject OK, status persisted
+    await request(app.getHttpServer())
+      .patch(`/leave/requests/${teamReq.id}/reject`)
+      .set("Cookie", cookieHeader(mgr))
+      .set("X-CSRF-Token", csrf)
+      .send({ comment: "not this week" })
+      .expect(200);
+    const rejected = await prisma.db.leaveRequest.findUniqueOrThrow({
+      where: { id: teamReq.id },
+    });
+    expect(rejected.status).toBe("rejected");
+
+    // outsider's request → 403 (not in team)
+    await request(app.getHttpServer())
+      .patch(`/leave/requests/${outsiderReq.id}/reject`)
+      .set("Cookie", cookieHeader(mgr))
+      .set("X-CSRF-Token", csrf)
+      .send({})
+      .expect(403);
+  });
+
   it("manager's /leave/requests list excludes outsiders", async () => {
     const admin = await signupOrg();
     const managerEmp = await createEmployee(admin.cookies);
