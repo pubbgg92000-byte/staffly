@@ -28,6 +28,10 @@ import argon2 from "argon2";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  localDateInTimezone,
+  localWallTimeToUtc,
+} from "../src/attendance/local-date";
 import { DEFAULT_DOCUMENT_CATEGORIES } from "../src/documents/default-document-categories";
 import { MANAGER_TEAM_PERMISSIONS } from "../src/rbac/system-roles";
 
@@ -60,6 +64,9 @@ const ORG_SLUG = "staffly-demo";
 const ORG_NAME = "Acme Corporation";
 // Pinned so the org id (and thus the whole dataset) is stable across re-seeds.
 const ORG_ID = "019e0000-0000-7000-8000-000000000001";
+// The org's timezone — "today" and day boundaries are anchored here so the
+// seeded dataset matches what the (org-tz-anchored) admin dashboard queries.
+const ORG_TZ = "America/New_York";
 
 // ─── Deterministic helpers ─────────────────────────────────────────────────
 
@@ -101,13 +108,14 @@ function addDays(d: Date, n: number): Date {
   x.setUTCDate(x.getUTCDate() + n);
   return x;
 }
-function atHour(d: Date, h: number, m = 0): Date {
-  const x = new Date(d);
-  x.setUTCHours(h, m, 0, 0);
-  return x;
-}
 
-const TODAY = dateOnly(new Date());
+// "Today" as the org's local calendar date (not UTC) — keeps the seeded
+// "today" aligned with the admin dashboard, which anchors on the org tz. The
+// returned Date names the calendar day via its UTC Y/M/D (the attendanceDate
+// storage convention).
+const TODAY = dateOnly(
+  new Date(`${localDateInTimezone(new Date(), ORG_TZ)}T00:00:00.000Z`),
+);
 const CYCLE_YEAR = TODAY.getUTCFullYear();
 
 async function hash(plain: string): Promise<string> {
@@ -606,6 +614,7 @@ async function main(): Promise<void> {
     deptId: string;
     desigId: string;
     locId: string;
+    tz: string;
     employmentType: string;
     workMode: string;
     status: string;
@@ -613,6 +622,8 @@ async function main(): Promise<void> {
     userId: string | null;
     isManager: boolean;
   }[] = [];
+
+  const tzByLocId = new Map(locationRows.map((l) => [l.id, l.timezone]));
 
   const deptByName = (n: string) => deptRows.find((d) => d.name === n)!.id;
   const desigByName = (n: string) => desigRows.find((d) => d.name === n)!.id;
@@ -676,6 +687,7 @@ async function main(): Promise<void> {
     } else {
       joinedOn = addDays(TODAY, -randInt(180, 1500));
     }
+    const locId = pick(locationRows).id;
     empSpecs.push({
       id,
       code,
@@ -684,7 +696,8 @@ async function main(): Promise<void> {
       workEmail,
       deptId,
       desigId,
-      locId: pick(locationRows).id,
+      locId,
+      tz: tzByLocId.get(locId) ?? ORG_TZ,
       employmentType,
       workMode: pick(workModes),
       status,
@@ -775,7 +788,107 @@ async function main(): Promise<void> {
     }
   }
 
-  // 12. Attendance — last 90 days, weekdays only, skipping holidays.
+  // 12. Leave types — created BEFORE attendance so approved leave can drive
+  // each employee's attendance status (no "present" while on approved leave).
+  const leaveTypeRows = LEAVE_TYPES.map((t) => ({
+    id: uuid(),
+    organizationId: org.id,
+    name: t.name,
+    code: t.code,
+    color: t.color,
+    accrualType: "annual" as const,
+    accrualAmount: t.accrual,
+    isPaid: t.paid,
+    requiresApproval: true,
+  }));
+  await prisma.leaveType.createMany({ data: leaveTypeRows });
+
+  // 12a. Leave requests (in memory). Generated before attendance and kept
+  // non-overlapping per employee so the real API's overlap rule is respected
+  // and balances reconcile. Each request's [start,end] is recorded.
+  const reqSpecs: {
+    id: string;
+    employeeId: string;
+    leaveTypeId: string;
+    start: Date;
+    end: Date;
+    units: number;
+    status: string;
+    reason: string;
+    decidedBy: string | null;
+  }[] = [];
+  const reasons = [
+    "Family vacation",
+    "Medical appointment",
+    "Personal errand",
+    "Wedding to attend",
+    "Feeling unwell",
+    "Childcare",
+    "Relocation",
+  ];
+  const hrUserId = empSpecs[1]!.userId!; // hr_admin user as approver
+  const dayKey = (d: Date): string =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  // Per-employee set of dates already occupied by a non-terminal (pending/
+  // approved) leave request, to prevent overlaps.
+  const occupiedByEmp = new Map<string, Set<string>>();
+  // Per-employee set of APPROVED leave dates — attendance reads this so a day
+  // on approved leave is recorded as on_leave (never present/half_day).
+  const approvedLeaveByEmp = new Map<string, Set<string>>();
+  const rangeDates = (start: Date, end: Date): Date[] => {
+    const out: Date[] = [];
+    for (let d = new Date(start); d <= end; d = addDays(d, 1))
+      out.push(new Date(d));
+    return out;
+  };
+  for (const e of empSpecs) {
+    const n = randInt(0, 3);
+    const occupied = occupiedByEmp.get(e.id) ?? new Set<string>();
+    occupiedByEmp.set(e.id, occupied);
+    for (let k = 0; k < n; k++) {
+      const lt = pick(leaveTypeRows);
+      const offset = randInt(-60, 40);
+      const len = randInt(1, 4);
+      const start = addDays(TODAY, offset);
+      const end = addDays(start, len - 1);
+      const dates = rangeDates(start, end);
+      const statusRoll = rng();
+      const status =
+        statusRoll < 0.45
+          ? "approved"
+          : statusRoll < 0.7
+            ? "pending"
+            : statusRoll < 0.85
+              ? "rejected"
+              : "cancelled";
+      // For pending/approved (the statuses the real API blocks overlaps on),
+      // skip if this range collides with an existing one for the employee.
+      const blocks = status === "approved" || status === "pending";
+      if (blocks && dates.some((d) => occupied.has(dayKey(d)))) continue;
+      if (blocks) for (const d of dates) occupied.add(dayKey(d));
+      if (status === "approved") {
+        const set = approvedLeaveByEmp.get(e.id) ?? new Set<string>();
+        for (const d of dates) set.add(dayKey(d));
+        approvedLeaveByEmp.set(e.id, set);
+      }
+      reqSpecs.push({
+        id: uuid(),
+        employeeId: e.id,
+        leaveTypeId: lt.id,
+        start,
+        end,
+        units: len,
+        status,
+        reason: pick(reasons),
+        decidedBy:
+          status === "approved" || status === "rejected" ? hrUserId : null,
+      });
+    }
+  }
+
+  // 13. Attendance — last 90 days, weekdays only, skipping holidays. Check-in
+  // times are anchored to each employee's LOCAL timezone (~09:00 local), and a
+  // day that falls on the employee's approved leave is recorded as on_leave.
   const holidaySet = new Set(HOLIDAYS.map((h) => `${CYCLE_YEAR}-${h.md}`));
   const isHoliday = (d: Date): boolean =>
     holidaySet.has(
@@ -805,6 +918,25 @@ async function main(): Promise<void> {
     const isToday = back === 0;
     for (const e of empSpecs) {
       if (e.joinedOn > day) continue;
+      // An approved leave on this day always yields an on_leave record — never
+      // present/half_day — so attendance and leave never contradict.
+      if (approvedLeaveByEmp.get(e.id)?.has(dayKey(day))) {
+        attendance.push({
+          id: uuid(),
+          organizationId: org.id,
+          employeeId: e.id,
+          attendanceDate: day,
+          checkInAt: null,
+          checkOutAt: null,
+          workedMinutes: null,
+          status: "on_leave",
+          isLate: false,
+        });
+        continue;
+      }
+      // ~09:00 LOCAL time for this employee, with a small lateness jitter.
+      const checkInAtLocal = (lateMin: number): Date =>
+        localWallTimeToUtc(e.tz, day, 9, Math.max(0, lateMin));
       const roll = rng();
       let status: string,
         checkIn: Date | null = null,
@@ -813,32 +945,28 @@ async function main(): Promise<void> {
         late = false;
       if (isToday) {
         // In-progress day: checked-in but not yet checked out (no worked
-        // minutes), a few already on leave, a few not checked in yet (no row).
-        if (roll < 0.82) {
+        // minutes), a few not checked in yet (no row).
+        if (roll < 0.88) {
           status = "present";
           const lateMin = chance(0.15) ? randInt(16, 75) : randInt(-10, 14);
           late = lateMin > 15;
-          checkIn = atHour(day, 9, Math.max(0, lateMin));
-        } else if (roll < 0.9) {
-          status = "on_leave";
+          checkIn = checkInAtLocal(lateMin);
         } else {
           continue; // not checked in yet → no record for today
         }
-      } else if (roll < 0.86) {
+      } else if (roll < 0.9) {
         status = "present";
         const lateMin = chance(0.15) ? randInt(16, 75) : randInt(-10, 14);
         late = lateMin > 15;
-        checkIn = atHour(day, 9, Math.max(0, lateMin));
+        checkIn = checkInAtLocal(lateMin);
         const dur = randInt(450, 540);
         checkOut = new Date(checkIn.getTime() + dur * 60_000);
         worked = dur;
-      } else if (roll < 0.92) {
+      } else if (roll < 0.96) {
         status = "half_day";
-        checkIn = atHour(day, 9, randInt(0, 20));
+        checkIn = checkInAtLocal(randInt(0, 20));
         worked = randInt(180, 240);
         checkOut = new Date(checkIn.getTime() + worked * 60_000);
-      } else if (roll < 0.97) {
-        status = "on_leave";
       } else {
         status = "absent";
       }
@@ -862,14 +990,15 @@ async function main(): Promise<void> {
     });
   }
 
-  // 12b. A few pending attendance regularizations.
+  // 13b. A few pending attendance regularizations (anchored to local office
+  // hours of the target employee).
   const regs = empSpecs.slice(4, 10).map((e) => ({
     id: uuid(),
     organizationId: org.id,
     employeeId: e.id,
     attendanceDate: addDays(TODAY, -randInt(3, 20)),
-    requestedCheckInAt: atHour(addDays(TODAY, -10), 9, 0),
-    requestedCheckOutAt: atHour(addDays(TODAY, -10), 18, 0),
+    requestedCheckInAt: localWallTimeToUtc(e.tz, addDays(TODAY, -10), 9, 0),
+    requestedCheckOutAt: localWallTimeToUtc(e.tz, addDays(TODAY, -10), 18, 0),
     reason: pick([
       "Forgot to check in — was on a client call.",
       "System was down during check-out.",
@@ -879,74 +1008,6 @@ async function main(): Promise<void> {
     status: "pending" as const,
   }));
   await prisma.attendanceRegularization.createMany({ data: regs });
-
-  // 13. Leave types.
-  const leaveTypeRows = LEAVE_TYPES.map((t) => ({
-    id: uuid(),
-    organizationId: org.id,
-    name: t.name,
-    code: t.code,
-    color: t.color,
-    accrualType: "annual" as const,
-    accrualAmount: t.accrual,
-    isPaid: t.paid,
-    requiresApproval: true,
-  }));
-  await prisma.leaveType.createMany({ data: leaveTypeRows });
-
-  // 13a. Generate leave requests (in memory) so balances can reflect them.
-  const reqSpecs: {
-    id: string;
-    employeeId: string;
-    leaveTypeId: string;
-    start: Date;
-    end: Date;
-    units: number;
-    status: string;
-    reason: string;
-    decidedBy: string | null;
-  }[] = [];
-  const reasons = [
-    "Family vacation",
-    "Medical appointment",
-    "Personal errand",
-    "Wedding to attend",
-    "Feeling unwell",
-    "Childcare",
-    "Relocation",
-  ];
-  const hrUserId = empSpecs[1]!.userId!; // hr_admin user as approver
-  for (const e of empSpecs) {
-    const n = randInt(0, 3);
-    for (let k = 0; k < n; k++) {
-      const lt = pick(leaveTypeRows);
-      const offset = randInt(-60, 40);
-      const len = randInt(1, 4);
-      const start = addDays(TODAY, offset);
-      const end = addDays(start, len - 1);
-      const statusRoll = rng();
-      const status =
-        statusRoll < 0.45
-          ? "approved"
-          : statusRoll < 0.7
-            ? "pending"
-            : statusRoll < 0.85
-              ? "rejected"
-              : "cancelled";
-      reqSpecs.push({
-        id: uuid(),
-        employeeId: e.id,
-        leaveTypeId: lt.id,
-        start,
-        end,
-        units: len,
-        status,
-        reason: pick(reasons),
-        decidedBy:
-          status === "approved" || status === "rejected" ? hrUserId : null,
-      });
-    }
-  }
 
   // 13b. Leave balances: allocated per type; used = approved, pending = pending.
   const balances: Record<string, { used: number; pending: number }> = {};
