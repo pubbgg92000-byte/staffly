@@ -373,8 +373,10 @@ export class AuthService {
   /**
    * Always returns success — never leak whether the email exists.
    *
-   * Dev mode: when a user does exist, we log the reset URL to the API logs
-   * so a developer can copy it into the browser without configuring SMTP.
+   * Outside production (when a user exists) we log the reset URL and return
+   * it in the response so a developer can copy it without configuring SMTP.
+   * In production neither happens: the raw token is a live single-use
+   * credential and must travel only through the email channel (RC-05).
    */
   async forgotPassword(
     body: ForgotPasswordBodyT,
@@ -403,19 +405,22 @@ export class AuthService {
         expiresAt,
       },
     });
-    const devResetUrl = `${this.env.APP_BASE_URL}/auth/reset-password?token=${raw}`;
-    this.logger.warn(
-      `[dev-password-reset] reset URL for ${user.email}: ${devResetUrl}`,
-    );
-    // Fire-and-forget delivery; never blocks or fails the request.
+    const resetUrl = `${this.env.APP_BASE_URL}/auth/reset-password?token=${raw}`;
+    // Fire-and-forget delivery; never blocks or fails the request. The email
+    // is the ONLY reset-link channel in production.
     void this.mailer.send({
       to: user.email,
-      ...passwordResetEmail({ resetUrl: devResetUrl }),
+      ...passwordResetEmail({ resetUrl }),
     });
-    // Return the URL only outside of production for ergonomics. In prod the
-    // endpoint MUST return `{ ok: true }` only — see docs/03 §2.8.
+    // Dev ergonomics ONLY: logging the raw token and echoing it in the
+    // response are gated behind non-production. In prod a log reader could
+    // otherwise complete the reset within the token TTL (RC-05); the endpoint
+    // MUST return `{ ok: true }` only — see docs/03 §2.8.
     if (this.env.NODE_ENV !== "production") {
-      return { ok: true, devResetUrl };
+      this.logger.warn(
+        `[dev-password-reset] reset URL for ${user.email}: ${resetUrl}`,
+      );
+      return { ok: true, devResetUrl: resetUrl };
     }
     return { ok: true };
   }
