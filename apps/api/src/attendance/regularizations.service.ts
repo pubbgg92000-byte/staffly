@@ -8,6 +8,7 @@ import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../infra/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { PermissionsService } from "../rbac/permissions.service";
+import { CallerScopeService } from "../rbac/caller-scope.service";
 import { pageOf, skipTake, type Page } from "../common/pagination";
 import type {
   CreateRegularizationBodyT,
@@ -26,6 +27,7 @@ export class RegularizationsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly permissions: PermissionsService,
+    private readonly callerScope: CallerScopeService,
   ) {}
 
   async list(q: RegularizationsListQueryT): Promise<Page<unknown>> {
@@ -117,6 +119,17 @@ export class RegularizationsService {
       throw new BadRequestException({
         code: "regularization.already_decided",
       });
+    }
+    // Team scoping: a team-scoped attendance.approve holder may only decide
+    // regularizations for their own reports. global scope (hr_admin/
+    // super_admin) is unrestricted. Mirrors the leave decide() path.
+    const allowed = await this.callerScope.canActOnEmployee(
+      actor.userId,
+      "attendance.approve",
+      reg.employeeId,
+    );
+    if (!allowed) {
+      throw new ForbiddenException({ code: "attendance.out_of_scope" });
     }
 
     const updated = await this.prisma.db.$transaction(

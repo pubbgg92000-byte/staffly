@@ -539,7 +539,7 @@ describe("GET /dashboard/employee", () => {
   });
 
   it("surfaces pending acks (docs + announcements) and recent announcements", async () => {
-    const { cookies, userId } = await signupOrg();
+    const { cookies, organizationId, userId } = await signupOrg();
     await createEmployeeForUser(cookies, userId);
 
     // Required, in-audience, published doc the user has not acked.
@@ -557,7 +557,7 @@ describe("GET /dashboard/employee", () => {
         categoryId: catRes.body.id,
         title: "Must",
         file: {
-          storageKey: "k",
+          storageKey: `uploads/${organizationId}/document/dash/policy.pdf`,
           fileName: "policy.pdf",
           mimeType: "application/pdf",
           sizeBytes: 100,

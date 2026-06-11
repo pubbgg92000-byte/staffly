@@ -821,6 +821,14 @@ export class DocumentsService {
     file: FileMetaT,
     uploadedBy: string,
   ): Promise<{ id: string; versionNo: number }> {
+    // Tenant guard: the client supplies storageKey from a presign response, but
+    // it must point inside this org's prefix. Reject a key naming another
+    // tenant (uploads/<other-org>/...) so a document version can never be
+    // pointed at a cross-tenant object and presigned for download.
+    const expectedPrefix = `uploads/${organizationId}/`;
+    if (!file.storageKey.startsWith(expectedPrefix)) {
+      throw new BadRequestException({ code: "document.storage_key_invalid" });
+    }
     return tx.documentVersion.create({
       data: {
         organizationId,

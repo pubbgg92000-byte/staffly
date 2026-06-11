@@ -10,6 +10,7 @@ import { PrismaService } from "../infra/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { currentOrganizationId } from "../tenant/tenant-context";
 import { pageOf, skipTake, type Page } from "../common/pagination";
+import { sanitizeRichText } from "../common/sanitize-html";
 import {
   AudienceResolverService,
   type AudienceRule,
@@ -121,7 +122,7 @@ export class AnnouncementsService {
           data: {
             organizationId: orgId,
             title: body.title,
-            bodyHtml: body.bodyHtml,
+            bodyHtml: sanitizeRichText(body.bodyHtml),
             coverImageUrl: body.coverImageUrl ?? null,
             pinned: body.pinned ?? false,
             requiresAcknowledgment: body.requiresAcknowledgment ?? false,
@@ -186,7 +187,8 @@ export class AnnouncementsService {
           updatedBy: actor.userId,
         };
         if (body.title !== undefined) data.title = body.title;
-        if (body.bodyHtml !== undefined) data.bodyHtml = body.bodyHtml;
+        if (body.bodyHtml !== undefined)
+          data.bodyHtml = sanitizeRichText(body.bodyHtml);
         if (body.coverImageUrl !== undefined)
           data.coverImageUrl = body.coverImageUrl;
         if (body.pinned !== undefined) data.pinned = body.pinned;
