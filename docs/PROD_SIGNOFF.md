@@ -1,5 +1,11 @@
 # Staffly — Production Sign-off (v0.23.2 → Public Beta)
 
+> **2026-06-11 supersession notice.** This is the prod-readiness-sprint sign-off
+> dated 2026-06-10. The authoritative go/no-go after the full v1.0 master
+> certification is [`PRODUCTION_SIGNOFF.md`](PRODUCTION_SIGNOFF.md) (Phase 14,
+> 2026-06-11). The contents below remain accurate as the sprint-level summary
+> at that point in time.
+
 **Branch:** `feat/v0.23.2-prod-readiness` (local, **not pushed**) · **Base:** `main` @ `c22b53a` · **Date:** 2026-06-10
 **Prepared as a go/no-go certification for a public *beta* (not GA).**
 

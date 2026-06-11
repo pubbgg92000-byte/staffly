@@ -46,3 +46,18 @@ These were re-tested live, not assumed from the prior commits.
 
 ## 4. Gate results
 typecheck 7/7 · lint 0 errors · format clean · unit 101/101 · integration 248/248 · build 7/7 (doc-only phase; no source modified — gates inherited from `54b2ab2`, format re-checked for this file).
+
+## 5. Post-gate remediation (commit `2883817`, 2026-06-11)
+
+The findings above were addressed in a single hardening commit. Re-verified live before commit.
+
+| Finding | Fix | File |
+| --- | --- | --- |
+| P2 — Stored XSS via `bodyHtml` | New `sanitizeRichText()` (allowlist via `sanitize-html`) applied on announcement create + update | `apps/api/src/common/sanitize-html.ts`, `announcements.service.ts` |
+| P3 — Unguarded self-service mutations | `RegularizationsService.decide` now calls `CallerScopeService.canActOnEmployee(actor.userId, "attendance.approve", reg.employeeId)` → 403 outside team (mirrors leave decide) | `apps/api/src/attendance/regularizations.service.ts` |
+| P3 — Document create trusts client storage key | Reject keys that don't start with `uploads/<callerOrgId>/` (400 `document.storage_key_invalid`) | `apps/api/src/documents/documents.service.ts` |
+| — | Refresh-token revocation on user deactivation (`revokeReason: "user_deactivated"`); 15-min access-token residual documented | `apps/api/src/rbac/users.service.ts` |
+
+The unguarded-other-self-routes portion of P3 #12 (check-in/check-out, leave create/cancel) is intentionally not gated — the service binds to the caller's own employee, so the route remains self-service by construction. P3 #13's client `mimeType` is still trusted defense-in-depth-wise (HEAD-verify upgrade tracked but unscheduled); the tenant-escape vector via `storageKey` is closed.
+
+Post-fix verdict: **0×P0/P1/P2 open**.

@@ -13,7 +13,7 @@ the full production deployment design see [`DEPLOYMENT.md`](DEPLOYMENT.md).
 | PostgreSQL 18 | 5433 → 5432 | Docker container `staffly-postgres` |
 | Redis | 6379 | Container `staffly-redis` (provisioned; unused by app) |
 | MinIO | 9000 / 9001 | S3-compatible storage / console |
-| Mailhog | 1025 / 8025 | Dev SMTP / web UI (email send not wired) |
+| Mailhog | 1025 / 8025 | Dev SMTP / web UI — drop for `EMAIL_PROVIDER=smtp` (Mailerservice wired for invites, password reset, welcome, leave decisions) |
 
 ## Starting services
 

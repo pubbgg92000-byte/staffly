@@ -1,19 +1,30 @@
 # Staffly Release Notes — v0.23.2 Production-Readiness Sprint
 
-**Branch:** `feat/v0.23.2-prod-readiness` · **Base:** `main` @ `c22b53a` · **Date:** 2026-06-10
-**Theme:** Demo-Ready → Public-Beta-Ready. Production hardening only — no new product modules.
+**Branch:** `feat/v0.23.2-prod-readiness` · **Base:** `main` @ `c22b53a` · **Last update:** 2026-06-11
+**Theme:** Demo-Ready → Public-Beta-Ready. Production hardening + v1.0 master certification —
+no new product modules.
 
-This sprint closes the email-delivery and permission gaps from the v0.23.2 readiness review and
-adds the deploy-safety + certification material needed for a public beta. No org-switching,
-multi-country, payroll, or AI work (explicitly out of scope).
+This sprint closes the email-delivery and permission gaps from the v0.23.2 readiness review,
+adds the deploy-safety material needed for a public beta, and was followed by a full 17-phase
+certification pass (reports under [`docs/certification/`](certification/); go/no-go in
+[`PRODUCTION_SIGNOFF.md`](PRODUCTION_SIGNOFF.md)). No org-switching, multi-country, payroll,
+or AI work (explicitly out of scope).
 
-## Commits
+## Commits (in order)
 | Hash | Summary |
 | --- | --- |
 | `c5f851a` | chore(prod-safety): gitignore deploy runtime artefacts |
 | `a0754c6` | feat(email): provider-agnostic mail delivery + wire core flows |
 | `19034e1` | feat(rbac): managers can reject team leave (team-scoped) |
-| _(docs)_ | certification suite (this file, DEPLOY_CHECKLIST, PROD_SIGNOFF, TEST_EVIDENCE) + CHANGELOG/readiness updates |
+| `4b0d989` | fix(dashboard): anchor "today" in org timezone end-to-end |
+| `1d29173` | fix(mailer): prod-fatal validation when chosen provider's creds are missing |
+| `0bbc97d` | fix(auth): enforce CSRF on `/auth/refresh` (was a no-op on the `@Public` route) |
+| `3297aec` | fix(rbac): enforce manager team scope on by-id reads (BAC) + hr `attendance.policy.write` |
+| `e9a557c` | fix(seed): timezone-realistic check-ins + leave/attendance reconciliation |
+| `8707dc8` | fix(seed): upload real PDF binaries for seeded documents |
+| `2883817` | fix(security): XSS sanitizer + regularization scope + storage-key guard + deactivation revoke |
+| `3602723` | feat(config): production boot guards (`COOKIE_DOMAIN`/`APP_BASE_URL`/`EMAIL_FROM`) |
+| _(docs)_ | certification suite — DEPLOY_CHECKLIST, PRODUCTION_SIGNOFF, PERFORMANCE_REPORT, SECURITY_REPORT, TEST_EVIDENCE, per-phase reports |
 
 ## Features
 - **Email delivery (provider-agnostic).** New `MailerModule`: a single `MailerClient.send()`
@@ -38,9 +49,12 @@ multi-country, payroll, or AI work (explicitly out of scope).
 - **`TEST_EVIDENCE.md`** — gate output, Mailhog receipts, backup/restore drill, domain-validation transcripts.
 
 ## Verification (summary)
-Typecheck 7/7 · lint 0 errors · format clean · unit 56/56 · integration 242/242 · API build ✓.
-Email: 2/2 Mailhog receipts. Backup→restore: row counts + schema identical. Domain: CORS, CSRF,
-refresh-rotation+reuse-detection, logout all pass on localhost.
+Typecheck 7/7 · lint 0 errors · format clean · unit 101/101 · integration 248/248 · API build ✓.
+Email: 2/2 Mailhog receipts. Backup→restore: row counts + schema identical (37/37 tables).
+Domain: CORS, CSRF (incl. `/auth/refresh`), refresh-rotation+reuse-detection, logout all
+pass on localhost. Security: 0×P0/P1, 0×P2 (sanitizer landed), 2×P3 documented. Performance:
+PASS at 5 000-employee scale (p95 ≤ 51 ms across five endpoints). Prod boot guards
+live-verified (refuse + clean boot).
 
 ## Demo accounts (org **Acme Corporation**, `staffly-demo`)
 | Role | Email | Password |
@@ -53,10 +67,9 @@ refresh-rotation+reuse-detection, logout all pass on localhost.
 ## Known limitations
 - **No UI screenshots / visual review** in this environment (no browser automation).
 - **Cross-subdomain auth not live-verified** — config-validated only; needs real DNS at deploy.
-- **Email providers** (Resend/Mailgun) verified by unit tests + Mailhog; not live-sent (no creds).
+- **Live provider sends** (Resend/Mailgun) verified by unit tests + Mailhog; not live-sent (no creds).
 - **Existing non-demo orgs** would need a one-row backfill `(manager, leave.reject, scope=team)`;
   the demo org gets it via `reset-demo.sh`.
-- Manager leave-reject lands on the demo only after a re-seed (`reset-demo.sh`).
 
 ## Upgrade notes
 - New env: `EMAIL_PROVIDER` (+ `EMAIL_FROM`, `SMTP_*` / `RESEND_API_KEY` / `MAILGUN_*`). Default

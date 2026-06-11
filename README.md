@@ -4,7 +4,11 @@ Staffly is the working repository for **PeopleFlow**, a multi-tenant HRMS for SM
 
 ## Status
 
-**v0.23.2-deploy** — public-beta candidate (deployment hardening + demo readiness; pre-production certified).
+**v0.23.2 production-readiness** — public-beta candidate. Branch
+`feat/v0.23.2-prod-readiness` carries the prod-readiness sprint plus the full
+v1.0 master certification (17 phases, per-phase reports under
+[`docs/certification/`](docs/certification/); go/no-go in
+[`docs/PRODUCTION_SIGNOFF.md`](docs/PRODUCTION_SIGNOFF.md)).
 
 Twenty-five releases shipped across the backend, UI, and platform sprints:
 

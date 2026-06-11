@@ -1,5 +1,11 @@
 # Staffly — Deployment Readiness Report (v0.23.2)
 
+> **2026-06-11 supersession notice.** This is the pre-sprint readiness report
+> (branch `feat/v0.23.2-deploy`, 2026-06-09). The current readiness assessment
+> after the prod-readiness sprint and v1.0 master certification is
+> [`PRODUCTION_SIGNOFF.md`](PRODUCTION_SIGNOFF.md) (Phase 14, 2026-06-11) — the
+> numbers below predate the certification fixes.
+
 **Prepared as a pre-production certification.** All PASS/FAIL marks below are
 backed by live verification against the running system (curl + psql + docker),
 not code inspection.
