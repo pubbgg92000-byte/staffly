@@ -22,6 +22,12 @@ describe("buildMailerFromEnv — provider selection", () => {
     process.env.DATABASE_URL =
       "postgresql://u:p@localhost:5432/db?schema=public";
     process.env.JWT_SECRET = "test-secret-at-least-32-characters-long-xx";
+    // Prod-plausible values for the env production boot guards
+    // (COOKIE_DOMAIN/APP_BASE_URL/EMAIL_FROM) so NODE_ENV=production cases
+    // reach the mailer factory's own validation rather than failing in loadEnv.
+    process.env.COOKIE_DOMAIN = "staffly.example.com";
+    process.env.APP_BASE_URL = "https://app.staffly.example.com";
+    process.env.EMAIL_FROM = "Staffly <no-reply@staffly.example.com>";
     resetEnvCacheForTests();
   });
   afterEach(() => {
