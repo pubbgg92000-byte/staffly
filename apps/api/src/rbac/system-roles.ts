@@ -52,6 +52,7 @@ export const MANAGER_TEAM_PERMISSIONS: ReadonlySet<string> = new Set([
   "attendance.read",
   "leave.read",
   "leave.approve",
+  "leave.reject",
 ]);
 
 /**

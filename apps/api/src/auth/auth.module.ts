@@ -9,6 +9,7 @@ import { JwtAuthGuard } from "./guards/jwt-auth.guard";
 import { CsrfGuard } from "./guards/csrf.guard";
 import { RbacModule } from "../rbac/rbac.module";
 import { StorageModule } from "../storage/storage.module";
+import { MailerModule } from "../mailer/mailer.module";
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { StorageModule } from "../storage/storage.module";
     }),
     RbacModule,
     StorageModule,
+    MailerModule,
   ],
   controllers: [AuthController],
   providers: [

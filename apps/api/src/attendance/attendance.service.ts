@@ -74,11 +74,24 @@ export class AttendanceService {
     return pageOf(items, total, q);
   }
 
-  async get(id: string): Promise<unknown> {
+  async get(id: string, callerUserId?: string): Promise<unknown> {
     const row = await this.prisma.db.attendanceRecord.findFirst({
       where: { id },
     });
     if (!row) throw new NotFoundException({ code: "attendance.not_found" });
+    // Team scoping: a manager (attendance.read at `team` scope) may only read a
+    // record belonging to their team. Out-of-team → 404 (do not leak existence).
+    // global scope (hr_admin/super_admin) → no restriction.
+    if (callerUserId) {
+      const allowed = await this.callerScope.canActOnEmployee(
+        callerUserId,
+        "attendance.read",
+        row.employeeId,
+      );
+      if (!allowed) {
+        throw new NotFoundException({ code: "attendance.not_found" });
+      }
+    }
     return row;
   }
 

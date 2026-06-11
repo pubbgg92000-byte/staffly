@@ -172,8 +172,9 @@ export class LeaveController {
   @RequirePermission("leave.read")
   listBalances(
     @Query(new ZodQuery(BalancesListQuery)) q: BalancesListQueryT,
+    @CurrentUser() user: RequestUser,
   ): Promise<unknown> {
-    return this.balances.list(q);
+    return this.balances.list(q, user.userId);
   }
 
   @Patch("balances/:id")

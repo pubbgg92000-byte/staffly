@@ -4,6 +4,7 @@ import { ThrottlerModule } from "@nestjs/throttler";
 import { HealthController } from "./health.controller";
 import { ThrottlerBehindProxyGuard } from "./common/throttler-behind-proxy.guard";
 import { StorageModule } from "./storage/storage.module";
+import { MailerModule } from "./mailer/mailer.module";
 import { PrismaModule } from "./infra/prisma/prisma.module";
 import { AuthModule } from "./auth/auth.module";
 import { RbacModule } from "./rbac/rbac.module";
@@ -33,6 +34,7 @@ import { GlobalExceptionFilter } from "./common/http-exception.filter";
     ThrottlerModule.forRoot([{ name: "default", ttl: 60_000, limit: 120 }]),
     PrismaModule,
     StorageModule,
+    MailerModule,
     AuditModule,
     AuthModule,
     RbacModule,

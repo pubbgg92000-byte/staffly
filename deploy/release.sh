@@ -69,8 +69,8 @@ fi
 log "Health-checking ${API_HEALTH_URL}"
 HEALTHY=0
 for i in $(seq 1 15); do
-  if curl -fsS "$API_HEALTH_URL" >/dev/null 2>&1 &&
-    curl -fsS "$API_READY_URL" >/dev/null 2>&1; then
+  if curl -fsS --max-time 5 "$API_HEALTH_URL" >/dev/null 2>&1 &&
+    curl -fsS --max-time 5 "$API_READY_URL" >/dev/null 2>&1; then
     HEALTHY=1
     break
   fi

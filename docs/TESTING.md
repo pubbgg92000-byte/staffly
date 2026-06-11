@@ -6,8 +6,8 @@ How Staffly is tested, and how to verify a build before release.
 
 | Layer | Tooling | Scope |
 | --- | --- | --- |
-| Unit | Vitest (`pnpm test`) | Pure logic — date/timezone math, dashboard windowing, pagination, redaction. 49 tests. |
-| Integration | Vitest + Testcontainers (`pnpm --filter @staffly/api test:integration`) | Full NestJS app against an ephemeral PostgreSQL 18 container; auth, RBAC, tenant isolation, manager team-scoping, session-expiry, every module's CRUD + workflows. 241 tests across 13 specs. |
+| Unit | Vitest (`pnpm test`) | Pure logic — date/timezone math, dashboard windowing, pagination, redaction, HTML sanitizer, env boot guards. 101 tests. |
+| Integration | Vitest + Testcontainers (`pnpm --filter @staffly/api test:integration`) | Full NestJS app against an ephemeral PostgreSQL 18 container; auth, RBAC, tenant isolation, manager team-scoping, session-expiry, every module's CRUD + workflows. 248 tests across 13 specs. |
 | Static | `pnpm typecheck`, `pnpm lint`, `pnpm format:check` | Types (7 packages), ESLint, Prettier. |
 | Build | `pnpm build` | Turborepo build of API + both Next apps. |
 | Manual / live | curl + psql + docker (this doc) | End-to-end role flows, data consistency, security, performance, failure modes. |
@@ -102,4 +102,13 @@ API latency (localhost, warm; excludes browser render):
 - Browser-side React Query cache behavior end-to-end (verified at the
   hook/HTTP level, not via a driven browser).
 - Cross-subdomain cookie behavior on real production domains (localhost only).
-- Email rendering/delivery (not wired).
+- Live email provider send (Resend/Mailgun): the provider abstraction is
+  unit-tested and SMTP delivery is verified live via Mailhog (Phase 9);
+  real provider sends are a deploy-time smoke test.
+
+## Certification reports
+
+The full pre-v1.0 audit lives under [`docs/certification/`](certification/) —
+one report per phase (auth, RBAC, employee lifecycle, attendance, leave,
+documents, notifications, email, dashboards, security, performance, UX). The
+production go/no-go is [`docs/PRODUCTION_SIGNOFF.md`](PRODUCTION_SIGNOFF.md).

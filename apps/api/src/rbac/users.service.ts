@@ -182,6 +182,16 @@ export class UsersService {
       data: { status: "disabled" },
     });
 
+    // Terminate the disabled user's sessions: revoke every active refresh
+    // token so they cannot mint fresh access tokens via /auth/refresh. Any
+    // outstanding access token still works until its short TTL (~15 min)
+    // expires — a bounded, documented residual (OI-14) — but the indefinite
+    // "refresh forever" hole is closed.
+    await this.prisma.db.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date(), revokeReason: "user_deactivated" },
+    });
+
     await this.audit.record({
       action: "user.deactivate",
       resourceType: "user",

@@ -8,9 +8,10 @@ import { UsersService } from "./users.service";
 import { InvitesService } from "./invites.service";
 import { RbacController } from "./rbac.controller";
 import { AuditModule } from "../audit/audit.module";
+import { MailerModule } from "../mailer/mailer.module";
 
 @Module({
-  imports: [AuditModule],
+  imports: [AuditModule, MailerModule],
   controllers: [RbacController],
   providers: [
     OrgBootstrapService,

@@ -7,6 +7,8 @@ import {
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../infra/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { MailerService } from "../mailer/mailer.module";
+import { leaveDecisionEmail } from "../mailer/templates";
 import { PermissionsService } from "../rbac/permissions.service";
 import { CallerScopeService } from "../rbac/caller-scope.service";
 import { LeaveBalancesService } from "./leave-balances.service";
@@ -25,6 +27,7 @@ export class LeaveRequestsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly mailer: MailerService,
     private readonly permissions: PermissionsService,
     private readonly callerScope: CallerScopeService,
     private readonly balances: LeaveBalancesService,
@@ -400,6 +403,32 @@ export class LeaveRequestsService {
       after: result,
       metadata: body.comment ? { comment: body.comment } : {},
     });
+
+    // Notify the requester (fire-and-forget).
+    const [employee, leaveType] = await Promise.all([
+      this.prisma.db.employee.findUnique({
+        where: { id: before.employeeId },
+        select: { displayName: true, workEmail: true, personalEmail: true },
+      }),
+      this.prisma.db.leaveType.findUnique({
+        where: { id: before.leaveTypeId },
+        select: { name: true },
+      }),
+    ]);
+    const to = employee?.workEmail ?? employee?.personalEmail ?? null;
+    if (to) {
+      void this.mailer.send({
+        to,
+        ...leaveDecisionEmail({
+          displayName: employee?.displayName ?? to,
+          decision,
+          leaveTypeName: leaveType?.name ?? "leave",
+          startDate: before.startDate.toISOString().slice(0, 10),
+          endDate: before.endDate.toISOString().slice(0, 10),
+          comment: body.comment,
+        }),
+      });
+    }
     return result;
   }
 

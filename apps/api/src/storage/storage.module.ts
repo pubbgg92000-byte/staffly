@@ -171,8 +171,10 @@ export class StorageService {
  *
  * The presigned-URL architecture is unchanged: the browser uploads/downloads
  * directly against R2 via these short-lived URLs; the API never proxies bytes.
+ *
+ * Exported for unit tests (readiness "skipped" semantics).
  */
-function buildClientFromEnv(): StorageClient {
+export function buildClientFromEnv(): StorageClient {
   const env = loadEnv();
   if (!env.S3_ENDPOINT || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY) {
     const notConfigured = (): Promise<never> =>
@@ -181,7 +183,8 @@ function buildClientFromEnv(): StorageClient {
       presignedPutObject: notConfigured,
       presignedGetObject: notConfigured,
       removeObject: notConfigured,
-      healthCheck: notConfigured,
+      // healthCheck deliberately absent: a storage-less boot is still ready,
+      // so /readyz reports storage "skipped" rather than a permanent "fail".
     };
   }
 

@@ -8,6 +8,8 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../infra/prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { MailerService } from "../mailer/mailer.module";
+import { inviteEmail } from "../mailer/templates";
 import { pageOf, skipTake, type Page } from "../common/pagination";
 import { currentOrganizationId } from "../tenant/tenant-context";
 import { loadEnv } from "../infra/config/env";
@@ -30,7 +32,16 @@ export class InvitesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly mailer: MailerService,
   ) {}
+
+  private async orgName(orgId: string): Promise<string> {
+    const org = await this.prisma.db.organization.findUnique({
+      where: { id: orgId },
+      select: { name: true },
+    });
+    return org?.name ?? "Staffly";
+  }
 
   async create(body: CreateInviteBodyT, actorUserId: string): Promise<unknown> {
     const orgId = requireOrg();
@@ -83,10 +94,12 @@ export class InvitesService {
       after: { email: invite.email, roleKey: invite.roleKey },
     });
 
-    // In dev, return the raw token so the UI can display a link. In production
-    // this would be sent via email instead; for now we return it always.
-    const env2 = loadEnv();
-    const inviteUrl = `${env2.APP_BASE_URL}/auth/accept-invite?token=${raw}`;
+    const inviteUrl = `${env.APP_BASE_URL}/auth/accept-invite?token=${raw}`;
+
+    // Fire-and-forget: a mail outage must not fail invite creation. The raw
+    // inviteUrl is still returned so the admin UI can copy the link directly.
+    const tpl = inviteEmail({ orgName: await this.orgName(orgId), inviteUrl });
+    void this.mailer.send({ to: invite.email, ...tpl });
 
     return {
       id: invite.id,
@@ -195,8 +208,10 @@ export class InvitesService {
       after: { email: old.email, roleKey: old.roleKey },
     });
 
-    const env2 = loadEnv();
-    const inviteUrl = `${env2.APP_BASE_URL}/auth/accept-invite?token=${raw}`;
+    const inviteUrl = `${env.APP_BASE_URL}/auth/accept-invite?token=${raw}`;
+
+    const tpl = inviteEmail({ orgName: await this.orgName(orgId), inviteUrl });
+    void this.mailer.send({ to: old.email, ...tpl });
 
     return {
       email: old.email,

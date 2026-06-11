@@ -4,6 +4,72 @@ All notable changes to Staffly. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions are the repo's
 `vX.Y.Z` sprint tags.
 
+## [Unreleased] — v0.23.2 production-readiness sprint
+
+Branch `feat/v0.23.2-prod-readiness` (local). Demo → Public-Beta hardening; no new modules.
+A full v1.0 certification pass landed on this same branch on 2026-06-10/11 — every
+phase report under [`docs/certification/`](docs/certification/) with the go/no-go in
+[`docs/PRODUCTION_SIGNOFF.md`](docs/PRODUCTION_SIGNOFF.md).
+
+### Features
+
+- **Email delivery (provider-agnostic).** `MailerModule` with `log`/`smtp`/`resend`/`mailgun`
+  adapters selected by `EMAIL_PROVIDER` (missing creds → log fallback; fire-and-forget, never
+  throws). Wired into invite create/resend, password reset, welcome-on-accept, and leave
+  approve/reject notifications. Centralized HTML+text templates. Verified live on Mailhog.
+- **Managers can reject team leave.** `leave.reject` granted to the manager role at **team**
+  scope (enforced row-level by `CallerScopeService`) — symmetric with approve.
+
+### Security hardening (certification phase 13)
+
+- **Stored-XSS sanitizer on announcement `bodyHtml`.** New `sanitizeRichText()` (allowlist
+  via `sanitize-html`) applied on create + update. Closes the only P2 from the security audit.
+- **CSRF actually enforced on `/auth/refresh`.** The `@Public` decorator previously caused
+  `CsrfGuard` to short-circuit; refresh now requires `X-CSRF-Token` (`@EnforceCsrf`).
+- **Manager team-scope on regularization decisions.** `RegularizationsService.decide`
+  now calls `CallerScopeService.canActOnEmployee()` → 403 outside team (mirrors leave decide).
+- **Cross-tenant storage-key guard on document create.** Rejects keys that don't start with
+  `uploads/<callerOrgId>/` (400 `document.storage_key_invalid`).
+- **Refresh-token revocation on user deactivation.** `users.deactivate` revokes all live
+  refresh tokens (`revokeReason: "user_deactivated"`); 15-min access-token residual documented.
+- **Manager team-scope BAC on by-id reads** (`employees`, `leave/balances`) — manager
+  cannot see employees outside their reporting tree.
+
+### Production safety (certification phase 14)
+
+- **Prod boot guards for `COOKIE_DOMAIN`, `APP_BASE_URL`, `EMAIL_FROM`.** Refuse to boot
+  under `NODE_ENV=production` when any of these still hold dev-flavored defaults
+  (`localhost`/`@staffly.local`). All violations reported in a single error.
+- **`MailerModule` config validation is now prod-fatal.** Boot fails if the chosen provider's
+  credentials are missing in production (mirrors the env superRefine pattern).
+- `.gitignore` excludes `.backups/`, `.pm2/`, and the real `infra/cloudflared/config.yml`
+  (tunnel credentials); `config.example.yml` stays tracked.
+- **`/readyz` semantics fix:** liveness vs readiness now distinguished; storage-down
+  returns 503 with a per-dependency breakdown.
+
+### Data quality / demo seed
+
+- **Timezone-realistic check-ins.** Seed now writes attendance in each employee's local
+  timezone (was UTC across all six seeded locations); leave/attendance contradictions
+  reconciled.
+- **Real PDF binaries** uploaded for seeded documents (was: `storageKey` row but no MinIO
+  object).
+- **Dashboard org-tz anchoring** (`v0.23.1` follow-up): "today" computed in the org's tz
+  end-to-end.
+
+### Documentation
+
+- New `docs/DEPLOY_CHECKLIST.md`, `docs/RELEASE_NOTES.md`, `docs/TEST_EVIDENCE.md`,
+  `docs/PERFORMANCE_REPORT.md`, `docs/PRODUCTION_SIGNOFF.md`, `docs/SECURITY_REPORT.md`,
+  plus the per-phase reports under `docs/certification/`. The earlier `docs/PROD_SIGNOFF.md`
+  and `docs/DEPLOYMENT_READINESS.md` are kept for history; current sign-off is
+  `docs/PRODUCTION_SIGNOFF.md` (Phase 14).
+
+### Known Issues (carried)
+
+- Cross-subdomain auth config-validated only (needs real DNS); live email-provider send
+  (Resend/Mailgun) and R2 bucket not yet provisioned.
+
 ## [v0.23.2] — 2026-06-09
 
 Public-beta candidate: deployment hardening, demo readiness, and a

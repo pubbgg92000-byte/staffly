@@ -20,8 +20,12 @@ export function startOfMonthUTC(d: Date): Date {
 
 /**
  * Inclusive window `[from, to]` covering the last `days` calendar days,
- * ending today (UTC). `daysAgoWindow(7, now)` → 7 entries: today and the
- * 6 prior days, both bounds at 00:00 UTC.
+ * ending on the day `now` falls on (UTC). `daysAgoWindow(7, now)` → 7
+ * entries: that day and the 6 prior days, both bounds at 00:00 UTC.
+ *
+ * To anchor the window at a tenant-local "today" instead of the UTC date,
+ * pass a date-only Date (midnight UTC of the local calendar day, e.g.
+ * `new Date(localDateInTimezone(now, tz))`) — truncation is a no-op then.
  */
 export function daysAgoWindow(
   days: number,

@@ -451,6 +451,59 @@ describe("GET /dashboard/admin", () => {
       .expect(200);
     expect(res.body.metrics.totalEmployees).toBe(0);
   });
+
+  // Regression (admin-side sibling of the v0.23.1 employee fix): the admin
+  // headline used to bucket attendanceToday by startOfDayUTC(now), while
+  // check-ins are stored under the employee-LOCAL calendar date. In any org
+  // whose local date differs from the UTC date, a live check-in was invisible
+  // to "Present today" until the UTC day caught up. The dashboard now anchors
+  // on the ORG timezone's calendar day. To exercise the divergence window
+  // deterministically at any wall-clock time, pick a timezone whose local
+  // date differs from the UTC date right now — between UTC+14 and UTC-11 at
+  // least one always does.
+  it("counts a live check-in in attendanceToday when org-local date ≠ UTC date", async () => {
+    const nowUtcDate = new Date().toISOString().slice(0, 10);
+    const divergentTz = [
+      "Pacific/Kiritimati", // UTC+14 — local date ahead of UTC from 10:00Z
+      "Pacific/Pago_Pago", // UTC-11 — local date behind UTC until 11:00Z
+    ].find((tz) => localDateInTimezone(new Date(), tz) !== nowUtcDate);
+    expect(divergentTz).toBeDefined();
+
+    const { cookies, organizationId, userId } = await signupOrg();
+    await prisma.db.organization.update({
+      where: { id: organizationId },
+      data: { timezone: divergentTz! },
+    });
+    await createEmployeeForUser(cookies, userId);
+
+    const ci = await request(app.getHttpServer())
+      .post("/attendance/check-in")
+      .set("Cookie", cookieHeader(cookies))
+      .set("X-CSRF-Token", cookies.csrf!)
+      .send({})
+      .expect(201);
+
+    // Stored under the org/employee-local date, which differs from UTC today.
+    const localDate = localDateInTimezone(
+      new Date(ci.body.checkInAt),
+      divergentTz!,
+    );
+    expect(localDate).not.toBe(nowUtcDate);
+
+    const res = await request(app.getHttpServer())
+      .get("/dashboard/admin")
+      .set("Cookie", cookieHeader(cookies))
+      .expect(200);
+    expect(res.body.metrics.attendanceToday.present).toBe(1);
+
+    // The live local day must also be the last bucket of the 7-day trend.
+    const trend = res.body.analytics.attendanceTrend7d as {
+      date: string;
+      counts: Record<string, number>;
+    }[];
+    expect(trend.at(-1)?.date).toBe(localDate);
+    expect(trend.at(-1)?.counts.present).toBe(1);
+  });
 });
 
 // ─── Employee dashboard ──────────────────────────────────────────────
@@ -486,7 +539,7 @@ describe("GET /dashboard/employee", () => {
   });
 
   it("surfaces pending acks (docs + announcements) and recent announcements", async () => {
-    const { cookies, userId } = await signupOrg();
+    const { cookies, organizationId, userId } = await signupOrg();
     await createEmployeeForUser(cookies, userId);
 
     // Required, in-audience, published doc the user has not acked.
@@ -504,7 +557,7 @@ describe("GET /dashboard/employee", () => {
         categoryId: catRes.body.id,
         title: "Must",
         file: {
-          storageKey: "k",
+          storageKey: `uploads/${organizationId}/document/dash/policy.pdf`,
           fileName: "policy.pdf",
           mimeType: "application/pdf",
           sizeBytes: 100,
@@ -629,6 +682,17 @@ describe("GET /dashboard/employee", () => {
       .expect(200);
     expect(dash.body.todayStatus.date).toBe(expectedLocalDate);
     expect(dash.body.todayStatus.attendance?.id).toBe(ci.body.id);
+
+    // The 7-day series must be anchored on the same local day: its last
+    // bucket is local-today and carries the live check-in. (Previously the
+    // window was UTC-anchored, so an east-of-UTC "tomorrow" row vanished
+    // from the series even while todayStatus showed it.)
+    const series = dash.body.attendanceLast7Days as {
+      date: string;
+      status: string | null;
+    }[];
+    expect(series.at(-1)?.date).toBe(expectedLocalDate);
+    expect(series.at(-1)?.status).toBe("present");
 
     // Cross-day witness: when the wall clock places us in the UTC ≠ PDT
     // window (PDT 17:00–23:59 = UTC 00:00–06:59 next day), expectedLocalDate

@@ -188,10 +188,11 @@ async function createCategory(
 }
 
 function fileMeta(
+  organizationId: string,
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
   return {
-    storageKey: `uploads/test/document/${Math.random()}/file.pdf`,
+    storageKey: `uploads/${organizationId}/document/${Math.random()}/file.pdf`,
     fileName: "policy.pdf",
     mimeType: "application/pdf",
     sizeBytes: 1024,
@@ -321,7 +322,7 @@ describe("document categories CRUD", () => {
   });
 
   it("refuses delete when category has documents attached", async () => {
-    const { cookies } = await signupOrg();
+    const { cookies, organizationId } = await signupOrg();
     const cat = await createCategory(cookies, { name: "X" });
     await request(app.getHttpServer())
       .post("/documents")
@@ -330,7 +331,7 @@ describe("document categories CRUD", () => {
       .send({
         categoryId: cat.id,
         title: "D",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
       })
       .expect(201);
@@ -405,7 +406,7 @@ describe("presign upload", () => {
 
 describe("documents CRUD + versions", () => {
   it("creates draft, publishes, archives — full lifecycle", async () => {
-    const { cookies } = await signupOrg();
+    const { cookies, organizationId } = await signupOrg();
     const cat = await createCategory(cookies, { name: "Policies" });
 
     const create = await request(app.getHttpServer())
@@ -415,7 +416,7 @@ describe("documents CRUD + versions", () => {
       .send({
         categoryId: cat.id,
         title: "Code of Conduct",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
         isRequired: true,
       })
@@ -441,7 +442,7 @@ describe("documents CRUD + versions", () => {
   });
 
   it("publishNow=true creates and publishes in one call", async () => {
-    const { cookies } = await signupOrg();
+    const { cookies, organizationId } = await signupOrg();
     const cat = await createCategory(cookies, { name: "P" });
     const res = await request(app.getHttpServer())
       .post("/documents")
@@ -450,7 +451,7 @@ describe("documents CRUD + versions", () => {
       .send({
         categoryId: cat.id,
         title: "T",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
         publishNow: true,
       })
@@ -459,7 +460,7 @@ describe("documents CRUD + versions", () => {
   });
 
   it("rejects creating a distributed doc with no audiences", async () => {
-    const { cookies } = await signupOrg();
+    const { cookies, organizationId } = await signupOrg();
     const cat = await createCategory(cookies, { name: "P" });
     const res = await request(app.getHttpServer())
       .post("/documents")
@@ -468,13 +469,13 @@ describe("documents CRUD + versions", () => {
       .send({
         categoryId: cat.id,
         title: "T",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
       });
     expect(res.status).toBe(400);
   });
 
   it("personal doc requires subjectEmployeeId and matches personal category", async () => {
-    const { cookies } = await signupOrg();
+    const { cookies, organizationId } = await signupOrg();
     const personal = await createCategory(cookies, {
       name: "Personal",
       isPersonal: true,
@@ -490,7 +491,7 @@ describe("documents CRUD + versions", () => {
       .send({
         categoryId: personal.id,
         title: "PAN",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         isPersonal: true,
       });
     expect(miss.status).toBe(400);
@@ -503,7 +504,7 @@ describe("documents CRUD + versions", () => {
       .send({
         categoryId: distributed.id,
         title: "PAN",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         isPersonal: true,
         subjectEmployeeId: empId,
       });
@@ -517,7 +518,7 @@ describe("documents CRUD + versions", () => {
       .send({
         categoryId: personal.id,
         title: "PAN",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         isPersonal: true,
         subjectEmployeeId: empId,
       })
@@ -527,7 +528,7 @@ describe("documents CRUD + versions", () => {
   });
 
   it("replace bumps version, retains history, swaps current pointer", async () => {
-    const { cookies } = await signupOrg();
+    const { cookies, organizationId } = await signupOrg();
     const cat = await createCategory(cookies, { name: "P" });
     const doc = await request(app.getHttpServer())
       .post("/documents")
@@ -536,7 +537,7 @@ describe("documents CRUD + versions", () => {
       .send({
         categoryId: cat.id,
         title: "T",
-        file: fileMeta({ fileName: "v1.pdf" }),
+        file: fileMeta(organizationId, { fileName: "v1.pdf" }),
         audiences: ALL_AUDIENCE,
       })
       .expect(201);
@@ -546,7 +547,7 @@ describe("documents CRUD + versions", () => {
       .post(`/documents/${doc.body.id}/replace`)
       .set("Cookie", cookieHeader(cookies))
       .set("X-CSRF-Token", cookies.csrf!)
-      .send({ file: fileMeta({ fileName: "v2.pdf" }) })
+      .send({ file: fileMeta(organizationId, { fileName: "v2.pdf" }) })
       .expect(201);
     expect(replaced.body.currentVersion.versionNo).toBe(2);
     expect(replaced.body.currentVersion.fileName).toBe("v2.pdf");
@@ -556,14 +557,14 @@ describe("documents CRUD + versions", () => {
       .post(`/documents/${doc.body.id}/replace`)
       .set("Cookie", cookieHeader(cookies))
       .set("X-CSRF-Token", cookies.csrf!)
-      .send({ file: fileMeta({ fileName: "v3.pdf" }) })
+      .send({ file: fileMeta(organizationId, { fileName: "v3.pdf" }) })
       .expect(201);
     expect(replaced2.body.currentVersion.versionNo).toBe(3);
     expect(replaced2.body.versions).toHaveLength(3);
   });
 
   it("update on published doc locks isRequired and audiences", async () => {
-    const { cookies } = await signupOrg();
+    const { cookies, organizationId } = await signupOrg();
     const cat = await createCategory(cookies, { name: "P" });
     const create = await request(app.getHttpServer())
       .post("/documents")
@@ -572,7 +573,7 @@ describe("documents CRUD + versions", () => {
       .send({
         categoryId: cat.id,
         title: "T",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
         publishNow: true,
       })
@@ -597,7 +598,7 @@ describe("documents CRUD + versions", () => {
   });
 
   it("soft delete excludes from list", async () => {
-    const { cookies } = await signupOrg();
+    const { cookies, organizationId } = await signupOrg();
     const cat = await createCategory(cookies, { name: "P" });
     const create = await request(app.getHttpServer())
       .post("/documents")
@@ -606,7 +607,7 @@ describe("documents CRUD + versions", () => {
       .send({
         categoryId: cat.id,
         title: "T",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
       })
       .expect(201);
@@ -627,7 +628,7 @@ describe("documents CRUD + versions", () => {
 
 describe("download URLs", () => {
   it("returns a presigned GET URL for the current version", async () => {
-    const { cookies } = await signupOrg();
+    const { cookies, organizationId } = await signupOrg();
     const cat = await createCategory(cookies, { name: "P" });
     const create = await request(app.getHttpServer())
       .post("/documents")
@@ -636,7 +637,7 @@ describe("download URLs", () => {
       .send({
         categoryId: cat.id,
         title: "T",
-        file: fileMeta({ fileName: "current.pdf" }),
+        file: fileMeta(organizationId, { fileName: "current.pdf" }),
         audiences: ALL_AUDIENCE,
       })
       .expect(201);
@@ -650,7 +651,7 @@ describe("download URLs", () => {
   });
 
   it("can fetch a specific past version", async () => {
-    const { cookies } = await signupOrg();
+    const { cookies, organizationId } = await signupOrg();
     const cat = await createCategory(cookies, { name: "P" });
     const doc = await request(app.getHttpServer())
       .post("/documents")
@@ -659,7 +660,7 @@ describe("download URLs", () => {
       .send({
         categoryId: cat.id,
         title: "T",
-        file: fileMeta({ fileName: "v1.pdf" }),
+        file: fileMeta(organizationId, { fileName: "v1.pdf" }),
         audiences: ALL_AUDIENCE,
       })
       .expect(201);
@@ -667,7 +668,7 @@ describe("download URLs", () => {
       .post(`/documents/${doc.body.id}/replace`)
       .set("Cookie", cookieHeader(cookies))
       .set("X-CSRF-Token", cookies.csrf!)
-      .send({ file: fileMeta({ fileName: "v2.pdf" }) })
+      .send({ file: fileMeta(organizationId, { fileName: "v2.pdf" }) })
       .expect(201);
     const v1url = await request(app.getHttpServer())
       .get(`/documents/${doc.body.id}/versions/1/download-url`)
@@ -685,7 +686,7 @@ describe("download URLs", () => {
 
 describe("expiry filter", () => {
   it("expiringInDays returns docs expiring within N days only", async () => {
-    const { cookies } = await signupOrg();
+    const { cookies, organizationId } = await signupOrg();
     const cat = await createCategory(cookies, { name: "P" });
 
     const soon = new Date(Date.now() + 5 * 86400000).toISOString();
@@ -698,7 +699,7 @@ describe("expiry filter", () => {
       .send({
         categoryId: cat.id,
         title: "Soon",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
         expiresAt: soon,
       })
@@ -710,7 +711,7 @@ describe("expiry filter", () => {
       .send({
         categoryId: cat.id,
         title: "Later",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
         expiresAt: later,
       })
@@ -722,7 +723,7 @@ describe("expiry filter", () => {
       .send({
         categoryId: cat.id,
         title: "NoExp",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
       })
       .expect(201);
@@ -740,7 +741,7 @@ describe("expiry filter", () => {
 
 describe("mandatory ack tracking", () => {
   it("acknowledge is idempotent; pending list shrinks accordingly", async () => {
-    const { cookies, userId } = await signupOrg();
+    const { cookies, organizationId, userId } = await signupOrg();
     await createEmployeeForUser(cookies, userId);
     const other = await createOrphanEmployee(cookies);
 
@@ -752,7 +753,7 @@ describe("mandatory ack tracking", () => {
       .send({
         categoryId: cat.id,
         title: "Must read",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
         isRequired: true,
         publishNow: true,
@@ -801,7 +802,7 @@ describe("mandatory ack tracking", () => {
   });
 
   it("acknowledge fails if not in audience (403)", async () => {
-    const { cookies, userId } = await signupOrg();
+    const { cookies, organizationId, userId } = await signupOrg();
     const dept = await request(app.getHttpServer())
       .post("/departments")
       .set("Cookie", cookieHeader(cookies))
@@ -817,7 +818,7 @@ describe("mandatory ack tracking", () => {
       .send({
         categoryId: cat.id,
         title: "T",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: [{ type: "department", departmentId: dept.body.id }],
         publishNow: true,
       })
@@ -832,7 +833,7 @@ describe("mandatory ack tracking", () => {
   });
 
   it("acknowledge fails before publish (409)", async () => {
-    const { cookies, userId } = await signupOrg();
+    const { cookies, organizationId, userId } = await signupOrg();
     await createEmployeeForUser(cookies, userId);
     const cat = await createCategory(cookies, { name: "P" });
     const doc = await request(app.getHttpServer())
@@ -842,7 +843,7 @@ describe("mandatory ack tracking", () => {
       .send({
         categoryId: cat.id,
         title: "Draft",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
       })
       .expect(201);
@@ -858,7 +859,7 @@ describe("mandatory ack tracking", () => {
 
 describe("employee feed (/me/documents)", () => {
   it("returns published, in-audience documents and personal docs targeting self", async () => {
-    const { cookies, userId } = await signupOrg();
+    const { cookies, organizationId, userId } = await signupOrg();
     const empId = await createEmployeeForUser(cookies, userId);
     const cat = await createCategory(cookies, { name: "P" });
     const personalCat = await createCategory(cookies, {
@@ -874,7 +875,7 @@ describe("employee feed (/me/documents)", () => {
       .send({
         categoryId: cat.id,
         title: "Mine",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
         publishNow: true,
       })
@@ -888,7 +889,7 @@ describe("employee feed (/me/documents)", () => {
       .send({
         categoryId: cat.id,
         title: "Draft",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
       })
       .expect(201);
@@ -901,7 +902,7 @@ describe("employee feed (/me/documents)", () => {
       .send({
         categoryId: personalCat.id,
         title: "PAN",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         isPersonal: true,
         subjectEmployeeId: empId,
         publishNow: true,
@@ -917,7 +918,7 @@ describe("employee feed (/me/documents)", () => {
       .send({
         categoryId: personalCat.id,
         title: "OtherPAN",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         isPersonal: true,
         subjectEmployeeId: other,
         publishNow: true,
@@ -938,7 +939,7 @@ describe("employee feed (/me/documents)", () => {
   });
 
   it("unacknowledgedOnly filters to required + un-acked", async () => {
-    const { cookies, userId } = await signupOrg();
+    const { cookies, organizationId, userId } = await signupOrg();
     await createEmployeeForUser(cookies, userId);
     const cat = await createCategory(cookies, { name: "P" });
 
@@ -949,7 +950,7 @@ describe("employee feed (/me/documents)", () => {
       .send({
         categoryId: cat.id,
         title: "Must",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
         isRequired: true,
         publishNow: true,
@@ -963,7 +964,7 @@ describe("employee feed (/me/documents)", () => {
       .send({
         categoryId: cat.id,
         title: "Optional",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
         publishNow: true,
       })
@@ -1004,7 +1005,7 @@ describe("RBAC enforcement", () => {
       .send({
         categoryId: cat.id,
         title: "T",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
         isRequired: true,
         publishNow: true,
@@ -1020,7 +1021,7 @@ describe("RBAC enforcement", () => {
       .send({
         categoryId: cat.id,
         title: "Bad",
-        file: fileMeta(),
+        file: fileMeta(organizationId),
         audiences: ALL_AUDIENCE,
       });
     expect(create.status).toBe(403);
@@ -1062,7 +1063,7 @@ describe("tenant isolation", () => {
       .send({
         categoryId: cat.id,
         title: "B-only",
-        file: fileMeta(),
+        file: fileMeta(b.organizationId),
         audiences: ALL_AUDIENCE,
         publishNow: true,
       })

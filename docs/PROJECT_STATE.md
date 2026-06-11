@@ -1,5 +1,14 @@
 # Staffly — Project State
 
+> **2026-06-11 supersession notice.** This file is the sprint snapshot at the
+> end of **v0.23 (Organization & Branding)** + the v0.23.1 timezone hotfix. The
+> v0.23.2 production-readiness sprint and the v1.0 master certification on
+> `feat/v0.23.2-prod-readiness` are documented elsewhere — see
+> [`CHANGELOG.md`](../CHANGELOG.md), [`RELEASE_NOTES.md`](RELEASE_NOTES.md),
+> [`PRODUCTION_SIGNOFF.md`](PRODUCTION_SIGNOFF.md), and the per-phase reports
+> under [`certification/`](certification/). The §7 "Known issues" list below
+> is a v0.23 snapshot — most items have since been resolved or rescoped.
+
 Snapshot generated at the end of **Sprint v0.23 (Organization & Branding)** with
 the post-release v0.23.1 attendance-timezone hotfixes applied. The doc
 supersedes any earlier handoff notes; read it top-down on session resume.

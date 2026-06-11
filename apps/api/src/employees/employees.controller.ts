@@ -52,8 +52,11 @@ export class EmployeesController {
 
   @Get(":id")
   @RequirePermission("employee.read")
-  get(@Param("id", new ParseUUIDPipe()) id: string): Promise<unknown> {
-    return this.employees.get(id);
+  get(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @CurrentUser() user: RequestUser,
+  ): Promise<unknown> {
+    return this.employees.get(id, user.userId);
   }
 
   @Post()

@@ -16,6 +16,7 @@
     "db:seed": "prisma db seed",
     "db:seed:dev": "tsx prisma/seed-dev.ts",
     "db:seed:demo": "tsx prisma/seed-demo.ts",
+    "db:verify:demo": "tsx prisma/verify-demo.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts"
@@ -39,8 +40,10 @@
     "cookie-parser": "^1.4.7",
     "helmet": "^8.2.0",
     "minio": "^8.0.7",
+    "nodemailer": "^8.0.10",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sanitize-html": "^2.17.4",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -53,6 +56,8 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
+    "@types/nodemailer": "^8.0.0",
+    "@types/sanitize-html": "^2.16.1",
     "@types/supertest": "^7.2.0",
     "eslint": "^9.17.0",
     "prisma": "^6.2.1",

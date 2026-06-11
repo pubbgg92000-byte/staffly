@@ -328,6 +328,7 @@
         "attendance.write",
         "attendance.approve",
         "attendance.policy.read",
+        "attendance.policy.write",
         "attendance.export",
         "leave.read",
         "leave.create",
@@ -359,7 +360,7 @@
     {
       "key": "manager",
       "name": "Manager",
-      "description": "Team lead — reads team employee/attendance/leave data and approves leave. Read/approve keys are stored with team scope; team-level row filtering lands in Phase 2 (currently org-wide until scope enforcement ships).",
+      "description": "Team lead — reads team employee/attendance/leave data and approves or rejects their team's leave. Read/approve/reject keys are stored with team scope and enforced row-level by CallerScopeService (direct + indirect reports only).",
       "isSystem": true,
       "permissions": [
         "dashboard.view",
@@ -369,7 +370,8 @@
         "employee.read",
         "attendance.read",
         "leave.read",
-        "leave.approve"
+        "leave.approve",
+        "leave.reject"
       ]
     },
     {

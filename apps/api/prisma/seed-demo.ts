@@ -28,8 +28,14 @@ import argon2 from "argon2";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import {
+  localDateInTimezone,
+  localWallTimeToUtc,
+} from "../src/attendance/local-date";
 import { DEFAULT_DOCUMENT_CATEGORIES } from "../src/documents/default-document-categories";
 import { MANAGER_TEAM_PERMISSIONS } from "../src/rbac/system-roles";
+import { loadProfile } from "./demo-profiles";
+import { makePdf, putObject, seedStorageClient } from "./seed-lib/storage";
 
 type Catalog = {
   permissions: {
@@ -56,10 +62,18 @@ const catalog = JSON.parse(
 
 const prisma = new PrismaClient();
 
+// Profile selects descriptive/locale data only. Tenant identity (slug, pinned
+// id) is constant across profiles so re-seeding with a different
+// DEMO_PROFILE just rewrites the SAME pinned org with India/US data.
+const profile = loadProfile();
+
 const ORG_SLUG = "staffly-demo";
-const ORG_NAME = "Acme Corporation";
+const ORG_NAME = profile.org.name;
 // Pinned so the org id (and thus the whole dataset) is stable across re-seeds.
 const ORG_ID = "019e0000-0000-7000-8000-000000000001";
+// The org's timezone — "today" and day boundaries are anchored here so the
+// seeded dataset matches what the (org-tz-anchored) admin dashboard queries.
+const ORG_TZ = profile.org.timezone;
 
 // ─── Deterministic helpers ─────────────────────────────────────────────────
 
@@ -101,13 +115,14 @@ function addDays(d: Date, n: number): Date {
   x.setUTCDate(x.getUTCDate() + n);
   return x;
 }
-function atHour(d: Date, h: number, m = 0): Date {
-  const x = new Date(d);
-  x.setUTCHours(h, m, 0, 0);
-  return x;
-}
 
-const TODAY = dateOnly(new Date());
+// "Today" as the org's local calendar date (not UTC) — keeps the seeded
+// "today" aligned with the admin dashboard, which anchors on the org tz. The
+// returned Date names the calendar day via its UTC Y/M/D (the attendanceDate
+// storage convention).
+const TODAY = dateOnly(
+  new Date(`${localDateInTimezone(new Date(), ORG_TZ)}T00:00:00.000Z`),
+);
 const CYCLE_YEAR = TODAY.getUTCFullYear();
 
 async function hash(plain: string): Promise<string> {
@@ -125,158 +140,11 @@ function strongPassword(): string {
 
 // ─── Reference data ─────────────────────────────────────────────────────────
 
-const LOCATIONS = [
-  {
-    name: "San Francisco HQ",
-    code: "SFO",
-    city: "San Francisco",
-    state: "CA",
-    country: "US",
-    tz: "America/Los_Angeles",
-  },
-  {
-    name: "New York Office",
-    code: "NYC",
-    city: "New York",
-    state: "NY",
-    country: "US",
-    tz: "America/New_York",
-  },
-  {
-    name: "Austin Office",
-    code: "AUS",
-    city: "Austin",
-    state: "TX",
-    country: "US",
-    tz: "America/Chicago",
-  },
-  {
-    name: "London Office",
-    code: "LON",
-    city: "London",
-    state: "England",
-    country: "GB",
-    tz: "Europe/London",
-  },
-  {
-    name: "Bangalore Office",
-    code: "BLR",
-    city: "Bengaluru",
-    state: "KA",
-    country: "IN",
-    tz: "Asia/Kolkata",
-  },
-  {
-    name: "Remote",
-    code: "RMT",
-    city: "Remote",
-    state: null,
-    country: "US",
-    tz: "America/New_York",
-  },
-];
-
-const DEPARTMENTS = [
-  "Engineering",
-  "Product",
-  "Design",
-  "Sales",
-  "Marketing",
-  "Human Resources",
-  "Finance",
-  "Customer Success",
-];
-
-const DESIGNATIONS = [
-  { name: "Intern", level: 1 },
-  { name: "Associate", level: 2 },
-  { name: "Software Engineer", level: 3 },
-  { name: "Senior Software Engineer", level: 4 },
-  { name: "Staff Engineer", level: 5 },
-  { name: "Team Lead", level: 5 },
-  { name: "Engineering Manager", level: 6 },
-  { name: "Senior Manager", level: 6 },
-  { name: "Analyst", level: 3 },
-  { name: "Senior Analyst", level: 4 },
-  { name: "Coordinator", level: 2 },
-  { name: "Director", level: 7 },
-  { name: "Vice President", level: 8 },
-];
-
-const FIRST_NAMES = [
-  "Olivia",
-  "Liam",
-  "Emma",
-  "Noah",
-  "Ava",
-  "Ethan",
-  "Sophia",
-  "Mason",
-  "Isabella",
-  "Lucas",
-  "Mia",
-  "Aiden",
-  "Amelia",
-  "Kai",
-  "Harper",
-  "Arjun",
-  "Priya",
-  "Wei",
-  "Mei",
-  "Diego",
-  "Sofia",
-  "Omar",
-  "Layla",
-  "Tariq",
-  "Nina",
-  "Hugo",
-  "Zara",
-  "Mateo",
-  "Yuki",
-  "Ravi",
-  "Elena",
-  "Marcus",
-  "Aisha",
-  "Felix",
-  "Lena",
-  "Carlos",
-  "Ingrid",
-  "Sanjay",
-  "Chloe",
-  "Theo",
-];
-const LAST_NAMES = [
-  "Smith",
-  "Johnson",
-  "Williams",
-  "Brown",
-  "Jones",
-  "Garcia",
-  "Miller",
-  "Davis",
-  "Rodriguez",
-  "Martinez",
-  "Hernandez",
-  "Lopez",
-  "Gonzalez",
-  "Wilson",
-  "Anderson",
-  "Patel",
-  "Nguyen",
-  "Kim",
-  "Chen",
-  "Singh",
-  "Kumar",
-  "Ali",
-  "Khan",
-  "Okafor",
-  "Mwangi",
-  "Schmidt",
-  "Rossi",
-  "Yamamoto",
-  "Tanaka",
-  "Andersson",
-];
+const LOCATIONS = profile.locations;
+const DEPARTMENTS = profile.departments;
+const DESIGNATIONS = profile.designations;
+const FIRST_NAMES = profile.firstNames;
+const LAST_NAMES = profile.lastNames;
 
 const LEAVE_TYPES = [
   {
@@ -310,20 +178,7 @@ const LEAVE_TYPES = [
   },
 ];
 
-const HOLIDAYS = [
-  { md: "01-01", name: "New Year's Day" },
-  { md: "01-15", name: "Martin Luther King Jr. Day" },
-  { md: "02-19", name: "Presidents' Day" },
-  { md: "05-27", name: "Memorial Day" },
-  { md: "06-19", name: "Juneteenth" },
-  { md: "07-04", name: "Independence Day" },
-  { md: "09-02", name: "Labor Day" },
-  { md: "11-11", name: "Veterans Day" },
-  { md: "11-28", name: "Thanksgiving" },
-  { md: "11-29", name: "Day after Thanksgiving" },
-  { md: "12-24", name: "Christmas Eve" },
-  { md: "12-25", name: "Christmas Day" },
-];
+const HOLIDAYS = profile.holidays;
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
@@ -400,14 +255,14 @@ async function main(): Promise<void> {
       id: ORG_ID,
       slug: ORG_SLUG,
       name: ORG_NAME,
-      legalName: "Acme Corporation, Inc.",
-      domain: "acme.demo",
-      primaryColor: "#4F46E5",
-      timezone: "America/New_York",
-      locale: "en-US",
-      currency: "USD",
-      weekStart: 1,
-      billingEmail: "billing@acme.demo",
+      legalName: profile.org.legalName,
+      domain: profile.org.domain,
+      primaryColor: profile.org.primaryColor,
+      timezone: profile.org.timezone,
+      locale: profile.org.locale,
+      currency: profile.org.currency,
+      weekStart: profile.org.weekStart,
+      billingEmail: profile.org.billingEmail,
       plan: "growth",
       status: "active",
     },
@@ -498,8 +353,8 @@ async function main(): Promise<void> {
     data: {
       id: calendarId,
       organizationId: org.id,
-      name: "US Public Holidays",
-      code: "US-PUB",
+      name: profile.holidayCalendar.name,
+      code: profile.holidayCalendar.code,
       isDefault: true,
     },
   });
@@ -550,48 +405,26 @@ async function main(): Promise<void> {
     pwSource[role] = "generated";
     return strongPassword();
   }
-  const LOGINS = [
-    {
-      role: "super_admin",
-      email: "superadmin@acme.demo",
-      first: "Sasha",
-      last: "Admin",
-      pw: pwFor("super_admin", "DEMO_SUPERADMIN_PASSWORD"),
-      portal: "admin" as const,
-      dept: "Engineering",
-      desig: "Director",
-    },
-    {
-      role: "hr_admin",
-      email: "hr@acme.demo",
-      first: "Hana",
-      last: "Reyes",
-      pw: pwFor("hr_admin", "DEMO_HR_PASSWORD"),
-      portal: "admin" as const,
-      dept: "Human Resources",
-      desig: "Senior Manager",
-    },
-    {
-      role: "manager",
-      email: "manager@acme.demo",
-      first: "Marcus",
-      last: "Lee",
-      pw: pwFor("manager", "DEMO_MANAGER_PASSWORD"),
-      portal: "admin" as const,
-      dept: "Engineering",
-      desig: "Engineering Manager",
-    },
-    {
-      role: "employee",
-      email: "employee@acme.demo",
-      first: "Alex",
-      last: "Doe",
-      pw: pwFor("employee", "DEMO_EMPLOYEE_PASSWORD", "Employee@123"),
-      portal: "employee" as const,
-      dept: "Engineering",
-      desig: "Software Engineer",
-    },
-  ];
+  const pwEnvByRole: Record<string, string> = {
+    super_admin: "DEMO_SUPERADMIN_PASSWORD",
+    hr_admin: "DEMO_HR_PASSWORD",
+    manager: "DEMO_MANAGER_PASSWORD",
+    employee: "DEMO_EMPLOYEE_PASSWORD",
+  };
+  const LOGINS = profile.logins.map((l) => ({
+    role: l.role,
+    email: `${l.emailLocal}@${profile.org.domain}`,
+    first: l.first,
+    last: l.last,
+    pw: pwFor(
+      l.role,
+      pwEnvByRole[l.role]!,
+      l.role === "employee" ? "Employee@123" : undefined,
+    ),
+    portal: l.portal,
+    dept: l.dept,
+    desig: l.desig,
+  }));
 
   // 11. Employees. First 4 are the login accounts (with user rows); the rest
   //     are records only. Build everything in memory first so manager wiring
@@ -606,6 +439,7 @@ async function main(): Promise<void> {
     deptId: string;
     desigId: string;
     locId: string;
+    tz: string;
     employmentType: string;
     workMode: string;
     status: string;
@@ -614,13 +448,15 @@ async function main(): Promise<void> {
     isManager: boolean;
   }[] = [];
 
+  const tzByLocId = new Map(locationRows.map((l) => [l.id, l.timezone]));
+
   const deptByName = (n: string) => deptRows.find((d) => d.name === n)!.id;
   const desigByName = (n: string) => desigRows.find((d) => d.name === n)!.id;
   const usedEmails = new Set<string>();
   const mkEmail = (f: string, l: string, i: number): string => {
     let e = `${f}.${l}`.toLowerCase().replace(/[^a-z.]/g, "");
-    if (usedEmails.has(`${e}@acme.demo`)) e = `${e}${i}`;
-    const full = `${e}@acme.demo`;
+    if (usedEmails.has(`${e}@${profile.org.domain}`)) e = `${e}${i}`;
+    const full = `${e}@${profile.org.domain}`;
     usedEmails.add(full);
     return full;
   };
@@ -676,6 +512,7 @@ async function main(): Promise<void> {
     } else {
       joinedOn = addDays(TODAY, -randInt(180, 1500));
     }
+    const locId = pick(locationRows).id;
     empSpecs.push({
       id,
       code,
@@ -684,7 +521,8 @@ async function main(): Promise<void> {
       workEmail,
       deptId,
       desigId,
-      locId: pick(locationRows).id,
+      locId,
+      tz: tzByLocId.get(locId) ?? ORG_TZ,
       employmentType,
       workMode: pick(workModes),
       status,
@@ -775,7 +613,107 @@ async function main(): Promise<void> {
     }
   }
 
-  // 12. Attendance — last 90 days, weekdays only, skipping holidays.
+  // 12. Leave types — created BEFORE attendance so approved leave can drive
+  // each employee's attendance status (no "present" while on approved leave).
+  const leaveTypeRows = LEAVE_TYPES.map((t) => ({
+    id: uuid(),
+    organizationId: org.id,
+    name: t.name,
+    code: t.code,
+    color: t.color,
+    accrualType: "annual" as const,
+    accrualAmount: t.accrual,
+    isPaid: t.paid,
+    requiresApproval: true,
+  }));
+  await prisma.leaveType.createMany({ data: leaveTypeRows });
+
+  // 12a. Leave requests (in memory). Generated before attendance and kept
+  // non-overlapping per employee so the real API's overlap rule is respected
+  // and balances reconcile. Each request's [start,end] is recorded.
+  const reqSpecs: {
+    id: string;
+    employeeId: string;
+    leaveTypeId: string;
+    start: Date;
+    end: Date;
+    units: number;
+    status: string;
+    reason: string;
+    decidedBy: string | null;
+  }[] = [];
+  const reasons = [
+    "Family vacation",
+    "Medical appointment",
+    "Personal errand",
+    "Wedding to attend",
+    "Feeling unwell",
+    "Childcare",
+    "Relocation",
+  ];
+  const hrUserId = empSpecs[1]!.userId!; // hr_admin user as approver
+  const dayKey = (d: Date): string =>
+    `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  // Per-employee set of dates already occupied by a non-terminal (pending/
+  // approved) leave request, to prevent overlaps.
+  const occupiedByEmp = new Map<string, Set<string>>();
+  // Per-employee set of APPROVED leave dates — attendance reads this so a day
+  // on approved leave is recorded as on_leave (never present/half_day).
+  const approvedLeaveByEmp = new Map<string, Set<string>>();
+  const rangeDates = (start: Date, end: Date): Date[] => {
+    const out: Date[] = [];
+    for (let d = new Date(start); d <= end; d = addDays(d, 1))
+      out.push(new Date(d));
+    return out;
+  };
+  for (const e of empSpecs) {
+    const n = randInt(0, 3);
+    const occupied = occupiedByEmp.get(e.id) ?? new Set<string>();
+    occupiedByEmp.set(e.id, occupied);
+    for (let k = 0; k < n; k++) {
+      const lt = pick(leaveTypeRows);
+      const offset = randInt(-60, 40);
+      const len = randInt(1, 4);
+      const start = addDays(TODAY, offset);
+      const end = addDays(start, len - 1);
+      const dates = rangeDates(start, end);
+      const statusRoll = rng();
+      const status =
+        statusRoll < 0.45
+          ? "approved"
+          : statusRoll < 0.7
+            ? "pending"
+            : statusRoll < 0.85
+              ? "rejected"
+              : "cancelled";
+      // For pending/approved (the statuses the real API blocks overlaps on),
+      // skip if this range collides with an existing one for the employee.
+      const blocks = status === "approved" || status === "pending";
+      if (blocks && dates.some((d) => occupied.has(dayKey(d)))) continue;
+      if (blocks) for (const d of dates) occupied.add(dayKey(d));
+      if (status === "approved") {
+        const set = approvedLeaveByEmp.get(e.id) ?? new Set<string>();
+        for (const d of dates) set.add(dayKey(d));
+        approvedLeaveByEmp.set(e.id, set);
+      }
+      reqSpecs.push({
+        id: uuid(),
+        employeeId: e.id,
+        leaveTypeId: lt.id,
+        start,
+        end,
+        units: len,
+        status,
+        reason: pick(reasons),
+        decidedBy:
+          status === "approved" || status === "rejected" ? hrUserId : null,
+      });
+    }
+  }
+
+  // 13. Attendance — last 90 days, weekdays only, skipping holidays. Check-in
+  // times are anchored to each employee's LOCAL timezone (~09:00 local), and a
+  // day that falls on the employee's approved leave is recorded as on_leave.
   const holidaySet = new Set(HOLIDAYS.map((h) => `${CYCLE_YEAR}-${h.md}`));
   const isHoliday = (d: Date): boolean =>
     holidaySet.has(
@@ -805,6 +743,25 @@ async function main(): Promise<void> {
     const isToday = back === 0;
     for (const e of empSpecs) {
       if (e.joinedOn > day) continue;
+      // An approved leave on this day always yields an on_leave record — never
+      // present/half_day — so attendance and leave never contradict.
+      if (approvedLeaveByEmp.get(e.id)?.has(dayKey(day))) {
+        attendance.push({
+          id: uuid(),
+          organizationId: org.id,
+          employeeId: e.id,
+          attendanceDate: day,
+          checkInAt: null,
+          checkOutAt: null,
+          workedMinutes: null,
+          status: "on_leave",
+          isLate: false,
+        });
+        continue;
+      }
+      // ~09:00 LOCAL time for this employee, with a small lateness jitter.
+      const checkInAtLocal = (lateMin: number): Date =>
+        localWallTimeToUtc(e.tz, day, 9, Math.max(0, lateMin));
       const roll = rng();
       let status: string,
         checkIn: Date | null = null,
@@ -813,32 +770,28 @@ async function main(): Promise<void> {
         late = false;
       if (isToday) {
         // In-progress day: checked-in but not yet checked out (no worked
-        // minutes), a few already on leave, a few not checked in yet (no row).
-        if (roll < 0.82) {
+        // minutes), a few not checked in yet (no row).
+        if (roll < 0.88) {
           status = "present";
           const lateMin = chance(0.15) ? randInt(16, 75) : randInt(-10, 14);
           late = lateMin > 15;
-          checkIn = atHour(day, 9, Math.max(0, lateMin));
-        } else if (roll < 0.9) {
-          status = "on_leave";
+          checkIn = checkInAtLocal(lateMin);
         } else {
           continue; // not checked in yet → no record for today
         }
-      } else if (roll < 0.86) {
+      } else if (roll < 0.9) {
         status = "present";
         const lateMin = chance(0.15) ? randInt(16, 75) : randInt(-10, 14);
         late = lateMin > 15;
-        checkIn = atHour(day, 9, Math.max(0, lateMin));
+        checkIn = checkInAtLocal(lateMin);
         const dur = randInt(450, 540);
         checkOut = new Date(checkIn.getTime() + dur * 60_000);
         worked = dur;
-      } else if (roll < 0.92) {
+      } else if (roll < 0.96) {
         status = "half_day";
-        checkIn = atHour(day, 9, randInt(0, 20));
+        checkIn = checkInAtLocal(randInt(0, 20));
         worked = randInt(180, 240);
         checkOut = new Date(checkIn.getTime() + worked * 60_000);
-      } else if (roll < 0.97) {
-        status = "on_leave";
       } else {
         status = "absent";
       }
@@ -862,14 +815,15 @@ async function main(): Promise<void> {
     });
   }
 
-  // 12b. A few pending attendance regularizations.
+  // 13b. A few pending attendance regularizations (anchored to local office
+  // hours of the target employee).
   const regs = empSpecs.slice(4, 10).map((e) => ({
     id: uuid(),
     organizationId: org.id,
     employeeId: e.id,
     attendanceDate: addDays(TODAY, -randInt(3, 20)),
-    requestedCheckInAt: atHour(addDays(TODAY, -10), 9, 0),
-    requestedCheckOutAt: atHour(addDays(TODAY, -10), 18, 0),
+    requestedCheckInAt: localWallTimeToUtc(e.tz, addDays(TODAY, -10), 9, 0),
+    requestedCheckOutAt: localWallTimeToUtc(e.tz, addDays(TODAY, -10), 18, 0),
     reason: pick([
       "Forgot to check in — was on a client call.",
       "System was down during check-out.",
@@ -879,74 +833,6 @@ async function main(): Promise<void> {
     status: "pending" as const,
   }));
   await prisma.attendanceRegularization.createMany({ data: regs });
-
-  // 13. Leave types.
-  const leaveTypeRows = LEAVE_TYPES.map((t) => ({
-    id: uuid(),
-    organizationId: org.id,
-    name: t.name,
-    code: t.code,
-    color: t.color,
-    accrualType: "annual" as const,
-    accrualAmount: t.accrual,
-    isPaid: t.paid,
-    requiresApproval: true,
-  }));
-  await prisma.leaveType.createMany({ data: leaveTypeRows });
-
-  // 13a. Generate leave requests (in memory) so balances can reflect them.
-  const reqSpecs: {
-    id: string;
-    employeeId: string;
-    leaveTypeId: string;
-    start: Date;
-    end: Date;
-    units: number;
-    status: string;
-    reason: string;
-    decidedBy: string | null;
-  }[] = [];
-  const reasons = [
-    "Family vacation",
-    "Medical appointment",
-    "Personal errand",
-    "Wedding to attend",
-    "Feeling unwell",
-    "Childcare",
-    "Relocation",
-  ];
-  const hrUserId = empSpecs[1]!.userId!; // hr_admin user as approver
-  for (const e of empSpecs) {
-    const n = randInt(0, 3);
-    for (let k = 0; k < n; k++) {
-      const lt = pick(leaveTypeRows);
-      const offset = randInt(-60, 40);
-      const len = randInt(1, 4);
-      const start = addDays(TODAY, offset);
-      const end = addDays(start, len - 1);
-      const statusRoll = rng();
-      const status =
-        statusRoll < 0.45
-          ? "approved"
-          : statusRoll < 0.7
-            ? "pending"
-            : statusRoll < 0.85
-              ? "rejected"
-              : "cancelled";
-      reqSpecs.push({
-        id: uuid(),
-        employeeId: e.id,
-        leaveTypeId: lt.id,
-        start,
-        end,
-        units: len,
-        status,
-        reason: pick(reasons),
-        decidedBy:
-          status === "approved" || status === "rejected" ? hrUserId : null,
-      });
-    }
-  }
 
   // 13b. Leave balances: allocated per type; used = approved, pending = pending.
   const balances: Record<string, { used: number; pending: number }> = {};
@@ -1011,51 +897,29 @@ async function main(): Promise<void> {
       })) as never,
   });
 
-  // 14. Announcements (varied state) + audiences + some acks.
-  const annSpecs = [
-    {
-      title: "Welcome to the new Staffly portal!",
-      priority: "normal",
-      status: "published",
-      pinned: true,
-      ack: false,
-    },
-    {
-      title: "Q3 All-Hands — Thursday 4pm",
-      priority: "high",
-      status: "published",
-      pinned: true,
-      ack: true,
-    },
-    {
-      title: "Updated remote-work policy (please acknowledge)",
-      priority: "high",
-      status: "published",
-      pinned: false,
-      ack: true,
-    },
-    {
-      title: "Office closed for Thanksgiving week",
-      priority: "normal",
-      status: "published",
-      pinned: false,
-      ack: false,
-    },
-    {
-      title: "Annual benefits enrollment opens Monday",
-      priority: "normal",
-      status: "scheduled",
-      pinned: false,
-      ack: false,
-    },
-    {
-      title: "Draft: Holiday party planning",
-      priority: "low",
-      status: "draft",
-      pinned: false,
-      ack: false,
-    },
+  // 14. Announcements (varied state) + audiences + some acks. Titles come from
+  // the profile; the (priority, status, pinned, ack) shape stays identical
+  // across profiles so the state mix on the announcements list page is
+  // consistent.
+  const ANNOUNCEMENT_SHAPES: {
+    priority: string;
+    status: string;
+    pinned: boolean;
+    ack: boolean;
+  }[] = [
+    { priority: "normal", status: "published", pinned: true, ack: false },
+    { priority: "high", status: "published", pinned: true, ack: true },
+    { priority: "high", status: "published", pinned: false, ack: true },
+    { priority: "normal", status: "published", pinned: false, ack: false },
+    { priority: "normal", status: "scheduled", pinned: false, ack: false },
+    { priority: "low", status: "draft", pinned: false, ack: false },
+    { priority: "normal", status: "published", pinned: false, ack: false },
+    { priority: "high", status: "published", pinned: false, ack: true },
   ];
+  const annSpecs = profile.announcementTitles.map((title, i) => ({
+    title,
+    ...ANNOUNCEMENT_SHAPES[i]!,
+  }));
   const empIds = empSpecs.map((e) => e.id);
   for (let i = 0; i < annSpecs.length; i++) {
     const a = annSpecs[i]!;
@@ -1101,21 +965,24 @@ async function main(): Promise<void> {
   }
 
   // 15. Documents — org-wide (with versions + audiences) and a few personal.
+  // Each version's binary is uploaded to object storage so the seeded rows
+  // point at real, downloadable PDFs (not just dangling storage keys).
+  const storage = seedStorageClient();
+  if (!storage) {
+    throw new Error(
+      "demo seed: object storage is not configured (S3_ENDPOINT / S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY). " +
+        "Start the dev stack (MinIO) or set R2 credentials before seeding documents.",
+    );
+  }
   const orgCat = categories.find((c) => !c.isPersonal) ?? categories[0]!;
   const personalCat = categories.find((c) => c.isPersonal) ?? categories[0]!;
-  const orgDocs = [
-    "Employee Handbook 2026",
-    "Code of Conduct",
-    "Information Security Policy",
-    "Remote Work Policy",
-    "Expense Reimbursement Guide",
-    "Leave Policy",
-    "Health & Safety Guidelines",
-    "Benefits Overview",
-  ];
+  const orgDocs = profile.orgDocumentTitles;
   for (let i = 0; i < orgDocs.length; i++) {
     const docId = uuid();
     const verId = uuid();
+    const orgKey = `uploads/${org.id}/documents/${docId}/v1.pdf`;
+    const orgPdf = makePdf(orgDocs[i]!, randInt(80_000, 600_000));
+    await putObject(storage, orgKey, orgPdf, "application/pdf");
     await prisma.document.create({
       data: {
         id: docId,
@@ -1134,10 +1001,10 @@ async function main(): Promise<void> {
         organizationId: org.id,
         documentId: docId,
         versionNo: 1,
-        storageKey: `uploads/${org.id}/documents/${docId}/v1.pdf`,
+        storageKey: orgKey,
         fileName: `${orgDocs[i]!.replace(/[^A-Za-z0-9]+/g, "_")}.pdf`,
         mimeType: "application/pdf",
-        sizeBytes: BigInt(randInt(80_000, 4_000_000)),
+        sizeBytes: BigInt(orgPdf.length),
       },
     });
     await prisma.document.update({
@@ -1165,6 +1032,12 @@ async function main(): Promise<void> {
     ]);
     const docId = uuid();
     const verId = uuid();
+    const persKey = `uploads/${org.id}/personal/${e.id}/${docId}.pdf`;
+    const persPdf = makePdf(
+      `${kind} — ${e.first} ${e.last}`,
+      randInt(50_000, 300_000),
+    );
+    await putObject(storage, persKey, persPdf, "application/pdf");
     await prisma.document.create({
       data: {
         id: docId,
@@ -1182,10 +1055,10 @@ async function main(): Promise<void> {
         organizationId: org.id,
         documentId: docId,
         versionNo: 1,
-        storageKey: `uploads/${org.id}/personal/${e.id}/${docId}.pdf`,
+        storageKey: persKey,
         fileName: `${kind.replace(/\s+/g, "_")}.pdf`,
         mimeType: "application/pdf",
-        sizeBytes: BigInt(randInt(50_000, 2_000_000)),
+        sizeBytes: BigInt(persPdf.length),
       },
     });
     await prisma.document.update({
@@ -1226,7 +1099,9 @@ async function main(): Promise<void> {
   await prisma.notification.createMany({ data: notif as never });
 
   // ─── Summary ───────────────────────────────────────────────────────────
-  console.warn(`\ndemo seed: "${ORG_NAME}" (${ORG_SLUG}) — id ${org.id}`);
+  console.warn(
+    `\ndemo seed: profile=${profile.key} · "${ORG_NAME}" (${ORG_SLUG}) — id ${org.id}`,
+  );
   console.warn(
     `  locations ${locationRows.length} · departments ${deptRows.length} · designations ${desigRows.length} · employees ${empSpecs.length}`,
   );
