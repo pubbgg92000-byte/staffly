@@ -17,6 +17,10 @@
 #
 # The employee account uses a published demo password unless
 # DEMO_EMPLOYEE_PASSWORD is set.
+#
+# `DEMO_PROFILE=us|india` (default `us`) selects the demo-data flavor
+# (org name, timezone, locations, holidays). Either profile produces the
+# SAME pinned org id; only descriptive/locale data changes.
 
 set -euo pipefail
 
@@ -31,7 +35,7 @@ pnpm --filter @staffly/api prisma:migrate:deploy
 log "Seeding permission catalog"
 pnpm --filter @staffly/api db:seed
 
-log "Seeding demo dataset (recreates the staffly-demo org only)"
+log "Seeding demo dataset (recreates the staffly-demo org only) — profile=${DEMO_PROFILE:-us}"
 pnpm --filter @staffly/api db:seed:demo
 
 log "Demo reset complete ✓"

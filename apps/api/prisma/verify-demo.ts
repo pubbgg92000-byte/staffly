@@ -21,7 +21,6 @@ import { loadEnv } from "../src/infra/config/env";
 
 const prisma = new PrismaClient();
 const ORG_SLUG = "staffly-demo";
-const ORG_TZ = "America/New_York";
 
 interface Check {
   name: string;
@@ -38,6 +37,9 @@ async function main(): Promise<void> {
     where: { slug: ORG_SLUG },
   });
   const orgId = org.id;
+  // Tz comes from the seeded org row so the verifier works under any profile
+  // (the demo seed picks the tz from the active DEMO_PROFILE).
+  const orgTz = org.timezone;
 
   // 1. No present/half_day attendance on an approved-leave day.
   const presentDuringLeave = await prisma.$queryRaw<{ count: bigint }[]>`
@@ -83,7 +85,7 @@ async function main(): Promise<void> {
   });
   let outOfWindow = 0;
   for (const r of records) {
-    const tz = r.employee.location?.timezone ?? ORG_TZ;
+    const tz = r.employee.location?.timezone ?? orgTz;
     const mins = localMinutesInTimezone(r.checkInAt!, tz);
     if (mins < 7 * 60 + 30 || mins > 11 * 60) outOfWindow++;
   }
@@ -94,7 +96,7 @@ async function main(): Promise<void> {
   );
 
   // 4. Today's attendance (org-tz) is populated.
-  const todayStr = localDateInTimezone(new Date(), ORG_TZ);
+  const todayStr = localDateInTimezone(new Date(), orgTz);
   const todayCount = await prisma.attendanceRecord.count({
     where: {
       organizationId: orgId,

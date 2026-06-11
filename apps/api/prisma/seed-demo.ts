@@ -34,6 +34,7 @@ import {
 } from "../src/attendance/local-date";
 import { DEFAULT_DOCUMENT_CATEGORIES } from "../src/documents/default-document-categories";
 import { MANAGER_TEAM_PERMISSIONS } from "../src/rbac/system-roles";
+import { loadProfile } from "./demo-profiles";
 import { makePdf, putObject, seedStorageClient } from "./seed-lib/storage";
 
 type Catalog = {
@@ -61,13 +62,18 @@ const catalog = JSON.parse(
 
 const prisma = new PrismaClient();
 
+// Profile selects descriptive/locale data only. Tenant identity (slug, pinned
+// id) is constant across profiles so re-seeding with a different
+// DEMO_PROFILE just rewrites the SAME pinned org with India/US data.
+const profile = loadProfile();
+
 const ORG_SLUG = "staffly-demo";
-const ORG_NAME = "Acme Corporation";
+const ORG_NAME = profile.org.name;
 // Pinned so the org id (and thus the whole dataset) is stable across re-seeds.
 const ORG_ID = "019e0000-0000-7000-8000-000000000001";
 // The org's timezone — "today" and day boundaries are anchored here so the
 // seeded dataset matches what the (org-tz-anchored) admin dashboard queries.
-const ORG_TZ = "America/New_York";
+const ORG_TZ = profile.org.timezone;
 
 // ─── Deterministic helpers ─────────────────────────────────────────────────
 
@@ -134,158 +140,11 @@ function strongPassword(): string {
 
 // ─── Reference data ─────────────────────────────────────────────────────────
 
-const LOCATIONS = [
-  {
-    name: "San Francisco HQ",
-    code: "SFO",
-    city: "San Francisco",
-    state: "CA",
-    country: "US",
-    tz: "America/Los_Angeles",
-  },
-  {
-    name: "New York Office",
-    code: "NYC",
-    city: "New York",
-    state: "NY",
-    country: "US",
-    tz: "America/New_York",
-  },
-  {
-    name: "Austin Office",
-    code: "AUS",
-    city: "Austin",
-    state: "TX",
-    country: "US",
-    tz: "America/Chicago",
-  },
-  {
-    name: "London Office",
-    code: "LON",
-    city: "London",
-    state: "England",
-    country: "GB",
-    tz: "Europe/London",
-  },
-  {
-    name: "Bangalore Office",
-    code: "BLR",
-    city: "Bengaluru",
-    state: "KA",
-    country: "IN",
-    tz: "Asia/Kolkata",
-  },
-  {
-    name: "Remote",
-    code: "RMT",
-    city: "Remote",
-    state: null,
-    country: "US",
-    tz: "America/New_York",
-  },
-];
-
-const DEPARTMENTS = [
-  "Engineering",
-  "Product",
-  "Design",
-  "Sales",
-  "Marketing",
-  "Human Resources",
-  "Finance",
-  "Customer Success",
-];
-
-const DESIGNATIONS = [
-  { name: "Intern", level: 1 },
-  { name: "Associate", level: 2 },
-  { name: "Software Engineer", level: 3 },
-  { name: "Senior Software Engineer", level: 4 },
-  { name: "Staff Engineer", level: 5 },
-  { name: "Team Lead", level: 5 },
-  { name: "Engineering Manager", level: 6 },
-  { name: "Senior Manager", level: 6 },
-  { name: "Analyst", level: 3 },
-  { name: "Senior Analyst", level: 4 },
-  { name: "Coordinator", level: 2 },
-  { name: "Director", level: 7 },
-  { name: "Vice President", level: 8 },
-];
-
-const FIRST_NAMES = [
-  "Olivia",
-  "Liam",
-  "Emma",
-  "Noah",
-  "Ava",
-  "Ethan",
-  "Sophia",
-  "Mason",
-  "Isabella",
-  "Lucas",
-  "Mia",
-  "Aiden",
-  "Amelia",
-  "Kai",
-  "Harper",
-  "Arjun",
-  "Priya",
-  "Wei",
-  "Mei",
-  "Diego",
-  "Sofia",
-  "Omar",
-  "Layla",
-  "Tariq",
-  "Nina",
-  "Hugo",
-  "Zara",
-  "Mateo",
-  "Yuki",
-  "Ravi",
-  "Elena",
-  "Marcus",
-  "Aisha",
-  "Felix",
-  "Lena",
-  "Carlos",
-  "Ingrid",
-  "Sanjay",
-  "Chloe",
-  "Theo",
-];
-const LAST_NAMES = [
-  "Smith",
-  "Johnson",
-  "Williams",
-  "Brown",
-  "Jones",
-  "Garcia",
-  "Miller",
-  "Davis",
-  "Rodriguez",
-  "Martinez",
-  "Hernandez",
-  "Lopez",
-  "Gonzalez",
-  "Wilson",
-  "Anderson",
-  "Patel",
-  "Nguyen",
-  "Kim",
-  "Chen",
-  "Singh",
-  "Kumar",
-  "Ali",
-  "Khan",
-  "Okafor",
-  "Mwangi",
-  "Schmidt",
-  "Rossi",
-  "Yamamoto",
-  "Tanaka",
-  "Andersson",
-];
+const LOCATIONS = profile.locations;
+const DEPARTMENTS = profile.departments;
+const DESIGNATIONS = profile.designations;
+const FIRST_NAMES = profile.firstNames;
+const LAST_NAMES = profile.lastNames;
 
 const LEAVE_TYPES = [
   {
@@ -319,20 +178,7 @@ const LEAVE_TYPES = [
   },
 ];
 
-const HOLIDAYS = [
-  { md: "01-01", name: "New Year's Day" },
-  { md: "01-15", name: "Martin Luther King Jr. Day" },
-  { md: "02-19", name: "Presidents' Day" },
-  { md: "05-27", name: "Memorial Day" },
-  { md: "06-19", name: "Juneteenth" },
-  { md: "07-04", name: "Independence Day" },
-  { md: "09-02", name: "Labor Day" },
-  { md: "11-11", name: "Veterans Day" },
-  { md: "11-28", name: "Thanksgiving" },
-  { md: "11-29", name: "Day after Thanksgiving" },
-  { md: "12-24", name: "Christmas Eve" },
-  { md: "12-25", name: "Christmas Day" },
-];
+const HOLIDAYS = profile.holidays;
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
@@ -409,14 +255,14 @@ async function main(): Promise<void> {
       id: ORG_ID,
       slug: ORG_SLUG,
       name: ORG_NAME,
-      legalName: "Acme Corporation, Inc.",
-      domain: "acme.demo",
-      primaryColor: "#4F46E5",
-      timezone: "America/New_York",
-      locale: "en-US",
-      currency: "USD",
-      weekStart: 1,
-      billingEmail: "billing@acme.demo",
+      legalName: profile.org.legalName,
+      domain: profile.org.domain,
+      primaryColor: profile.org.primaryColor,
+      timezone: profile.org.timezone,
+      locale: profile.org.locale,
+      currency: profile.org.currency,
+      weekStart: profile.org.weekStart,
+      billingEmail: profile.org.billingEmail,
       plan: "growth",
       status: "active",
     },
@@ -507,8 +353,8 @@ async function main(): Promise<void> {
     data: {
       id: calendarId,
       organizationId: org.id,
-      name: "US Public Holidays",
-      code: "US-PUB",
+      name: profile.holidayCalendar.name,
+      code: profile.holidayCalendar.code,
       isDefault: true,
     },
   });
@@ -559,48 +405,26 @@ async function main(): Promise<void> {
     pwSource[role] = "generated";
     return strongPassword();
   }
-  const LOGINS = [
-    {
-      role: "super_admin",
-      email: "superadmin@acme.demo",
-      first: "Sasha",
-      last: "Admin",
-      pw: pwFor("super_admin", "DEMO_SUPERADMIN_PASSWORD"),
-      portal: "admin" as const,
-      dept: "Engineering",
-      desig: "Director",
-    },
-    {
-      role: "hr_admin",
-      email: "hr@acme.demo",
-      first: "Hana",
-      last: "Reyes",
-      pw: pwFor("hr_admin", "DEMO_HR_PASSWORD"),
-      portal: "admin" as const,
-      dept: "Human Resources",
-      desig: "Senior Manager",
-    },
-    {
-      role: "manager",
-      email: "manager@acme.demo",
-      first: "Marcus",
-      last: "Lee",
-      pw: pwFor("manager", "DEMO_MANAGER_PASSWORD"),
-      portal: "admin" as const,
-      dept: "Engineering",
-      desig: "Engineering Manager",
-    },
-    {
-      role: "employee",
-      email: "employee@acme.demo",
-      first: "Alex",
-      last: "Doe",
-      pw: pwFor("employee", "DEMO_EMPLOYEE_PASSWORD", "Employee@123"),
-      portal: "employee" as const,
-      dept: "Engineering",
-      desig: "Software Engineer",
-    },
-  ];
+  const pwEnvByRole: Record<string, string> = {
+    super_admin: "DEMO_SUPERADMIN_PASSWORD",
+    hr_admin: "DEMO_HR_PASSWORD",
+    manager: "DEMO_MANAGER_PASSWORD",
+    employee: "DEMO_EMPLOYEE_PASSWORD",
+  };
+  const LOGINS = profile.logins.map((l) => ({
+    role: l.role,
+    email: `${l.emailLocal}@${profile.org.domain}`,
+    first: l.first,
+    last: l.last,
+    pw: pwFor(
+      l.role,
+      pwEnvByRole[l.role]!,
+      l.role === "employee" ? "Employee@123" : undefined,
+    ),
+    portal: l.portal,
+    dept: l.dept,
+    desig: l.desig,
+  }));
 
   // 11. Employees. First 4 are the login accounts (with user rows); the rest
   //     are records only. Build everything in memory first so manager wiring
@@ -631,8 +455,8 @@ async function main(): Promise<void> {
   const usedEmails = new Set<string>();
   const mkEmail = (f: string, l: string, i: number): string => {
     let e = `${f}.${l}`.toLowerCase().replace(/[^a-z.]/g, "");
-    if (usedEmails.has(`${e}@acme.demo`)) e = `${e}${i}`;
-    const full = `${e}@acme.demo`;
+    if (usedEmails.has(`${e}@${profile.org.domain}`)) e = `${e}${i}`;
+    const full = `${e}@${profile.org.domain}`;
     usedEmails.add(full);
     return full;
   };
@@ -1073,65 +897,29 @@ async function main(): Promise<void> {
       })) as never,
   });
 
-  // 14. Announcements (varied state) + audiences + some acks.
-  const annSpecs = [
-    {
-      title: "Welcome to the new Staffly portal!",
-      priority: "normal",
-      status: "published",
-      pinned: true,
-      ack: false,
-    },
-    {
-      title: "Q3 All-Hands — Thursday 4pm",
-      priority: "high",
-      status: "published",
-      pinned: true,
-      ack: true,
-    },
-    {
-      title: "Updated remote-work policy (please acknowledge)",
-      priority: "high",
-      status: "published",
-      pinned: false,
-      ack: true,
-    },
-    {
-      title: "Office closed for Thanksgiving week",
-      priority: "normal",
-      status: "published",
-      pinned: false,
-      ack: false,
-    },
-    {
-      title: "Annual benefits enrollment opens Monday",
-      priority: "normal",
-      status: "scheduled",
-      pinned: false,
-      ack: false,
-    },
-    {
-      title: "Draft: Holiday party planning",
-      priority: "low",
-      status: "draft",
-      pinned: false,
-      ack: false,
-    },
-    {
-      title: "New hires joining this month — say hello!",
-      priority: "normal",
-      status: "published",
-      pinned: false,
-      ack: false,
-    },
-    {
-      title: "Security awareness training due (please acknowledge)",
-      priority: "high",
-      status: "published",
-      pinned: false,
-      ack: true,
-    },
+  // 14. Announcements (varied state) + audiences + some acks. Titles come from
+  // the profile; the (priority, status, pinned, ack) shape stays identical
+  // across profiles so the state mix on the announcements list page is
+  // consistent.
+  const ANNOUNCEMENT_SHAPES: {
+    priority: string;
+    status: string;
+    pinned: boolean;
+    ack: boolean;
+  }[] = [
+    { priority: "normal", status: "published", pinned: true, ack: false },
+    { priority: "high", status: "published", pinned: true, ack: true },
+    { priority: "high", status: "published", pinned: false, ack: true },
+    { priority: "normal", status: "published", pinned: false, ack: false },
+    { priority: "normal", status: "scheduled", pinned: false, ack: false },
+    { priority: "low", status: "draft", pinned: false, ack: false },
+    { priority: "normal", status: "published", pinned: false, ack: false },
+    { priority: "high", status: "published", pinned: false, ack: true },
   ];
+  const annSpecs = profile.announcementTitles.map((title, i) => ({
+    title,
+    ...ANNOUNCEMENT_SHAPES[i]!,
+  }));
   const empIds = empSpecs.map((e) => e.id);
   for (let i = 0; i < annSpecs.length; i++) {
     const a = annSpecs[i]!;
@@ -1188,16 +976,7 @@ async function main(): Promise<void> {
   }
   const orgCat = categories.find((c) => !c.isPersonal) ?? categories[0]!;
   const personalCat = categories.find((c) => c.isPersonal) ?? categories[0]!;
-  const orgDocs = [
-    "Employee Handbook 2026",
-    "Code of Conduct",
-    "Information Security Policy",
-    "Remote Work Policy",
-    "Expense Reimbursement Guide",
-    "Leave Policy",
-    "Health & Safety Guidelines",
-    "Benefits Overview",
-  ];
+  const orgDocs = profile.orgDocumentTitles;
   for (let i = 0; i < orgDocs.length; i++) {
     const docId = uuid();
     const verId = uuid();
@@ -1320,7 +1099,9 @@ async function main(): Promise<void> {
   await prisma.notification.createMany({ data: notif as never });
 
   // ─── Summary ───────────────────────────────────────────────────────────
-  console.warn(`\ndemo seed: "${ORG_NAME}" (${ORG_SLUG}) — id ${org.id}`);
+  console.warn(
+    `\ndemo seed: profile=${profile.key} · "${ORG_NAME}" (${ORG_SLUG}) — id ${org.id}`,
+  );
   console.warn(
     `  locations ${locationRows.length} · departments ${deptRows.length} · designations ${desigRows.length} · employees ${empSpecs.length}`,
   );
