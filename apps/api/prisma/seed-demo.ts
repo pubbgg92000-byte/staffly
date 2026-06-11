@@ -15,9 +15,10 @@
  * unique-constraint conflicts. Only the `staffly-demo` org is touched — other
  * tenants (e.g. staffly-dev) are never modified.
  *
- * Credentials: admin/HR/manager passwords come from env (strong, never
- * committed); a strong random fallback is generated and printed if unset.
- * Only the employee demo account uses a published password.
+ * Credentials: admin/HR/manager passwords come from `apps/api/.env` or the
+ * environment (never committed). The seed REFUSES to run if any are missing
+ * rather than generating unknown random passwords (RC-01). Only the employee
+ * demo account uses a published default (`Employee@123`).
  *
  *   pnpm --filter @staffly/api db:seed:demo
  *
@@ -25,7 +26,6 @@
  */
 import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
-import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
@@ -35,6 +35,11 @@ import {
 import { DEFAULT_DOCUMENT_CATEGORIES } from "../src/documents/default-document-categories";
 import { MANAGER_TEAM_PERMISSIONS } from "../src/rbac/system-roles";
 import { loadProfile } from "./demo-profiles";
+import {
+  type DemoRole,
+  loadDemoEnv,
+  resolveDemoPasswords,
+} from "./seed-lib/demo-passwords";
 import { makePdf, putObject, seedStorageClient } from "./seed-lib/storage";
 
 type Catalog = {
@@ -132,10 +137,6 @@ async function hash(plain: string): Promise<string> {
     timeCost: 3,
     parallelism: 2,
   });
-}
-
-function strongPassword(): string {
-  return `Demo!${randomBytes(9).toString("base64url")}`;
 }
 
 // ─── Reference data ─────────────────────────────────────────────────────────
@@ -389,42 +390,26 @@ async function main(): Promise<void> {
     },
   });
 
-  // 10. Login accounts (4) — passwords from env, strong fallback if unset.
-  // Track the resolved source per role so the summary reports it accurately.
-  const pwSource: Record<string, "env" | "public demo" | "generated"> = {};
-  function pwFor(role: string, envKey: string, publicDefault?: string): string {
-    const fromEnv = process.env[envKey];
-    if (fromEnv && fromEnv.length >= 8) {
-      pwSource[role] = "env";
-      return fromEnv;
-    }
-    if (publicDefault) {
-      pwSource[role] = "public demo";
-      return publicDefault;
-    }
-    pwSource[role] = "generated";
-    return strongPassword();
-  }
-  const pwEnvByRole: Record<string, string> = {
-    super_admin: "DEMO_SUPERADMIN_PASSWORD",
-    hr_admin: "DEMO_HR_PASSWORD",
-    manager: "DEMO_MANAGER_PASSWORD",
-    employee: "DEMO_EMPLOYEE_PASSWORD",
-  };
-  const LOGINS = profile.logins.map((l) => ({
-    role: l.role,
-    email: `${l.emailLocal}@${profile.org.domain}`,
-    first: l.first,
-    last: l.last,
-    pw: pwFor(
-      l.role,
-      pwEnvByRole[l.role]!,
-      l.role === "employee" ? "Employee@123" : undefined,
-    ),
-    portal: l.portal,
-    dept: l.dept,
-    desig: l.desig,
-  }));
+  // 10. Login accounts (4). Passwords resolve from apps/api/.env or the
+  // environment; the seed REFUSES to run (throws) if any admin password is
+  // missing rather than generating an unknown one (RC-01). Resolved once,
+  // up-front, so a missing var fails before any DB writes.
+  const resolvedPasswords = resolveDemoPasswords(loadDemoEnv());
+  const pwSource: Record<string, "env" | "public demo"> = {};
+  const LOGINS = profile.logins.map((l) => {
+    const resolved = resolvedPasswords[l.role as DemoRole];
+    pwSource[l.role] = resolved.source;
+    return {
+      role: l.role,
+      email: `${l.emailLocal}@${profile.org.domain}`,
+      first: l.first,
+      last: l.last,
+      pw: resolved.password,
+      portal: l.portal,
+      dept: l.dept,
+      desig: l.desig,
+    };
+  });
 
   // 11. Employees. First 4 are the login accounts (with user rows); the rest
   //     are records only. Build everything in memory first so manager wiring
@@ -1114,12 +1099,7 @@ async function main(): Promise<void> {
   console.warn(`\n  Demo login accounts:`);
   for (const l of LOGINS) {
     const src = pwSource[l.role];
-    const label =
-      src === "env"
-        ? "(env)"
-        : src === "public demo"
-          ? "(public demo)"
-          : "(generated — set DEMO_*_PASSWORD to control)";
+    const label = src === "env" ? "(env)" : "(public demo)";
     console.warn(
       `   ${l.role.padEnd(12)} ${l.email.padEnd(22)} ${l.pw}  ${label}`,
     );

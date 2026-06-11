@@ -10,10 +10,13 @@ P3 minor/cosmetic · P4 nit.
 
 ## 1. Code hardenings (fix before production deploy)
 
-| ID | Sev | Finding | Impact | Fix & effort |
+**Both P2 items below are now FIXED on branch `fix/phase-a-p2-blockers`
+(Phase A, 2026-06-11) — see §5.** Not yet merged.
+
+| ID | Sev | Finding | Impact | Status |
 | --- | --- | --- | --- | --- |
-| RC-05 | **P2** | Raw password-reset URL (live token) logged via `logger.warn` in ALL environments (`apps/api/src/auth/auth.service.ts:407-409`); response body is prod-stripped but the log line is not | prod log reader → account takeover within token TTL | gate the warn on `NODE_ENV !== "production"` — **~5 min** |
-| RC-01-residual | **P2** | `seed-demo.ts` reads only `process.env` (no dotenv); reseed without `DEMO_*_PASSWORD` exported regenerates random admin passwords — **this bit us live**: 3 of 4 demo logins were dead until remediated (Phase 2, `DEMO_ACCOUNT_CERTIFICATION.md` §3) | next reseed can silently kill investor-demo logins again | (a) `deploy/reset-demo.sh` fail-fast when vars unset, or (b) seed loads `apps/api/.env` — **~15 min** |
+| RC-05 | **P2** | Raw password-reset URL (live token) logged via `logger.warn` in ALL environments; response body is prod-stripped but the log line is not | prod log reader → account takeover within token TTL | **FIXED** `549ad6a` — log + `devResetUrl` now gated on `NODE_ENV !== "production"`; email still carries the link; unit test added |
+| RC-01-residual | **P2** | `seed-demo.ts` reads only `process.env` (no dotenv); reseed without `DEMO_*_PASSWORD` exported regenerates random admin passwords — **this bit us live**: 3 of 4 demo logins were dead until remediated (Phase 2, `DEMO_ACCOUNT_CERTIFICATION.md` §3) | next reseed can silently kill investor-demo logins again | **FIXED** `ffa1c41` — seed loads `apps/api/.env` + **refuses to run** on missing admin password; `reset-demo.sh` fail-fast; 11 unit tests + `.env.example` docs |
 
 ## 2. Demo-cosmetic (fix or narrate around)
 
@@ -44,10 +47,13 @@ testable before a real deploy.
 - Two Phase-14 deploy P3s (see `PRODUCTION_SIGNOFF.md`).
 - ED-07 readyz Redis/mailer visibility — ACCEPTED (P3).
 
-## 5. Closed during this inspection
+## 5. Closed during / after this inspection
 
 | ID | Was | Disposition |
 | --- | --- | --- |
-| RC-01 | P1 — 3 of 4 demo admin passwords drifted from `.env` (random seed passwords); demo dead on arrival | **REMEDIATED live** (hashes re-aligned with seed's argon2id params, `failed_login_count` reset, full auth matrix re-verified PASS); residual tracked above |
+| RC-01 | P1 — 3 of 4 demo admin passwords drifted from `.env` (random seed passwords); demo dead on arrival | **REMEDIATED live** during inspection (hashes re-aligned with seed's argon2id params, `failed_login_count` reset, full auth matrix re-verified PASS) |
+| RC-05 | P2 — reset-URL token logged in all envs | **FIXED** Phase A `549ad6a` (branch `fix/phase-a-p2-blockers`, not yet merged) |
+| RC-01-residual | P2 — seed silently generated random admin passwords | **FIXED** Phase A `ffa1c41` (branch `fix/phase-a-p2-blockers`, not yet merged) |
 
-**Open totals: 0 × P0 · 0 × P1 · 2 × P2 · 2 × P3 · 3 × P4 · 4 × deploy-time gates.**
+**Open totals (after Phase A): 0 × P0 · 0 × P1 · 0 × P2 · 2 × P3 · 3 × P4 · 4 × deploy-time gates.**
+_(Phase A fixes are committed on `fix/phase-a-p2-blockers`, not merged to `main` — so until merge, `main` still carries the 2 × P2.)_
