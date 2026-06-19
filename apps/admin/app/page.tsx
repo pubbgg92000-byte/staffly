@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 
 /**
- * Root → /dashboard. Middleware handles the unauthenticated case by
- * redirecting unauthenticated users back to /auth/sign-in before this
- * component runs.
+ * Root → /dashboard. The authenticated app layout verifies the API-backed
+ * session and redirects signed-out users to /auth/sign-in.
  */
 export default function Index(): never {
   redirect("/dashboard");

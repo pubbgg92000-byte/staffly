@@ -20,6 +20,7 @@ import {
   ScrollText,
   Bell,
 } from "lucide-react";
+import { SessionGate } from "./_components/session-gate";
 
 /**
  * Phase 1 nav — Dashboard only. Later phases append Leave, Documents,
@@ -125,5 +126,9 @@ export default function AppGroupLayout({
 }: {
   children: ReactNode;
 }): ReactNode {
-  return <AdminLayout nav={nav}>{children}</AdminLayout>;
+  return (
+    <SessionGate>
+      <AdminLayout nav={nav}>{children}</AdminLayout>
+    </SessionGate>
+  );
 }
