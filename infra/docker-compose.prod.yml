@@ -1,46 +1,60 @@
-# Production-demo stack for Staffly — PostgreSQL 18 ONLY.
+# Staffly production database stack for a small EC2 VPS.
 #
-# Differences from docker-compose.dev.yml:
-#   - Postgres is bound to 127.0.0.1 (never publicly reachable; the API
-#     reaches it over loopback, public traffic arrives via Cloudflare Tunnel).
-#   - Credentials come from the environment, not hardcoded.
-#   - No Redis (unused), no MailHog (email is Phase F/Resend), no MinIO
-#     (object storage is Cloudflare R2, external to this host).
+# The application processes run directly under PM2. This compose file only
+# provisions PostgreSQL 18, which is required because the Prisma schema uses
+# native uuidv7() defaults.
 #
-# Bring up:
-#   POSTGRES_PASSWORD=... docker compose -f infra/docker-compose.prod.yml up -d
-#
-# The API itself is NOT containerized — it runs under PM2 (see
-# ecosystem.config.cjs). This file provisions the database only.
+# Usage:
+#   docker compose --env-file /opt/staffly/shared/env/postgres.env \
+#     -f infra/docker-compose.prod.yml up -d
 
 services:
   postgres:
-    # PG 18 ships native uuidv7(), which the schema depends on (31 column
-    # defaults). Do not downgrade — see docs/02 § 1.2 and the deployment audit.
     image: postgres:18-alpine
-    container_name: staffly-postgres-demo
+    container_name: staffly-postgres
     restart: unless-stopped
+    shm_size: "128mb"
+    mem_limit: "384m"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-staffly}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the shell or an env file}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-staffly}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     ports:
-      # Loopback-only. The demo DB must never be exposed to the internet;
-      # public access is solely through the API behind Cloudflare Tunnel.
       - "127.0.0.1:5433:5432"
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=30"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "effective_cache_size=256MB"
+      - "-c"
+      - "maintenance_work_mem=32MB"
+      - "-c"
+      - "work_mem=2MB"
+      - "-c"
+      - "wal_buffers=8MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
     volumes:
-      # PG 18+ images store data under /var/lib/postgresql/<major>/docker.
-      # Mount the parent so the image manages the pg_ctlcluster layout.
-      - staffly_pg_demo:/var/lib/postgresql
+      - staffly_pg_data:/var/lib/postgresql
     healthcheck:
       test:
         [
           "CMD-SHELL",
           "pg_isready -U ${POSTGRES_USER:-staffly} -d ${POSTGRES_DB:-staffly}",
         ]
-      interval: 5s
-      timeout: 3s
-      retries: 12
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
-  staffly_pg_demo:
+  staffly_pg_data:

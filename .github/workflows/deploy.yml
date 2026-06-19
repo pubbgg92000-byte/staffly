@@ -1,0 +1,154 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "11.5.0"
+  DEPLOY_ROOT: "/opt/staffly"
+  ADMIN_URL: "https://admin.staffly.avmail.online"
+  EMPLOYEE_URL: "https://app.staffly.avmail.online"
+  API_URL: "https://api.staffly.avmail.online"
+
+jobs:
+  deploy:
+    name: Build and deploy to EC2
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @staffly/api prisma:generate
+
+      - name: Build all apps
+        run: pnpm build
+        env:
+          NODE_ENV: production
+          NEXT_TELEMETRY_DISABLED: "1"
+          NEXT_PUBLIC_API_BASE_URL: ${{ env.API_URL }}
+          NEXT_PUBLIC_ADMIN_BASE_URL: ${{ env.ADMIN_URL }}
+          NEXT_PUBLIC_EMPLOYEE_BASE_URL: ${{ env.EMPLOYEE_URL }}
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN || '' }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG || '' }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT || '' }}
+
+      - name: Assemble release archive
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/staffly-release
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='.pnpm-store' \
+            --exclude='.turbo/cache' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='.backups' \
+            --exclude='.pm2' \
+            ./ /tmp/staffly-release/
+          echo "${GITHUB_SHA}" > /tmp/staffly-release/COMMIT
+          tar -C /tmp -czf staffly-release-${GITHUB_SHA}.tgz staffly-release
+
+      - name: Configure SSH
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/staffly_deploy_key
+          chmod 600 ~/.ssh/staffly_deploy_key
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload release
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/staffly_deploy_key \
+            staffly-release-${GITHUB_SHA}.tgz \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/tmp/staffly-release-${GITHUB_SHA}.tgz"
+
+      - name: Activate release
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/staffly_deploy_key "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "DEPLOY_ROOT='${DEPLOY_ROOT}' SHA='${GITHUB_SHA}' bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          RELEASE_DIR="${DEPLOY_ROOT}/releases/${SHA}"
+          SHARED_ENV="${DEPLOY_ROOT}/shared/env"
+          BACKUP_DIR="${DEPLOY_ROOT}/backups"
+
+          mkdir -p "${DEPLOY_ROOT}/releases" "${SHARED_ENV}" "${BACKUP_DIR}"
+          rm -rf "${RELEASE_DIR}"
+          mkdir -p "${RELEASE_DIR}"
+          tar -xzf "/tmp/staffly-release-${SHA}.tgz" -C "${RELEASE_DIR}" --strip-components=1
+          rm -f "/tmp/staffly-release-${SHA}.tgz"
+
+          test -f "${SHARED_ENV}/postgres.env"
+          test -f "${SHARED_ENV}/api.env"
+          ln -sfn "${SHARED_ENV}/api.env" "${RELEASE_DIR}/apps/api/.env"
+
+          cd "${RELEASE_DIR}"
+          corepack enable
+          corepack prepare pnpm@11.5.0 --activate
+          pnpm install --frozen-lockfile --prefer-offline
+          pnpm --filter @staffly/api prisma:generate
+
+          docker compose --env-file "${SHARED_ENV}/postgres.env" \
+            -f infra/docker-compose.prod.yml up -d
+
+          if [ -L "${DEPLOY_ROOT}/current" ]; then
+            PG_CONTAINER=staffly-postgres \
+              BACKUP_DIR="${BACKUP_DIR}" \
+              LOCAL_RETENTION=7 \
+              MIN_FREE_GB=3 \
+              ./deploy/backup.sh
+          fi
+
+          pnpm --filter @staffly/api prisma:migrate:deploy
+          pnpm --filter @staffly/api db:seed
+
+          ln -sfn "${RELEASE_DIR}" "${DEPLOY_ROOT}/current"
+          cd "${DEPLOY_ROOT}/current"
+          mkdir -p .pm2
+          STAFFLY_ROOT="${DEPLOY_ROOT}/current" \
+            STAFFLY_LOG_DIR="${DEPLOY_ROOT}/current/.pm2" \
+            pm2 startOrReload ecosystem.config.cjs --update-env
+          pm2 save
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4000/healthz >/dev/null &&
+               curl -fsS http://127.0.0.1:4000/readyz >/dev/null &&
+               curl -fsS -I http://127.0.0.1:3000 >/dev/null &&
+               curl -fsS -I http://127.0.0.1:3001 >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          pm2 status
+          pm2 logs --lines 120 --nostream
+          exit 1
+          REMOTE

@@ -1,40 +1,85 @@
-// PM2 process definition for the Staffly demo API on the Mac Mini.
+// Staffly PM2 process definition for a small AWS EC2 VPS.
 //
-//   pnpm --filter @staffly/api build      # produces apps/api/dist
-//   pm2 start ecosystem.config.cjs        # start under PM2
-//   pm2 save && pm2 startup               # persist across reboots (launchd)
+// Assumes the repository is deployed to /opt/staffly/current by GitHub Actions
+// or by a manual rsync release. Secrets stay outside git in:
+//   /opt/staffly/shared/env/api.env
 //
-// Secrets are NOT in this file. The API loads apps/api/.env itself at boot
-// (main.ts → process.loadEnvFile), so the gitignored apps/api/.env holds
-// DATABASE_URL, JWT_SECRET, R2 credentials, SENTRY_DSN, etc.
-//
-// VPS portability: this config is platform-agnostic. On a future Linux VPS
-// the only change is the service-manager registration (pm2 startup emits the
-// correct systemd unit instead of launchd).
+// The API loads apps/api/.env at boot. Next.js public env is baked at build
+// time, but runtime env is still provided for server-side reads.
+
+const path = require("node:path");
+
+const root = process.env.STAFFLY_ROOT || __dirname;
+const logDir = process.env.STAFFLY_LOG_DIR || path.join(root, ".pm2");
+const nodeEnv = {
+  NODE_ENV: "production",
+  NEXT_TELEMETRY_DISABLED: "1",
+};
 
 module.exports = {
   apps: [
     {
       name: "staffly-api",
-      cwd: "./apps/api",
+      cwd: path.join(root, "apps/api"),
       script: "dist/main.js",
-      node_args: "--enable-source-maps",
-      // Single instance: Prisma + a single Postgres connection pool, and the
-      // demo load does not warrant cluster mode. Revisit for production.
+      interpreter: "node",
+      node_args: "--enable-source-maps --max-old-space-size=256",
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
       max_restarts: 10,
-      // Restart if the process leaks past this — bounds blast radius on the
-      // memory-constrained Mini.
-      max_memory_restart: "512M",
+      min_uptime: "10s",
+      max_memory_restart: "384M",
       env: {
-        NODE_ENV: "production",
+        ...nodeEnv,
+        PORT: "4000",
       },
-      // PM2 captures stdout/stderr. Pair with pm2-logrotate to bound disk
-      // (the Mini has hit StorageFull — keep logs capped).
-      out_file: "./.pm2/staffly-api.out.log",
-      error_file: "./.pm2/staffly-api.err.log",
+      out_file: path.join(logDir, "staffly-api.out.log"),
+      error_file: path.join(logDir, "staffly-api.err.log"),
+      merge_logs: true,
+      time: true,
+    },
+    {
+      name: "staffly-admin",
+      cwd: path.join(root, "apps/admin"),
+      script: "node_modules/next/dist/bin/next",
+      args: "start --hostname 127.0.0.1 --port 3000",
+      interpreter: "node",
+      node_args: "--max-old-space-size=192",
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: "10s",
+      max_memory_restart: "320M",
+      env: {
+        ...nodeEnv,
+        PORT: "3000",
+      },
+      out_file: path.join(logDir, "staffly-admin.out.log"),
+      error_file: path.join(logDir, "staffly-admin.err.log"),
+      merge_logs: true,
+      time: true,
+    },
+    {
+      name: "staffly-employee",
+      cwd: path.join(root, "apps/employee"),
+      script: "node_modules/next/dist/bin/next",
+      args: "start --hostname 127.0.0.1 --port 3001",
+      interpreter: "node",
+      node_args: "--max-old-space-size=192",
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: true,
+      max_restarts: 10,
+      min_uptime: "10s",
+      max_memory_restart: "320M",
+      env: {
+        ...nodeEnv,
+        PORT: "3001",
+      },
+      out_file: path.join(logDir, "staffly-employee.out.log"),
+      error_file: path.join(logDir, "staffly-employee.err.log"),
       merge_logs: true,
       time: true,
     },
