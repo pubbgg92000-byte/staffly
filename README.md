@@ -47,7 +47,9 @@ Twenty-five releases shipped across the backend, UI, and platform sprints:
 A deterministic demo organization (**Acme Corporation**, 40 employees, 90 days
 of attendance, leave/announcements/documents/notifications) is seeded by
 `pnpm --filter @staffly/api db:seed:demo`. See
-[`docs/DEMO_GUIDE.md`](docs/DEMO_GUIDE.md) for the guided walkthrough.
+[`DEMO_README.md`](DEMO_README.md) for the complete architecture and demo
+handoff, or [`docs/DEMO_GUIDE.md`](docs/DEMO_GUIDE.md) for the short guided
+walkthrough.
 
 ### Local URLs
 
