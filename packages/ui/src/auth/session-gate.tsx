@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { useSession } from "@staffly/ui";
+import { useSession } from "../api/session";
 
 const SIGN_IN_PATH = "/auth/sign-in";
 
 /**
- * Protect employee routes using the API-backed session instead of checking for
- * API-domain cookies in Next middleware. In split-domain demo deployments the
- * browser sends sf_access to the API, but never to the Vercel portal request.
+ * Protect a portal route group using the API-backed session. This works for
+ * both shared-domain production and split-domain demo deployments because it
+ * validates through /auth/me instead of reading API cookies on the portal.
  */
 export function SessionGate({ children }: { children: ReactNode }): ReactNode {
   const { data: session, isLoading, isError, refetch } = useSession();

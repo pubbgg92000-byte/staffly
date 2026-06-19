@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { EmployeeLayout, type NavItem } from "@staffly/ui";
+import { EmployeeLayout, SessionGate, type NavItem } from "@staffly/ui";
 import {
   LayoutDashboard,
   Clock,
@@ -10,7 +10,6 @@ import {
   Megaphone,
   Building2,
 } from "lucide-react";
-import { SessionGate } from "./_components/session-gate";
 
 /**
  * Bottom-tab nav. "More" placeholder replaced with "Announcements" once

@@ -163,11 +163,11 @@ export class StorageService {
 }
 
 /**
- * Build an S3v4 client (AWS SDK v3) from env when running in dev/prod. Target
+ * Build an S3v4 client (AWS SDK v3) from env. Target
  * is Cloudflare R2 (`S3_REGION=auto`, path-style addressing). If env vars are
- * missing the factory returns a lazy stub that throws on use — so the API can
- * boot without storage configured, and tests override the STORAGE_CLIENT
- * token entirely.
+ * missing the factory returns a lazy stub that throws on use for local/test
+ * environments. Production env validation refuses an incomplete storage
+ * configuration before this factory runs.
  *
  * The presigned-URL architecture is unchanged: the browser uploads/downloads
  * directly against R2 via these short-lived URLs; the API never proxies bytes.

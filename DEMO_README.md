@@ -81,9 +81,14 @@ Next.js middleware running on `staffly-admin.vercel.app`. The API remains the
 security boundary: every protected endpoint validates the token, tenant, and
 permissions independently.
 
-> **Employee portal note:** its middleware should be migrated to the same
-> API-backed session-gate approach if it is kept on the split Vercel/Render
-> domains. The alternative is the shared-domain deployment described below.
+For state-changing requests, the portal obtains the double-submit token from
+`GET /auth/csrf`. The browser sends the API-domain cookie to that endpoint and
+the API returns its value only to origins permitted by `CORS_ORIGINS`. The
+shared API client then supplies the value as `X-CSRF-Token`. This preserves
+CSRF enforcement even though Vercel JavaScript cannot read Render cookies via
+`document.cookie`.
+
+Both portals use the same shared API-backed `SessionGate` implementation.
 
 ## 3. Intended production architecture
 
@@ -418,9 +423,11 @@ Check the sequence in browser DevTools:
 1. `POST /auth/signin` should return `200`.
 2. The response should set `sf_access`, `sf_refresh`, and `sf_csrf`.
 3. `GET /auth/me` should include credentials and return `200`.
-4. On split `*.vercel.app` and `*.onrender.com` domains, portal middleware
-   cannot read the API-domain cookie. Use the Admin `SessionGate` pattern or
-   deploy all services under the shared `staffly.av.online` domain.
+4. `GET /auth/csrf` should return a token before an authenticated mutation.
+5. On split `*.vercel.app` and `*.onrender.com` domains, portal middleware
+   cannot read the API-domain cookie. Both portals therefore use the shared
+   API-backed `SessionGate`; the preferred production solution remains the
+   shared `staffly.av.online` domain.
 
 ### `/auth/me` returns `401`
 

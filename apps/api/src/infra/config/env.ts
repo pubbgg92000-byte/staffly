@@ -71,9 +71,9 @@ const EnvSchema = z
       ),
 
     // ─── Object storage (MinIO / S3) ─────────────────────────────────────
-    // All optional at boot — the StorageService is allowed to construct
-    // without them and produce a clear error on first use. Tests stub the
-    // client directly.
+    // Optional for local/test boots; production validation below requires a
+    // complete storage configuration so uploads cannot fail only at runtime.
+    // Tests stub the client directly.
     S3_ENDPOINT: z.string().url().optional(),
     S3_REGION: z.string().default("us-east-1"),
     S3_BUCKET: z.string().default("staffly-dev"),
@@ -146,6 +146,21 @@ const EnvSchema = z
         path: ["EMAIL_FROM"],
         message:
           "EMAIL_FROM is the dev default (…@staffly.local) in production — set a real sender on a domain you can deliver from",
+      });
+    }
+
+    const missingStorage = [
+      ["S3_ENDPOINT", env.S3_ENDPOINT],
+      ["S3_ACCESS_KEY_ID", env.S3_ACCESS_KEY_ID],
+      ["S3_SECRET_ACCESS_KEY", env.S3_SECRET_ACCESS_KEY],
+    ].filter(([, value]) => !value);
+    if (missingStorage.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["S3_ENDPOINT"],
+        message: `object storage is incomplete in production — missing ${missingStorage
+          .map(([name]) => name)
+          .join(", ")}`,
       });
     }
   });

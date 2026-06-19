@@ -35,6 +35,7 @@ export {
 
 // Providers
 export { QueryProvider } from "./providers/query-provider";
+export { SessionGate } from "./auth/session-gate";
 export { ThemeProvider } from "./providers/theme-provider";
 export { Toaster, toast } from "./providers/toast-provider";
 

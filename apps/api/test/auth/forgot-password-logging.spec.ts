@@ -54,6 +54,9 @@ describe("forgotPassword — reset URL logging gated to non-production (RC-05)",
     process.env.COOKIE_DOMAIN = "staffly.example.com";
     process.env.APP_BASE_URL = "https://admin.staffly.example.com";
     process.env.EMAIL_FROM = "Staffly <no-reply@staffly.example.com>";
+    process.env.S3_ENDPOINT = "https://storage.staffly.example.com";
+    process.env.S3_ACCESS_KEY_ID = "test-access-key";
+    process.env.S3_SECRET_ACCESS_KEY = "test-secret-key";
   };
 
   const loggedResetUrl = (): boolean =>

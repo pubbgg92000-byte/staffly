@@ -56,6 +56,11 @@ export interface ResetPasswordResponse {
   ok: true;
 }
 
+/** GET /auth/csrf → 200. Used by split-domain browser deployments. */
+export interface CsrfTokenResponse {
+  csrfToken: string | null;
+}
+
 /** GET /auth/invite?token=... → 200. */
 export interface InvitePeekResponse {
   email: string;

@@ -264,6 +264,26 @@ describe("auth flow", () => {
     expect(res.body.user.role).toBe("super_admin");
   });
 
+  it("returns the CSRF cookie value for an allowed split-domain client", async () => {
+    const signup = await request(app.getHttpServer())
+      .post("/auth/signup")
+      .send(uniqueSignup());
+    const cookies = extractCookies(signup.headers["set-cookie"]);
+
+    const res = await request(app.getHttpServer())
+      .get("/auth/csrf")
+      .set("Cookie", asCookieHeader(cookies));
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ csrfToken: cookies.csrf });
+  });
+
+  it("returns a null CSRF token before authentication", async () => {
+    const res = await request(app.getHttpServer()).get("/auth/csrf");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ csrfToken: null });
+  });
+
   it("signin wrong password → 401", async () => {
     const payload = uniqueSignup();
     await request(app.getHttpServer()).post("/auth/signup").send(payload);

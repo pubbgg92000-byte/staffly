@@ -56,7 +56,12 @@ import {
   CurrentUser,
   type RequestUser,
 } from "./decorators/current-user.decorator";
-import { setAuthCookies, clearAuthCookies, REFRESH_COOKIE } from "./cookies";
+import {
+  setAuthCookies,
+  clearAuthCookies,
+  CSRF_COOKIE,
+  REFRESH_COOKIE,
+} from "./cookies";
 import { EnforceCsrf } from "./decorators/enforce-csrf.decorator";
 
 interface CookieBag {
@@ -188,6 +193,20 @@ export class AuthController {
   @Get("me")
   me(@CurrentUser() user: RequestUser): Promise<MeResult> {
     return this.auth.me(user.userId);
+  }
+
+  /**
+   * Exposes the non-secret double-submit token to an allowed browser origin.
+   * This is needed when the portals and API use different registrable domains:
+   * the browser sends the API cookie, but portal JavaScript cannot read it via
+   * document.cookie. CORS restricts which origins can read this response.
+   */
+  @Public()
+  @Get("csrf")
+  csrf(@Req() req: Request & { cookies?: CookieBag }): {
+    csrfToken: string | null;
+  } {
+    return { csrfToken: req.cookies?.[CSRF_COOKIE] ?? null };
   }
 
   // ─── Forgot / reset ─────────────────────────────────────────────────

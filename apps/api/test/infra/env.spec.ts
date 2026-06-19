@@ -48,6 +48,9 @@ describe("env schema — production boot guards (dev defaults must not reach pro
     process.env.COOKIE_DOMAIN = "staffly.example.com";
     process.env.APP_BASE_URL = "https://app.staffly.example.com";
     process.env.EMAIL_FROM = "Staffly <no-reply@staffly.example.com>";
+    process.env.S3_ENDPOINT = "https://storage.staffly.example.com";
+    process.env.S3_ACCESS_KEY_ID = "test-access-key";
+    process.env.S3_SECRET_ACCESS_KEY = "test-secret-key";
     resetEnvCacheForTests();
   });
   afterEach(() => {
@@ -79,11 +82,19 @@ describe("env schema — production boot guards (dev defaults must not reach pro
     expect(() => loadEnv()).toThrow(/EMAIL_FROM.*staffly\.local/);
   });
 
+  it("refuses to boot when object storage is incomplete", () => {
+    delete process.env.S3_SECRET_ACCESS_KEY;
+    expect(() => loadEnv()).toThrow(/object storage.*S3_SECRET_ACCESS_KEY/);
+  });
+
   it("does not guard outside production", () => {
     process.env.NODE_ENV = "development";
     delete process.env.COOKIE_DOMAIN;
     delete process.env.APP_BASE_URL;
     delete process.env.EMAIL_FROM;
+    delete process.env.S3_ENDPOINT;
+    delete process.env.S3_ACCESS_KEY_ID;
+    delete process.env.S3_SECRET_ACCESS_KEY;
     expect(loadEnv().COOKIE_DOMAIN).toBe("localhost");
   });
 
@@ -91,6 +102,11 @@ describe("env schema — production boot guards (dev defaults must not reach pro
     delete process.env.COOKIE_DOMAIN;
     process.env.APP_BASE_URL = "http://localhost:3000";
     delete process.env.EMAIL_FROM;
-    expect(() => loadEnv()).toThrow(/COOKIE_DOMAIN.*APP_BASE_URL.*EMAIL_FROM/s);
+    delete process.env.S3_ENDPOINT;
+    delete process.env.S3_ACCESS_KEY_ID;
+    delete process.env.S3_SECRET_ACCESS_KEY;
+    expect(() => loadEnv()).toThrow(
+      /COOKIE_DOMAIN.*APP_BASE_URL.*EMAIL_FROM.*object storage/s,
+    );
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AdminLayout, type NavItem } from "@staffly/ui";
+import { AdminLayout, SessionGate, type NavItem } from "@staffly/ui";
 import {
   LayoutDashboard,
   Users,
@@ -20,7 +20,6 @@ import {
   ScrollText,
   Bell,
 } from "lucide-react";
-import { SessionGate } from "./_components/session-gate";
 
 /**
  * Phase 1 nav — Dashboard only. Later phases append Leave, Documents,

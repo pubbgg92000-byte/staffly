@@ -13,9 +13,21 @@
  * method is called, so this is safe to import from server components.
  */
 import { ApiError } from "./error";
+import type { CsrfTokenResponse } from "@staffly/types";
 
 const CSRF_COOKIE = "sf_csrf";
 const CSRF_HEADER = "x-csrf-token";
+
+const csrfCache = new Map<string, string>();
+const csrfRequests = new Map<string, Promise<string | undefined>>();
+const AUTH_COOKIE_ROTATION_PATHS = new Set([
+  "/auth/signup",
+  "/auth/signin",
+  "/auth/verify-2fa",
+  "/auth/accept-invite",
+  "/auth/logout",
+  "/auth/signout",
+]);
 
 type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 
@@ -40,6 +52,47 @@ function readCookie(name: string): string | undefined {
     if (trimmed.startsWith(target)) return trimmed.slice(target.length);
   }
   return undefined;
+}
+
+/**
+ * Resolve the double-submit token. Same-domain deployments can read it from
+ * document.cookie. Split-domain deployments fetch it from the API, whose CORS
+ * allowlist prevents untrusted origins from reading the response.
+ */
+async function resolveCsrf(base: string): Promise<string | undefined> {
+  const cookieToken = readCookie(CSRF_COOKIE);
+  if (cookieToken) {
+    csrfCache.set(base, cookieToken);
+    return cookieToken;
+  }
+
+  const cached = csrfCache.get(base);
+  if (cached) return cached;
+
+  const pending = csrfRequests.get(base);
+  if (pending) return pending;
+
+  const request = fetch(`${base}/auth/csrf`, {
+    method: "GET",
+    credentials: "include",
+    headers: { accept: "application/json" },
+  })
+    .then(async (res): Promise<string | undefined> => {
+      if (!res.ok) return undefined;
+      const body = (await res.json()) as CsrfTokenResponse;
+      if (!body.csrfToken) return undefined;
+      csrfCache.set(base, body.csrfToken);
+      return body.csrfToken;
+    })
+    .catch(() => undefined)
+    .finally(() => csrfRequests.delete(base));
+
+  csrfRequests.set(base, request);
+  return request;
+}
+
+function invalidateCsrf(base: string): void {
+  csrfCache.delete(base);
 }
 
 function resolveBase(opts: ApiFetchOptions): string {
@@ -92,7 +145,7 @@ async function refreshOnce(
   cookie: string | undefined,
 ): Promise<boolean> {
   const headers: Record<string, string> = {};
-  const csrf = readCookie(CSRF_COOKIE);
+  const csrf = await resolveCsrf(base);
   if (csrf) headers[CSRF_HEADER] = csrf;
   if (cookie) headers["cookie"] = cookie;
   try {
@@ -101,7 +154,9 @@ async function refreshOnce(
       credentials: "include",
       headers,
     });
-    return res.ok || res.status === 204;
+    const ok = res.ok || res.status === 204;
+    if (ok) invalidateCsrf(base);
+    return ok;
   } catch {
     return false;
   }
@@ -121,7 +176,7 @@ async function call<T>(
   };
   if (body !== undefined) headers["content-type"] = "application/json";
   if (method !== "GET") {
-    const csrf = readCookie(CSRF_COOKIE);
+    const csrf = await resolveCsrf(base);
     if (csrf) headers[CSRF_HEADER] = csrf;
   }
   if (opts.cookie) headers["cookie"] = opts.cookie;
@@ -135,6 +190,7 @@ async function call<T>(
   if (body !== undefined) init.body = JSON.stringify(body);
 
   let res = await fetch(url, init);
+  if (res.ok && AUTH_COOKIE_ROTATION_PATHS.has(path)) invalidateCsrf(base);
   if (res.status === 401 && !opts.skipRefresh) {
     const refreshed = await refreshOnce(base, opts.cookie);
     if (refreshed) {
@@ -142,7 +198,7 @@ async function call<T>(
       // original request with the new cookie set.
       const retryHeaders: Record<string, string> = { ...headers };
       if (method !== "GET") {
-        const newCsrf = readCookie(CSRF_COOKIE);
+        const newCsrf = await resolveCsrf(base);
         if (newCsrf) retryHeaders[CSRF_HEADER] = newCsrf;
       }
       res = await fetch(url, { ...init, headers: retryHeaders });
