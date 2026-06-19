@@ -10,6 +10,7 @@ import {
   Megaphone,
   Building2,
 } from "lucide-react";
+import { SessionGate } from "./_components/session-gate";
 
 /**
  * Bottom-tab nav. "More" placeholder replaced with "Announcements" once
@@ -29,5 +30,9 @@ export default function AppGroupLayout({
 }: {
   children: ReactNode;
 }): ReactNode {
-  return <EmployeeLayout nav={nav}>{children}</EmployeeLayout>;
+  return (
+    <SessionGate>
+      <EmployeeLayout nav={nav}>{children}</EmployeeLayout>
+    </SessionGate>
+  );
 }
