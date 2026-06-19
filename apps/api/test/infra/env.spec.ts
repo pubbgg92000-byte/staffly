@@ -48,9 +48,6 @@ describe("env schema — production boot guards (dev defaults must not reach pro
     process.env.COOKIE_DOMAIN = "staffly.example.com";
     process.env.APP_BASE_URL = "https://app.staffly.example.com";
     process.env.EMAIL_FROM = "Staffly <no-reply@staffly.example.com>";
-    process.env.S3_ENDPOINT = "https://storage.staffly.example.com";
-    process.env.S3_ACCESS_KEY_ID = "test-access-key";
-    process.env.S3_SECRET_ACCESS_KEY = "test-secret-key";
     resetEnvCacheForTests();
   });
   afterEach(() => {
@@ -82,9 +79,15 @@ describe("env schema — production boot guards (dev defaults must not reach pro
     expect(() => loadEnv()).toThrow(/EMAIL_FROM.*staffly\.local/);
   });
 
-  it("refuses to boot when object storage is incomplete", () => {
+  it("allows production boot when object storage is unset", () => {
+    delete process.env.S3_ENDPOINT;
+    delete process.env.S3_ACCESS_KEY_ID;
     delete process.env.S3_SECRET_ACCESS_KEY;
-    expect(() => loadEnv()).toThrow(/object storage.*S3_SECRET_ACCESS_KEY/);
+    const env = loadEnv();
+    expect(env.S3_ENDPOINT).toBeUndefined();
+    expect(env.S3_ACCESS_KEY_ID).toBeUndefined();
+    expect(env.S3_SECRET_ACCESS_KEY).toBeUndefined();
+    expect(env.S3_BUCKET).toBe("staffly-dev");
   });
 
   it("does not guard outside production", () => {
@@ -105,8 +108,6 @@ describe("env schema — production boot guards (dev defaults must not reach pro
     delete process.env.S3_ENDPOINT;
     delete process.env.S3_ACCESS_KEY_ID;
     delete process.env.S3_SECRET_ACCESS_KEY;
-    expect(() => loadEnv()).toThrow(
-      /COOKIE_DOMAIN.*APP_BASE_URL.*EMAIL_FROM.*object storage/s,
-    );
+    expect(() => loadEnv()).toThrow(/COOKIE_DOMAIN.*APP_BASE_URL.*EMAIL_FROM/s);
   });
 });

@@ -1,4 +1,10 @@
-import { Inject, Injectable, Logger, Module } from "@nestjs/common";
+import {
+  Inject,
+  Injectable,
+  Logger,
+  Module,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import {
   S3Client,
   PutObjectCommand,
@@ -39,6 +45,13 @@ export interface StorageClient {
 }
 
 export const STORAGE_CLIENT = Symbol("STORAGE_CLIENT");
+
+class StorageNotConfiguredError extends Error {
+  constructor() {
+    super("storage not configured");
+    this.name = "StorageNotConfiguredError";
+  }
+}
 
 /**
  * Decide where in the bucket an uploaded object lives. The convention is:
@@ -87,11 +100,9 @@ export class StorageService {
     key: string,
   ): Promise<{ url: string; expiresIn: number }> {
     const env = loadEnv();
-    const url = await this.client.presignedPutObject(
-      env.S3_BUCKET,
-      key,
-      env.S3_PRESIGN_TTL_SECONDS,
-    );
+    const url = await this.client
+      .presignedPutObject(env.S3_BUCKET, key, env.S3_PRESIGN_TTL_SECONDS)
+      .catch((e) => this.mapStorageError(e));
     return { url, expiresIn: env.S3_PRESIGN_TTL_SECONDS };
   }
 
@@ -109,12 +120,14 @@ export class StorageService {
           )}"`,
         }
       : undefined;
-    const url = await this.client.presignedGetObject(
-      env.S3_BUCKET,
-      key,
-      env.S3_PRESIGN_TTL_SECONDS,
-      params,
-    );
+    const url = await this.client
+      .presignedGetObject(
+        env.S3_BUCKET,
+        key,
+        env.S3_PRESIGN_TTL_SECONDS,
+        params,
+      )
+      .catch((e) => this.mapStorageError(e));
     return { url, expiresIn: env.S3_PRESIGN_TTL_SECONDS };
   }
 
@@ -160,14 +173,25 @@ export class StorageService {
     await this.client.healthCheck(env.S3_BUCKET);
     return "ok";
   }
+
+  private mapStorageError(e: unknown): never {
+    if (e instanceof StorageNotConfiguredError) {
+      throw new ServiceUnavailableException({
+        code: "storage.not_configured",
+        message:
+          "Object storage is not configured. Set S3_ENDPOINT, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_BUCKET, and S3_REGION to enable uploads.",
+      });
+    }
+    throw e;
+  }
 }
 
 /**
  * Build an S3v4 client (AWS SDK v3) from env. Target
  * is Cloudflare R2 (`S3_REGION=auto`, path-style addressing). If env vars are
- * missing the factory returns a lazy stub that throws on use for local/test
- * environments. Production env validation refuses an incomplete storage
- * configuration before this factory runs.
+ * missing the factory returns a lazy stub that throws on upload/download use.
+ * This keeps the API bootable while disabling storage-backed features until
+ * credentials are configured.
  *
  * The presigned-URL architecture is unchanged: the browser uploads/downloads
  * directly against R2 via these short-lived URLs; the API never proxies bytes.
@@ -178,7 +202,7 @@ export function buildClientFromEnv(): StorageClient {
   const env = loadEnv();
   if (!env.S3_ENDPOINT || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY) {
     const notConfigured = (): Promise<never> =>
-      Promise.reject(new Error("storage not configured"));
+      Promise.reject(new StorageNotConfiguredError());
     return {
       presignedPutObject: notConfigured,
       presignedGetObject: notConfigured,
