@@ -13,14 +13,15 @@ const REFRESH_PATH = "/auth";
 function baseOptions(): {
   domain?: string;
   secure: boolean;
-  sameSite: "lax";
+  sameSite: "none" | "lax";
   path: string;
 } {
   const env = loadEnv();
+
   return {
     domain: env.COOKIE_DOMAIN || undefined,
     secure: env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: env.NODE_ENV === "production" ? "none" : "lax",
     path: "/",
   };
 }
