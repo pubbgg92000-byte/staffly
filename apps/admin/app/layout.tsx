@@ -11,8 +11,37 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_ADMIN_BASE_URL ?? "http://localhost:3000",
+  ),
   title: "Staffly Admin",
   description: "PeopleFlow HRMS — Admin Portal",
+  openGraph: {
+    title: "Staffly Admin",
+    description: "PeopleFlow HRMS — Admin Portal",
+    url: "/",
+    siteName: "Staffly Admin",
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "Staffly Admin dashboard preview",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Staffly Admin",
+    description: "PeopleFlow HRMS — Admin Portal",
+    images: [
+      {
+        url: "/opengraph-image",
+        alt: "Staffly Admin dashboard preview",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({
