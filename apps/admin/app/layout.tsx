@@ -10,10 +10,16 @@ const inter = Inter({
   display: "swap",
 });
 
+const adminBaseUrl =
+  process.env.NEXT_PUBLIC_ADMIN_BASE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000");
+
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_ADMIN_BASE_URL ?? "http://localhost:3000",
-  ),
+  metadataBase: new URL(adminBaseUrl),
   title: "Staffly Admin",
   description: "PeopleFlow HRMS — Admin Portal",
   openGraph: {
