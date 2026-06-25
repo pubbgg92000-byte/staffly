@@ -1,0 +1,6 @@
+apps/admin/app/(app)/leave/balances/page.tsx:const currentYear = new Date().getFullYear();
+apps/employee/app/(app)/attendance/_components/regularization-dialog.tsx:  const d = new Date();
+apps/employee/app/(app)/holidays/page.tsx:  const today = new Date().toISOString().slice(0, 10);
+apps/employee/app/(app)/holidays/page.tsx:  const currentYear = new Date().getFullYear();
+apps/employee/app/(app)/documents/[id]/page.tsx:    doc.dueBy && new Date(doc.dueBy) < new Date() && !acknowledged;
+apps/employee/app/(app)/documents/page.tsx:  return new Date(dueBy) < new Date();
